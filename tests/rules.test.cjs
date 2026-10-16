@@ -25,6 +25,7 @@ globalThis.api = {
   newChar, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
   setSpellQuery,
   renderSheet,
+  renderSheet2014,
   renderSheet2024,
   setChar: value => { C = value; },
 };`, context);
@@ -116,6 +117,15 @@ test('sheet selector keeps 2014 as default and offers 2024', () => {
   const html = api.renderSheet();
   assert.match(html, /option value="2014" selected/);
   assert.match(html, /option value="2024"/);
+});
+
+test('2014 sheet renders the four-page reference layout', () => {
+  const c = character();
+  c.name = 'Test hero';
+  const html = api.renderSheet2014();
+  assert.equal([...html.matchAll(/data-sheet-page="\d"/g)].length, 4);
+  assert.match(html, /Test hero/);
+  assert.match(html, /пассивная мудрость/);
 });
 
 test('2024 sheet renders four printable pages with character data', () => {
