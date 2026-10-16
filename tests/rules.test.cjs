@@ -24,6 +24,8 @@ vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
   setSpellQuery,
+  renderSheet,
+  renderSheet2024,
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -107,4 +109,20 @@ test('import validation rejects malformed character data', () => {
   assert.equal(api.validCharacter(c), true);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'unknown', lvl: 1 }] }), false);
   assert.equal(api.validCharacter(null), false);
+});
+
+test('sheet selector keeps 2014 as default and offers 2024', () => {
+  character();
+  const html = api.renderSheet();
+  assert.match(html, /option value="2014" selected/);
+  assert.match(html, /option value="2024"/);
+});
+
+test('2024 sheet renders four printable pages with character data', () => {
+  const c = character();
+  c.name = 'Test hero';
+  const html = api.renderSheet2024();
+  assert.equal([...html.matchAll(/data-sheet-page="\d"/g)].length, 4);
+  assert.match(html, /Test hero/);
+  assert.match(html, /Героическое вдохновение/);
 });

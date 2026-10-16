@@ -228,6 +228,66 @@ label.chk.wide{flex-basis:45%}
 .sh-caster{margin-bottom:8px}
 .sh-caster-name{font-weight:700;font-size:11px;text-transform:uppercase;border-bottom:1px solid #999;margin-bottom:3px}
 .sh-spell-lvl{font-size:10.5px;margin:2px 0}
+.sheet-choice{display:flex;justify-content:center;gap:8px;align-items:center;margin:0 auto 12px;font-size:.9rem}
+.sheet-choice select{width:auto;min-width:150px}
+.sheet24-wrap{display:flex;flex-direction:column;align-items:center;gap:12px}
+.sheet24-page{width:min(794px,100%);min-height:1122px;padding:18px;background-color:#fff;color:#111;font:10px/1.2 Arial,sans-serif;border:1px solid #aaa;box-shadow:0 3px 14px #0003;display:flex;flex-direction:column;gap:8px;position:relative;background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:8px 8px}
+.sheet24-page *{box-sizing:border-box}
+.v24-box{border:1px solid #999;background:#fffF;padding:5px;min-width:0;position:relative}
+.v24-title{font-size:8px;font-weight:bold;text-align:center;text-transform:uppercase;border-bottom:1px solid #333;padding:2px;margin:-2px -2px 4px;letter-spacing:.03em}
+.v24-cap{font-size:6.5px;text-transform:uppercase;color:#444}
+.v24-header{display:grid;grid-template-columns:1.45fr .36fr .6fr .8fr .78fr;gap:5px;min-height:75px}
+.v24-identity{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px}
+.v24-identity .wide{grid-column:1/-1}
+.v24-field{border-bottom:1px solid #777;min-width:0;min-height:20px}
+.v24-field b{display:block;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.v24-vital{text-align:center;display:flex;flex-direction:column;justify-content:center}
+.v24-vital strong{font-size:18px}
+.v24-substats{display:grid;grid-template-columns:repeat(2,1fr);gap:4px}
+.v24-page1-body{display:grid;grid-template-columns:1.05fr 1.05fr 2.1fr;gap:6px;flex:1;min-height:0}
+.v24-ability-col{display:flex;flex-direction:column;gap:4px}
+.v24-ability{padding:4px 5px}
+.v24-ability-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #bbb}
+.v24-ability-head b{font-size:8px}
+.v24-ability-head strong{font-size:14px}
+.v24-mod{font-weight:bold;border:1px solid #888;border-radius:50%;width:26px;height:26px;display:inline-flex;justify-content:center;align-items:center}
+.v24-skill{display:flex;gap:3px;align-items:center;font-size:7px;line-height:1.35;min-width:0}
+.v24-skill span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.v24-dot{display:inline-block;width:6px;height:6px;border:1px solid #555;border-radius:50%;margin:0 1px;vertical-align:middle;flex:none}
+.v24-dot.on{background:#333}
+.v24-death-row{font-size:6px;white-space:nowrap;display:flex;align-items:center;gap:2px}
+.v24-col3{display:flex;flex-direction:column;gap:5px;min-width:0}
+.v24-minirow{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.v24-mini{text-align:center;min-height:38px}
+.v24-mini strong{font-size:14px}
+.v24-weapon{min-height:66px}
+.v24-features{flex:1;min-height:100px}
+.v24-features ul{padding-left:12px;margin:0;font-size:8px}
+.v24-features li{margin:0 0 4px;break-inside:avoid}
+.v24-notegrid{display:grid;grid-template-columns:1fr 1.5fr;grid-template-rows:1fr 1fr;gap:8px;flex:1}
+.v24-notes{min-height:80px;background-image:linear-gradient(transparent 19px,#ddd 20px);background-size:100% 20px}
+.v24-portrait{min-height:260px}
+.v24-page3-lines{flex:1;background:repeating-linear-gradient(transparent 0 23px,#bbb 23px 24px);border:1px solid #aaa}
+.v24-spell-top{display:grid;grid-template-columns:1fr 2fr;gap:6px}
+.v24-spell-bottom{display:grid;grid-template-columns:2fr 1fr;gap:6px;flex:1;min-height:0}
+.v24-spell-slots{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.v24-spell-slot{min-height:24px}
+.v24-spell-table{flex:1}
+.v24-spell-row{display:grid;grid-template-columns:26px 1.2fr .8fr .7fr 1.6fr 1fr;min-height:22px;border-bottom:1px solid #bbb;align-items:center;gap:3px}
+.v24-spell-row.header{font-size:7px;font-weight:bold;min-height:25px}
+.v24-coinrow{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.v24-coinrow .v24-box{height:34px;text-align:center}
+@media (max-width:600px){
+  .sheet24-page{min-height:0;padding:10px}
+  .v24-header{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .v24-identity{grid-column:1/-1}
+  .v24-page1-body{grid-template-columns:1fr 1fr}
+  .v24-col3{grid-column:1/-1}
+  .v24-notegrid{grid-template-columns:1fr;grid-template-rows:auto}
+  .v24-portrait{min-height:180px}
+  .v24-spell-top{grid-template-columns:1fr}
+  .v24-spell-bottom{grid-template-columns:1fr}
+}
 @media (max-width:1150px){
   .sh-header{grid-template-columns:1fr 1fr 1fr}
   .sh-main{grid-template-columns:1fr 1fr}
@@ -261,12 +321,15 @@ label.chk.wide{flex-basis:45%}
 /* ============ Печать: всегда светлая, без интерфейса ============ */
 @media print{
   body{background:#fff}
-  .topbar,.tabs,.no-print-bar,.top-actions{display:none!important}
+  .topbar,.tabs,.no-print-bar,.top-actions,.sheet-choice{display:none!important}
   main{padding:0;max-width:none}
   .sheet{box-shadow:none;border:none;width:auto;max-width:none;padding:0;font-size:11px}
+  .sheet24-wrap{gap:0}
+  .sheet24-page{width:190mm;height:277mm;min-height:0;padding:3mm;box-shadow:none;border:0;break-after:page;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .sheet24-page:last-child{break-after:auto}
   .sh-page2{page-break-before:always}
   .sh-feats ul{font-size:9.5px}
-  @page{margin:10mm}
+  @page{size:A4;margin:10mm}
 }
 </style>
 </head>
@@ -1211,7 +1274,7 @@ const THIRD_KNOWN=[0,0,3,4,4,5,6,6,7,8,8,9,10,10,11,11,11,12,13,13];
 TABLES.fighter={slots:THIRD_SLOTS,known:THIRD_KNOWN,cantrips:[0,0,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3]};
 TABLES.rogue={slots:THIRD_SLOTS,known:THIRD_KNOWN,cantrips:[0,0,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4]};
 // ================= Ядро: состояние, библиотека, расчёты =================
-const LS_KEY='dnd5e2014_chars_v1', LS_CUR='dnd5e2014_current_v1', LS_THEME='dnd5e2014_theme';
+const LS_KEY='dnd5e2014_chars_v1', LS_CUR='dnd5e2014_current_v1', LS_THEME='dnd5e2014_theme', LS_SHEET='dnd5e2014_sheet_version';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const mod=v=>Math.floor((v-10)/2), fmtMod=v=>(v>=0?'+':'')+v;
@@ -1242,7 +1305,7 @@ function newChar(){
   };
 }
 
-let LIB=[], C=null, TAB='home', THEME=localStorage.getItem(LS_THEME)||'dark', STORAGE_WARNING_SHOWN=false;
+let LIB=[], C=null, TAB='home', THEME=localStorage.getItem(LS_THEME)||'dark', SHEET_VERSION=localStorage.getItem(LS_SHEET)==='2024'?'2024':'2014', STORAGE_WARNING_SHOWN=false;
 
 function loadLib(){
   try{LIB=JSON.parse(localStorage.getItem(LS_KEY)||'[]')}catch(e){LIB=[]}
@@ -2419,7 +2482,7 @@ function logRoll(html){
   while(log.children.length>30)log.lastChild.remove();
 }
 // ================= Лист персонажа (классический, как longstoryshort 2014) =================
-function renderSheet(){
+function renderSheet2014(){
   const r=raceOf(), s=subraceOf();
   const sv=saveMods();
   const mh=maxHp();
@@ -2620,6 +2683,68 @@ function renderSheet(){
   </div>
   </div>`;
 }
+function setSheetVersion(version){
+  SHEET_VERSION=version==='2024'?'2024':'2014';
+  try{localStorage.setItem(LS_SHEET,SHEET_VERSION)}catch(e){console.error('Не удалось сохранить вариант листа',e)}
+  render();
+}
+
+function renderSheet(){
+  return `<div class="sheet-choice"><label>Оформление листа <select onchange="setSheetVersion(this.value)"><option value="2014"${SHEET_VERSION==='2014'?' selected':''}>D&D 2014</option><option value="2024"${SHEET_VERSION==='2024'?' selected':''}>D&D 2024</option></select></label><span class="muted small">Меняется только вид листа; расчёты остаются по правилам 2014 года.</span></div>${SHEET_VERSION==='2024'?renderSheet2024():renderSheet2014()}`;
+}
+
+function renderSheet2024(){
+  const race=raceOf(), sub=subraceOf(), saves=saveMods(), game=C.game||{};
+  const clsText=C.classes.map(c=>CLASSES[c.cls].name).join(' / ');
+  const subText=C.classes.map(c=>SUBCLASSES[c.sub]?.name).filter(Boolean).join(' / ');
+  const ability=(id,name)=>`<div class="v24-box v24-ability">
+    <div class="v24-ability-head"><b>${name.toUpperCase()}</b><strong>${abil(id)}</strong></div>
+    <div><span class="v24-mod">${fmtMod(am(id))}</span> <span class="v24-cap">модификатор · спасбросок ${fmtMod(saves[id].mod)}</span></div>
+    ${SKILLS.filter(s=>s[2]===id).map(([skillId,skillName])=>`<div class="v24-skill"><span class="v24-dot${profSkills().includes(skillId)?' on':''}"></span><b>${fmtMod(skillMod(skillId))}</b><span>${skillName}</span></div>`).join('')}
+  </div>`;
+  const features=availableFeats().map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>';
+  const languageList=[...(race.langs||[]),...(C.extraLangs||[])];
+  for(let i=0;i<(BACKGROUNDS[C.bg].langs||0);i++)languageList.push('на выбор');
+  const languages=[...new Set(languageList)].join(', ')||'—';
+  const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
+  C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
+  const profs=`Доспехи: ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}.<br>Оружие: ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}.<br>Инструменты: ${esc([...tools].join(', ')||'—')}<br>Языки: ${esc(languages)}`;
+  const weaponRows=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{
+    const w=WEAPONS.find(x=>x[0]===it.id);return w?`<div class="v24-spell-row"><span>${esc(w[1])}</span><span>${fmtMod(weaponAttack(w))}</span><span>${weaponDamage(w)}</span><span>${esc(w[5].split(',')[0])}</span></div>`:'';
+  }).join('')||'<div class="v24-spell-row"><span>—</span><span></span><span></span><span></span></div>';
+  const casters=spellcasterClasses();
+  const spellLines=casters.flatMap(c=>[...new Set([...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]).filter(id=>!(C.spellsPrepared.wizard||[]).includes(id)):[])])]
+    .map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean).map(s=>`<div class="v24-spell-row"><span>${LVL_NAMES[s.lvl]||s.lvl}</span><span>${esc(s.ru)}</span><span>${esc(s.time)}</span><span>${esc(s.range)}</span><span>${esc(s.comp)} · □ К □ Р □ М</span><span>${esc(s.dur)}</span></div>`));
+  const spellRows=spellLines.join('');
+  const emptySpellRows=Array.from({length:Math.max(0,18-spellLines.length)},()=>'<div class="v24-spell-row"><span></span><span></span><span></span><span></span><span>□ К □ Р □ М</span><span></span></div>').join('');
+  const slots=spellSlots()||[];
+  const page=(body,n)=>`<section class="sheet24-page" data-sheet-page="${n}">${body}</section>`;
+  return `<div class="sheet24-wrap">
+    <div class="sheet no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2024 · визуальный вариант</span></div>
+    ${page(`<div class="v24-header">
+      <div class="v24-box v24-identity"><div class="v24-field wide"><b>${esc(C.name)}</b><span class="v24-cap">имя персонажа</span></div><div class="v24-field"><b>${esc(BACKGROUNDS[C.bg].name)}</b><span class="v24-cap">предыстория</span></div><div class="v24-field"><b>${esc(clsText)}</b><span class="v24-cap">класс</span></div><div class="v24-field"><b>${esc(race.name)}</b><span class="v24-cap">вид</span></div><div class="v24-field"><b>${esc(sub?.name||subText)||'—'}</b><span class="v24-cap">подкласс</span></div></div>
+      <div class="v24-box v24-vital"><span class="v24-cap">уровень</span><strong>${totalLvl()}</strong><span class="v24-cap">опыт ${C.xp||0}</span></div>
+      <div class="v24-box v24-vital"><span class="v24-cap">класс защиты</span><strong>${armorClass()}</strong><span class="v24-cap">${hasShield()?'щит':'—'}</span></div>
+      <div class="v24-box v24-vital"><span class="v24-cap">хиты</span><div class="v24-substats"><span>Текущие<br><strong>${game.hpCur!=null?game.hpCur:maxHp()}</strong></span><span>Макс.<br><strong>${maxHp()}</strong></span></div><span class="v24-cap">временные ${game.hpTemp||0}</span></div>
+      <div class="v24-box v24-substats"><div class="v24-vital"><span class="v24-cap">кости хитов</span><strong>${totalLvl()-(game.hdUsed||0)} / ${totalLvl()}</strong><span class="v24-cap">${hitDiceStr()}</span></div><div class="v24-vital"><span class="v24-cap">спасброски от смерти</span><div class="v24-death-row">Успехи ${[0,1,2].map(i=>`<i class="v24-dot${game.dsOk>i?' on':''}"></i>`).join('')}</div><div class="v24-death-row">Провалы ${[0,1,2].map(i=>`<i class="v24-dot${game.dsFail>i?' on':''}"></i>`).join('')}</div></div></div>
+    </div>
+    <div class="v24-page1-body">
+      <div class="v24-ability-col">${ABILS.slice(0,3).map(([id,name])=>ability(id,name)).join('')}<div class="v24-box v24-mini"><div class="v24-title">Истощение</div>${Array.from({length:6},(_,i)=>`<span class="v24-dot${(game.exh||0)>i?' on':''}"></span>`).join('')}</div><div class="v24-box v24-mini"><div class="v24-title">Героическое вдохновение</div><span class="v24-dot${game.insp?' on':''}"></span></div></div>
+      <div class="v24-ability-col">${ABILS.slice(3).map(([id,name])=>ability(id,name)).join('')}<div class="v24-box"><div class="v24-title">Владение снаряжением и умения</div><div class="v24-cap">${profs}</div><div class="v24-cap">Бонус владения <b>+${pb()}</b></div></div></div>
+      <div class="v24-col3"><div class="v24-minirow"><div class="v24-box v24-mini"><span class="v24-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="v24-box v24-mini"><span class="v24-cap">скорость</span><strong>${speed()}</strong></div><div class="v24-box v24-mini"><span class="v24-cap">п. восприятие</span><strong>${passivePerception()}</strong></div><div class="v24-box v24-mini"><span class="v24-cap">состояния</span><strong>${esc(game.conditions)||'—'}</strong></div></div>
+        <div class="v24-box v24-weapon"><div class="v24-title">Оружие и боевые заговоры</div><div class="v24-spell-row header"><span>Название</span><span>Бонус</span><span>Урон</span><span>Вид</span></div>${weaponRows}</div>
+        <div class="v24-box v24-features"><div class="v24-title">Умения и способности</div><ul>${features}</ul></div>
+        <div class="v24-substats"><div class="v24-box v24-notes"><div class="v24-title">Атаки и заклинания</div></div><div class="v24-box v24-notes"><div class="v24-title">Черты</div>${[...(race.traits||[]),...(sub?.traits||[])].map(t=>esc(t)).join('<br>')}</div></div>
+      </div>
+    </div>`,1)}
+    ${page(`<div class="v24-notegrid"><div class="v24-box v24-portrait"><div class="v24-title">Портрет</div></div><div class="v24-box v24-notes"><div class="v24-title">Союзники и организации</div>${esc(C.allies)||''}</div><div class="v24-box v24-notes"><div class="v24-title">Цели и задачи</div></div><div class="v24-box v24-notes"><div class="v24-title">Дополнительные способности и умения</div>${esc(C.featuresNotes)||''}</div><div class="v24-box v24-notes"><div class="v24-title">Сокровища</div>${esc(C.treasure)||''}</div></div>`,2)}
+    ${page(`<div class="v24-box"><div class="v24-title">Заметки · ${esc(C.name)}</div><div class="v24-page3-lines"></div></div>`,3)}
+    ${page(`<div class="v24-spell-top"><div class="v24-box"><div class="v24-title">Заклинательная характеристика</div>${casters.map(c=>`<div>${CLASSES[c.cls].name}: ${ABIL_RU_FULL[CLASSES[c.cls].spellAbility]} · КС ${spellSaveDc(c.cls)} · атака ${fmtMod(spellAttack(c.cls))}</div>`).join('<br>')||'—'}</div><div class="v24-box"><div class="v24-title">Ячейки заклинаний</div><div class="v24-spell-slots">${Array.from({length:9},(_,i)=>`<div class="v24-box v24-spell-slot">${i+1}-й · ${slots[i]||0}</div>`).join('')}</div></div></div>
+      <div class="v24-spell-top"><div class="v24-box"><div class="v24-title">Внешность</div><div class="v24-notes"></div></div><div class="v24-box"><div class="v24-title">Предыстория и личные качества</div>${esc(C.backstory)||''}<br>${Object.values(C.personality||{}).map(esc).filter(Boolean).join(' · ')}</div></div>
+      <div class="v24-spell-bottom"><div class="v24-box v24-spell-table"><div class="v24-title">Заговоры и подготовленные заклинания</div><div class="v24-spell-row header"><span>Ур.</span><span>Название</span><span>Время</span><span>Дистанция</span><span>Конц. / Ритуал / Компоненты</span><span>Заметки</span></div>${spellRows}${emptySpellRows}</div><div class="v24-col3"><div class="v24-box v24-notes"><div class="v24-title">Снаряжение</div>${(C.inventory||[]).map(i=>esc(itemName(i))).join('<br>')}</div><div class="v24-box"><div class="v24-title">Монеты</div><div class="v24-coinrow"><div class="v24-box">ММ</div><div class="v24-box">СМ</div><div class="v24-box">ЗМ<br>${C.gold||0}</div><div class="v24-box">ЭМ</div><div class="v24-box">ПМ</div></div></div></div></div>`,4)}
+  </div>`;
+}
+
 function combatCantripsHtml(){
   const cls=C.classes.find(c=>spellTypeOf(c));
   if(!cls)return '';
