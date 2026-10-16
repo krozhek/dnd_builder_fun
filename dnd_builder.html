@@ -151,8 +151,13 @@ label.chk.wide{flex-basis:45%}
 .pdf-sheet{display:flex;flex-direction:column;align-items:center;gap:12px}
 .pdf-page{width:min(794px,100%);aspect-ratio:210/297;padding:4.8%;background:#fff;color:#111;font:8px/1.2 Arial,sans-serif;position:relative;overflow:hidden;box-shadow:0 3px 14px #0003;display:grid;gap:5px}
 .pdf-page *{box-sizing:border-box}
-.pdf-page14{font-family:Arial,sans-serif;background:#fff}
-.pdf-page24{background-color:#fff;background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:8px 8px}
+.pdf-page14{font-family:Arial,sans-serif;background:#fff;padding:4.8% 5.9%}
+.pdf-page14 .pdf-cap{font-size:7px}
+.pdf-page14 .pdf-title{font-size:8px}
+.pdf-page14 .pdf-small{font-size:7px}
+.p14-name strong,.p14-id b{font-size:10px}
+.pdf-page24{background-color:#fff;background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:8px 8px;padding:4.8% 5%}
+.pdf-page24 .pdf-box{border-radius:5px}
 .pdf-box{border:1px solid #222;border-radius:2px;background:#fff;padding:4px;min-width:0;min-height:0;overflow:hidden}
 .pdf-title{font-size:7px;font-weight:bold;text-align:center;text-transform:uppercase;border-bottom:1px solid #333;padding:2px;margin:-1px -1px 3px;letter-spacing:.02em}
 .pdf-cap{font-size:6px;text-transform:uppercase;line-height:1.1}
@@ -161,33 +166,50 @@ label.chk.wide{flex-basis:45%}
 .pdf-row{display:flex;justify-content:space-between;align-items:center;gap:3px;min-width:0}
 .pdf-small{font-size:6.5px}
 .pdf-lines{background-image:linear-gradient(to bottom,transparent 11px,#ccc 11px,#ccc 12px,transparent 12px);background-size:100% 12px;background-repeat:repeat}
-.p14-page1{grid-template-rows:9% 1fr}
+.p14-page1{grid-template-rows:9% 1fr;row-gap:26px}
 .p14-header{display:grid;grid-template-columns:32fr 68fr;gap:8px;align-items:start}
 .p14-name{align-self:center;border-bottom:1px solid #222;padding-bottom:3px;min-height:12px}
 .p14-id{border:1px solid #333;border-radius:2px;padding:4px;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:4px 8px;min-height:100%}
-.p14-body{display:grid;grid-template-columns:32fr 33fr 35fr;gap:6px;min-height:0}
+.p14-body{display:grid;grid-template-columns:32fr 31fr 32fr;gap:11px;min-height:0}
 .p14-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
-.p14-leftsplit{display:grid;grid-template-columns:31fr 69fr;gap:4px;flex:1;min-height:0}
-.p14-abilities{display:flex;flex-direction:column;gap:3px;min-height:0;background:#eee;border-radius:24px;padding:4px}
-.p14-ability{display:flex;flex-direction:column;justify-content:center;gap:2px;padding:3px 4px;flex:1;min-height:0;border:1px solid #222;border-radius:2px;background:#fff}
-.p14-ability strong{font-size:12px}
-.p14-ability .score{border:1px solid #222;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;padding:0;font-size:9px}
-.p14-ability .mod{font-size:12px;font-weight:bold}
+.p14-leftsplit{display:grid;grid-template-columns:29fr 71fr;gap:0;flex:2;min-height:0}
+.p14-abilities{display:flex;flex-direction:column;gap:3px;min-height:0;background:#eee;border-radius:24px;padding:0}
+.p14-ability{position:relative;display:block;padding:4px 3px;flex:1;min-height:0;border:1px solid #222;border-radius:7px;background:#fff}
+.p14-ability .pdf-cap{display:block;text-align:center}
+.p14-ability .pdf-row{display:block}
+.p14-ability .mod{position:absolute;left:4px;top:28px;width:34px;height:34px;border:1px solid #222;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;font-size:12px}
+.p14-ability .score{position:absolute;right:4px;bottom:5px;width:24px;height:24px;border:1px solid #222;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;font-size:8px}
 .p14-list{display:flex;flex-direction:column;gap:2px;min-height:0}
-.p14-skill{display:flex;gap:4px;align-items:baseline;font-size:6.4px;min-height:8px}
+.p14-leftside{gap:6px}
+.p14-insp{flex:0 0 36px;text-align:center}
+.p14-pb{align-self:center;flex:0 0 38px;width:38px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1px}
+.p14-pb strong{font:bold 13px Georgia,serif}
+.p14-pb .pdf-cap{font-size:4.5px}
+.p14-saves{flex:0 0 23%}
+.p14-skills{flex:1}
+.p14-skills .p14-list{gap:1px}
+.p14-skills .p14-skill{min-height:15px}
+.p14-saves .p14-skill{min-height:15px}
+.p14-skill{display:flex;gap:4px;align-items:baseline;font-size:7.5px;min-height:17px}
 .p14-skill b{min-width:20px;text-align:right}
-.p14-status{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.p14-status{display:grid;grid-template-columns:.9fr 1fr 1fr;gap:20px}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child{clip-path:polygon(15% 0,85% 0,100% 15%,88% 78%,50% 100%,12% 78%,0 15%)}
 .p14-status.four{grid-template-columns:repeat(4,1fr)}
-.p14-status .pdf-box{text-align:center;min-height:31px}
+.p14-status .pdf-box{text-align:center;min-height:70px}
+.p14-hp{min-height:84px;text-align:center}
+.p14-currenthp{min-height:82px;display:flex;flex-direction:column;justify-content:space-around;text-align:center}
+.p14-dice{min-height:62px;grid-template-columns:1fr 1fr}
+.p14-dice .pdf-box{text-align:center;min-height:62px}
+.p14-attacks,.p14-equipment{flex:1;min-height:0}
+.p14-attacks .pdf-lines,.p14-equipment .pdf-lines{flex:1;min-height:0}
+.p14-personality{display:grid;grid-template-rows:repeat(4,1fr);gap:4px;flex:0 0 35%;min-height:0}
 .p14-status strong{display:block;font:bold 14px Georgia,serif}
-.p14-personality{display:grid;grid-template-rows:repeat(4,1fr);gap:4px;flex:1;min-height:110px}
-.pdf-status-row{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:3px}
 .p14-personality .pdf-lines{flex:1}
 .p14-personality .pdf-title{margin-top:auto}
-.p14-features{flex:1;min-height:0}
-.p14-features ul{margin:0;padding:0 0 0 10px;font-size:6.4px}
+.p14-features{flex:1;min-height:0;background-image:linear-gradient(#ddd 1px,transparent 1px);background-size:100% 14px}
+.p14-features ul{margin:0;padding:0 0 0 10px;font-size:7.2px}
 .p14-features li{margin:0 0 3px;break-inside:avoid}
-.p14-page2{grid-template-rows:9% 1fr}
+.p14-page2{grid-template-rows:9% 1fr;row-gap:26px}
 .p14-appearance{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:4px;min-height:0}
 .p14-page2grid{display:grid;grid-template-columns:32fr 68fr;grid-template-rows:1fr 1fr;gap:6px;min-height:0}
 .p14-page2grid .story{grid-row:1}
@@ -196,26 +218,30 @@ label.chk.wide{flex-basis:45%}
 .p14-page2grid>.pdf-box,.p14-page2grid .detail-stack>.pdf-box{display:flex;flex-direction:column}
 .p14-page2grid .pdf-lines{flex:1;min-height:0}
 .p14-page2grid .pdf-title{margin-top:auto}
-.p14-page3 .pdf-title{order:2;align-self:center;width:max-content;margin:auto 0 -1px;padding:2px 8px;background:#fff;border:0}
-.p14-page3 .pdf-lines{order:1}
-.p14-page3{grid-template-columns:2fr 1fr;grid-template-rows:1.15fr 1fr 1fr;gap:6px}
-.p14-page3 .pdf-box{display:flex;flex-direction:column;min-height:0}
-.p14-page3 .pdf-lines{flex:1;margin-top:3px}
-.p14-page4{grid-template-rows:8% 1fr}
-.p14-spellhead{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:8px;align-items:center}
+.p14-page3{grid-template-rows:9% 1fr;row-gap:25px}
+.p14-notes-header{display:flex;align-items:end}
+.p14-notes-header .p14-name{width:32%;margin-bottom:0}
+.p14-notes-grid{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:repeat(3,1fr);gap:7px 11px;min-height:0}
+.p14-notes-grid .pdf-title{order:2;align-self:center;width:max-content;margin:auto 0 -1px;padding:2px 8px;background:#fff;border:0}
+.p14-notes-grid .pdf-lines{order:1}
+.p14-notes-grid .pdf-box{display:flex;flex-direction:column;min-height:0}
+.p14-notes-grid .pdf-lines{flex:1;margin-top:3px}
+.p14-page4{grid-template-rows:6% 1fr;row-gap:12px}
+.p14-spellhead{display:grid;grid-template-columns:1.75fr 1fr 1fr 1fr;gap:24px;align-items:center}
 .p14-spellcols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;min-height:0}
 .p14-spellcol{display:flex;flex-direction:column;gap:6px;min-height:0}
 .p14-spellgroup{flex:1;min-height:0}
 .p14-spellrow{height:9px;border-bottom:1px solid #ccc;font-size:6.5px;overflow:hidden;white-space:nowrap}
-.p24-page1{grid-template-rows:13% 1fr}
-.p24-page1::after{content:'Long Story Short';position:absolute;top:12%;left:50%;transform:translateX(-50%);font:bold 16px Georgia,serif;color:#555;background:#fff;padding:0 8px;z-index:1}
-.p24-frame{position:absolute;inset:4.5%;border:1px solid #aaa;pointer-events:none}
-.p24-header{display:grid;grid-template-columns:1.45fr .42fr .55fr .85fr .75fr;gap:4px;position:relative}
+.p24-page1{grid-template-rows:10% 1fr;row-gap:34px}
+.p24-page1::after{content:'';position:absolute;top:14%;left:4.5%;right:4.5%;border-top:1px solid #aaa}
+.p24-frame{position:absolute;inset:5%;border:1px solid #aaa;border-radius:7px;pointer-events:none}
+.p24-frame::before{content:'';position:absolute;inset:-5px;background:radial-gradient(circle at 5px 5px,#aaa 4px,transparent 4.5px),radial-gradient(circle at calc(100% - 5px) 5px,#aaa 4px,transparent 4.5px),radial-gradient(circle at 5px calc(100% - 5px),#aaa 4px,transparent 4.5px),radial-gradient(circle at calc(100% - 5px) calc(100% - 5px),#aaa 4px,transparent 4.5px);pointer-events:none}
+.p24-header{display:grid;grid-template-columns:1.55fr .4fr .4fr .65fr .4fr .4fr;gap:4px;position:relative}
 .p24-id{display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;padding:4px}
 .p24-id .wide{grid-column:1/-1}
 .p24-stat{text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center}
 .p24-stat strong{font: bold 17px Georgia,serif}
-.p24-body{display:grid;grid-template-columns:1fr 1fr 3fr;gap:5px;min-height:0}
+.p24-body{display:grid;grid-template-columns:1.16fr 1fr 3.7fr;gap:5px;min-height:0}
 .p24-col{display:flex;flex-direction:column;gap:4px;min-height:0;min-width:0}
 .p24-ability{padding:3px 4px}
 .p24-ability-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #bbb}
@@ -224,33 +250,65 @@ label.chk.wide{flex-basis:45%}
 .p24-skill{display:flex;align-items:center;gap:3px;font-size:6.2px;line-height:1.35;min-width:0}
 .p24-check{width:6px;height:6px;border:1px solid #555;border-radius:50%;flex:none}
 .p24-check.on{background:#333}
+.p24-pb{flex:0 0 6%;text-align:center}
+.p24-pb strong{font:bold 20px Georgia,serif}
 .p24-minirow{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
-.p24-mini{text-align:center;min-height:30px}
-.p24-mini strong{display:block;font: bold 13px Georgia,serif}
+.p24-mini{text-align:center;min-height:0}
+.p24-mini strong{display:block;font:bold 13px Georgia,serif}
+.p24-overview{flex:0 0 58px}
+.p24-weapons{flex:0 0 90px}
+.p24-notegrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;flex:0 0 37%;min-height:0}
+.p24-notegrid .pdf-box{min-height:0}
+.p24-notegrid .pdf-box{background-color:rgba(255,255,255,.55);background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:8px 8px}
+.p24-level{border-radius:50%}
+.p24-death .pdf-small{font-size:5px;line-height:1.2;white-space:nowrap}
+.p24-ac{clip-path:polygon(15% 0,85% 0,100% 15%,88% 78%,50% 100%,12% 78%,0 15%)}
+.p24-page1 .p24-body>.p24-col:first-child{gap:8px}
+.p24-page1 .p24-body>.p24-col:first-child>.p24-ability:nth-child(2){flex:0 0 15%}
+.p24-page1 .p24-body>.p24-col:first-child>.p24-ability:nth-child(3){flex:0 0 17.5%}
+.p24-page1 .p24-body>.p24-col:first-child>.p24-ability:nth-child(4){flex:0 0 11.5%}
+.p24-page1 .p24-body>.p24-col:first-child>.pdf-box:nth-child(5),.p24-page1 .p24-body>.p24-col:first-child>.pdf-box:nth-child(6){flex:0 0 6%}
+.p24-page1 .p24-body>.p24-col:first-child>.pdf-box:nth-child(7){flex:1}
+.p24-page1 .p24-body>.p24-col:nth-child(2){gap:8px}
+.p24-page1 .p24-body>.p24-col:nth-child(2)>.p24-ability:nth-child(1){flex:0 0 23%}
+.p24-page1 .p24-body>.p24-col:nth-child(2)>.p24-ability:nth-child(2){flex:0 0 22%}
+.p24-page1 .p24-body>.p24-col:nth-child(2)>.p24-ability:nth-child(3){flex:0 0 20%}
+.p24-page1 .p24-body>.p24-col:nth-child(3){gap:8px}
+.p24-features{flex:1;min-height:0}
+.p24-features ul{margin:0;padding-left:10px;font-size:7px}
+.p24-features li{margin-bottom:3px;break-inside:avoid}
+.p24-skill{font-size:7px}
 .p24-table{width:100%;border-collapse:collapse;font-size:6.3px}
 .p24-table th,.p24-table td{border-bottom:1px solid #ccc;text-align:left;padding:2px}
-.p24-features{flex:1;min-height:0}
-.p24-features ul{margin:0;padding-left:10px;font-size:6.2px}
-.p24-features li{margin-bottom:3px;break-inside:avoid}
-.p24-page2{grid-template-columns:40% 60%;grid-template-rows:34% 33% 33%;gap:6px}
+.p24-page2{grid-template-columns:37fr 63fr;grid-template-rows:34fr 33fr 33fr;gap:6px}
 .p24-page2 .portrait{grid-row:1}
 .p24-page2 .allies{grid-column:2;grid-row:1}
 .p24-page2 .goals{grid-column:1;grid-row:2/4}
 .p24-page2 .extra{grid-column:2;grid-row:2}
 .p24-page2 .treasure{grid-column:2;grid-row:3}
-.p24-page3{grid-template-columns:1.4fr 1fr;grid-template-rows:repeat(3,1fr);gap:6px}
+.p24-page3{grid-template-columns:1.64fr 1fr;grid-template-rows:repeat(3,1fr);gap:11px 12px}
+.p24-page2,.p24-page3{padding-top:5%}
 .p24-page2 .pdf-box,.p24-page3 .pdf-box,.p24-features,.p24-spellside .detail{background-color:rgba(255,255,255,.55);background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:8px 8px}
 .p24-page2 .pdf-box{display:flex;flex-direction:column}
 .p24-page2 .pdf-lines{flex:1;min-height:0}
-.p24-page4{grid-template-rows:18% 1fr}
-.p24-spellhead{display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:1fr 1fr;gap:5px}
-.p24-spellhead .wide{grid-column:1/-1}
-.p24-spellbody{display:grid;grid-template-columns:2fr 1fr;gap:6px;min-height:0}
+.p24-page4{grid-template-rows:14% 1fr;row-gap:8px}
+.p24-spellhead{display:grid;grid-template-columns:1.2fr 2.9fr 1.9fr;gap:8px;min-height:0}
+.p24-spell-main{display:flex;flex-direction:column;min-height:0}
+.p24-statboxes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;min-width:0}
+.p24-spellbody{display:grid;grid-template-columns:2.1fr 1fr;gap:8px;min-height:0}
 .p24-spelltable{display:flex;flex-direction:column;min-height:0}
-.p24-spellrow{display:grid;grid-template-columns:22px 1.2fr .75fr .75fr 1.2fr .8fr;gap:3px;min-height:20px;border-bottom:1px solid #ccc;align-items:center;font-size:6px}
+.p24-spelltable .p24-spellrow{flex:0 0 20px}
+.p24-slot-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px 5px;font-size:6px}
+  .p24-page4 .p24-statboxes .pdf-cap{font-size:5px;overflow-wrap:anywhere}
+  .p24-page4 .p24-statboxes .p24-stat strong{font-size:12px}
+.p24-appearance{display:flex;flex-direction:column}
+.p24-appearance .pdf-lines{flex:1;min-height:0}
+.p24-spellside{display:grid;grid-template-rows:1fr 1.55fr .22fr;gap:6px;min-height:0}
+.p24-spellside .detail{min-height:0}
+.p24-coinrow{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;min-height:0}
+.p24-coinrow .pdf-box{text-align:center;padding:2px;min-width:0}
+.p24-spellrow{display:grid;grid-template-columns:20px 1.3fr .75fr .75fr .42fr .42fr .55fr .75fr;gap:3px;min-height:20px;border-bottom:1px solid #ccc;align-items:center;font-size:6px}
 .p24-spellrow.head{font-size:5.8px;min-height:22px;font-weight:bold}
-.p24-spellside{display:flex;flex-direction:column;gap:5px;min-height:0}
-.p24-spellside .detail{flex:1}
 @media (max-width:600px){.pdf-page{width:100%;height:auto;aspect-ratio:210/297}}
 @media (max-width:600px){
   .tabs{position:static}
@@ -275,6 +333,9 @@ label.chk.wide{flex-basis:45%}
   .pdf-sheet{gap:0}
   .pdf-page{width:210mm;height:297mm;aspect-ratio:auto;padding:10mm;box-shadow:none;border:0;break-after:page;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pdf-page:last-child{break-after:auto}
+  .pdf-page14{padding:10mm 12.5mm}
+  .pdf-page24{padding:10mm 11mm}
+  .p24-page2,.p24-page3{padding-top:10.5mm}
   @page{size:A4;margin:0}
 }
 </style>
@@ -2427,7 +2488,7 @@ function logRoll(html){
   log.prepend(div);
   while(log.children.length>30)log.lastChild.remove();
 }
-// ================= Лист персонажа (классический, как longstoryshort 2014) =================
+// ================= Лист персонажа (2014) =================
 function renderSheet2014(){
   const r=raceOf(), sub=subraceOf(), game=C.game||{}, saves=saveMods();
   const clsText=C.classes.map(c=>CLASSES[c.cls].name).join(' / ');
@@ -2456,11 +2517,14 @@ function renderSheet2014(){
         <div><div class="pdf-cap">вид</div><b>${esc(r.name)}${sub?' ('+esc(sub.name)+')':''}</b></div><div><div class="pdf-cap">мировоззрение</div><b>${esc(C.align)}</b></div><div><div class="pdf-cap">опыт</div><b>${C.xp||0}</b></div>
       </div></header>
       <div class="p14-body">
-        <div class="p14-col"><div class="p14-leftsplit"><div class="p14-abilities">${abilityBlocks}</div><div class="p14-col"><div class="pdf-box"><div class="pdf-title">вдохновение · бонус владения</div><div class="pdf-row"><span>${game.insp?'●':'○'} вдохновение</span><b>${fmtMod(pb())}</b></div></div><div class="pdf-box" style="flex:1"><div class="pdf-title">спасброски</div><div class="p14-list">${saveRows}</div><div class="pdf-title">навыки</div><div class="p14-list">${skillRows}</div></div></div></div>
+        <div class="p14-col"><div class="p14-leftsplit"><div class="p14-abilities">${abilityBlocks}</div><div class="p14-col p14-leftside"><div class="pdf-box p14-insp"><span class="pdf-cap">вдохновение</span><div>${game.insp?'●':'○'}</div></div><div class="pdf-box p14-pb"><strong>${fmtMod(pb())}</strong><span class="pdf-cap">бонус владения</span></div><div class="pdf-box p14-saves"><div class="pdf-title">спасброски</div><div class="p14-list">${saveRows}</div></div><div class="pdf-box p14-skills"><div class="pdf-title">навыки</div><div class="p14-list">${skillRows}</div></div></div></div>
           <div class="pdf-box"><div class="pdf-title">пассивная мудрость (восприятие) · ${passivePerception()}</div></div><div class="pdf-box" style="flex:1"><div class="pdf-title">прочие владения и языки</div><div class="pdf-small"><b>Доспехи:</b> ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}<br><b>Оружие:</b> ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}<br><b>Инструменты:</b> ${esc([...tools].join(', ')||'—')}<br><b>Языки:</b> ${esc([...new Set(langs)].join(', ')||'—')}</div></div></div>
-        <div class="p14-col"><div class="p14-status four"><div class="pdf-box"><span class="pdf-cap">класс защиты</span><strong>${armorClass()}</strong></div><div class="pdf-box"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div><div class="pdf-box"><span class="pdf-cap">бонус владения</span><strong>${fmtMod(pb())}</strong></div></div><div class="pdf-status-row"><div class="pdf-box"><div class="pdf-title">хиты</div><div class="pdf-row"><span>максимум</span><b>${maxHp()}</b></div><div class="pdf-row"><span>текущие</span><b>${game.hpCur!=null?game.hpCur:maxHp()}</b></div><div class="pdf-row"><span>временные</span><b>${game.hpTemp||0}</b></div></div><div class="pdf-box"><div class="pdf-title">кости хитов</div><div class="pdf-value">${totalLvl()} · ${hitDiceStr()}</div></div><div class="pdf-box"><div class="pdf-title">спасброски от смерти</div><div class="pdf-small">Успехи ${game.dsOk||0} · Провалы ${game.dsFail||0}</div></div></div>
-          <div class="pdf-box" style="flex:1"><div class="pdf-title">атаки и заклинания</div><table class="p24-table"><tr><th>название</th><th>бонус атаки</th><th>урон / вид</th></tr>${weaponRows||'<tr><td colspan="3">—</td></tr>'}</table><div class="pdf-lines" style="height:75%"></div></div>
-          <div class="pdf-box" style="flex:1"><div class="pdf-title">снаряжение</div><div class="pdf-small">${(C.inventory||[]).map(it=>`${esc(itemName(it))}${(it.qty||1)>1?' ×'+it.qty:''}`).join('<br>')||'—'}</div><div class="pdf-row pdf-small" style="margin-top:5px">${['ММ','СМ','ЗМ','ЭМ','ПМ'].map(c=>`<span>${c} ${c==='ЗМ'?C.gold||0:''}</span>`).join('')}</div></div>
+        <div class="p14-col"><div class="p14-status"><div class="pdf-box"><span class="pdf-cap">класс защиты</span><strong>${armorClass()}</strong></div><div class="pdf-box"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div></div>
+          <div class="pdf-box p14-hp"><div class="pdf-title">максимум хитов</div><div class="pdf-value">${maxHp()}</div><div class="pdf-small">Кость хитов: ${hitDiceStr()}</div></div>
+          <div class="pdf-box p14-currenthp"><div class="pdf-title">текущие хиты</div><div class="pdf-row"><span>текущие</span><b>${game.hpCur!=null?game.hpCur:maxHp()}</b></div><div class="pdf-row"><span>временные</span><b>${game.hpTemp||0}</b></div><div class="pdf-lines" style="flex:1"></div></div>
+          <div class="p14-status p14-dice"><div class="pdf-box"><div class="pdf-title">кости хитов</div><div class="pdf-value">${totalLvl()} · ${hitDiceStr()}</div></div><div class="pdf-box"><div class="pdf-title">спасброски от смерти</div><div class="pdf-small">Успехи ${[0,1,2].map(i=>game.dsOk>i?'●':'○').join(' ')}<br>Провалы ${[0,1,2].map(i=>game.dsFail>i?'●':'○').join(' ')}</div></div></div>
+          <div class="pdf-box p14-attacks"><div class="pdf-title">атаки и заклинания</div><table class="p24-table"><tr><th>название</th><th>бонус атаки</th><th>урон / вид</th><th>заметки</th></tr>${weaponRows||'<tr><td colspan="4">—</td></tr>'}</table><div class="pdf-lines"></div></div>
+          <div class="pdf-box p14-equipment"><div class="pdf-title">снаряжение</div><div class="pdf-small">${(C.inventory||[]).map(it=>`${esc(itemName(it))}${(it.qty||1)>1?' ×'+it.qty:''}`).join('<br>')||'—'}</div><div class="pdf-lines"></div><div class="pdf-row pdf-small">${['ММ','СМ','ЗМ','ЭМ','ПМ'].map(c=>`<span>${c}<br>${c==='ЗМ'?C.gold||0:''}</span>`).join('')}</div></div>
         </div>
         <div class="p14-col"><div class="p14-personality">${[['Черты характера',personality.traits],['Идеалы',personality.ideals],['Привязанности',personality.bonds],['Слабости',personality.flaws]].map(([h,v])=>`<div class="pdf-box"><div class="pdf-lines">${esc(v||'')}</div><div class="pdf-title">${h}</div></div>`).join('')}</div><div class="pdf-box p14-features"><div class="pdf-title">умения и способности</div><ul>${feats.map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>'}</ul><div class="pdf-small">${[...(r.traits||[]),...(sub?.traits||[])].map(esc).join('<br>')}</div></div></div>
       </div>
@@ -2469,7 +2533,7 @@ function renderSheet2014(){
       <header class="p14-header"><div class="p14-name"><div class="pdf-cap">имя персонажа</div><strong>${esc(C.name)}</strong></div><div class="p14-id">${[['возраст',''],['рост',''],['вес',''],['цвет глаз',''],['цвет кожи',''],['цвет волос','']].map(([n,v])=>`<div><div class="pdf-cap">${n}</div><div class="pdf-line">${v}</div></div>`).join('')}</div></header>
       <div class="p14-page2grid"><div class="pdf-box story"><div class="pdf-lines" style="height:93%">${esc(C.backstory||'')}</div><div class="pdf-title">предыстория персонажа</div></div><div class="pdf-box goals"><div class="pdf-lines" style="height:93%"></div><div class="pdf-title">цели и задачи</div></div><div class="detail-stack"><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.allies||'')}</div><div class="pdf-title">союзники и организации</div></div><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.featuresNotes||'')}</div><div class="pdf-title">дополнительные способности и умения</div></div><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.treasure||'')}</div><div class="pdf-title">сокровища</div></div></div></div>
     </section>
-    <section class="pdf-page pdf-page14 p14-page3" data-sheet-page="3">${['Заметки','Заметки','Заметки','Заметки','Заметки','Заметки'].map((n,i)=>`<div class="pdf-box"><div class="pdf-title">${n}${i===0?' · '+esc(C.name):''}</div><div class="pdf-lines"></div></div>`).join('')}</section>
+    <section class="pdf-page pdf-page14 p14-page3" data-sheet-page="3"><div class="p14-notes-header"><div class="p14-name"><div class="pdf-cap">имя персонажа</div><strong>${esc(C.name)}</strong></div></div><div class="p14-notes-grid">${Array.from({length:6},(_,i)=>`<div class="pdf-box"><div class="pdf-title">Заметки${i===0?' · '+esc(C.name):''}</div><div class="pdf-lines"></div></div>`).join('')}</div></section>
     <section class="pdf-page pdf-page14 p14-page4" data-sheet-page="4">
       <div class="p14-spellhead"><div class="pdf-line"><span class="pdf-cap">класс заклинателя</span><br><b>${casters.map(c=>CLASSES[c.cls].name).join(', ')||''}</b></div><div class="pdf-line"><span class="pdf-cap">характеристика</span><br><b>${casters.map(c=>ABIL_RU_FULL[CLASSES[c.cls].spellAbility]).join(', ')||''}</b></div><div class="pdf-box"><span class="pdf-cap">сложность спасброска</span><br><b>${casters.map(c=>spellSaveDc(c.cls)).join(' / ')||''}</b></div><div class="pdf-box"><span class="pdf-cap">бонус атаки</span><br><b>${casters.map(c=>fmtMod(spellAttack(c.cls))).join(' / ')||''}</b></div></div>
       <div class="p14-spellcols"><div class="p14-spellcol">${spellGroup(0)}${spellGroup(1)}${spellGroup(2)}</div><div class="p14-spellcol">${spellGroup(3)}${spellGroup(4)}${spellGroup(5)}</div><div class="p14-spellcol">${spellGroup(6)}${spellGroup(7)}${spellGroup(8)}${spellGroup(9)}</div></div>
@@ -2501,25 +2565,30 @@ function renderSheet2024(){
   const casters=spellcasterClasses(), slots=spellSlots()||[];
   const spellIds=[...new Set(casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]))];
   const spells=spellIds.map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean);
-  const spellRows=spells.map(s=>`<div class="p24-spellrow"><span>${s.lvl===0?'0':s.lvl}</span><b>${esc(s.ru)}</b><span>${esc(s.time)}</span><span>${esc(s.range)}</span><span>${esc(s.comp)}</span><span>${esc(s.dur)}</span></div>`).join('');
-  const spellPad=Array.from({length:Math.max(0,35-spells.length)},()=>'<div class="p24-spellrow"><span></span><span></span><span></span><span></span><span></span><span></span></div>').join('');
+  const spellPad=Array.from({length:Math.max(0,35-spells.length)},()=>'<div class="p24-spellrow"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>').join('');
   const personality=C.personality||{};
   return `<div class="pdf-sheet">
     <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2024 · визуальный вариант</span></div>
     <section class="pdf-page pdf-page24 p24-page1" data-sheet-page="1"><div class="p24-frame"></div>
       <header class="p24-header"><div class="pdf-box p24-id"><div class="wide"><div class="pdf-cap">имя персонажа</div><b class="pdf-value">${esc(C.name)}</b></div><div><div class="pdf-cap">предыстория</div><b>${esc(BACKGROUNDS[C.bg].name)}</b></div><div><div class="pdf-cap">класс</div><b>${esc(clsText)}</b></div><div><div class="pdf-cap">вид</div><b>${esc(race.name)}</b></div><div><div class="pdf-cap">подкласс</div><b>${esc(sub?.name||subText)||'—'}</b></div></div>
-        <div class="pdf-box p24-stat"><span class="pdf-cap">уровень</span><strong>${totalLvl()}</strong><span class="pdf-cap">опыт ${C.xp||0}</span></div><div class="pdf-box p24-stat"><span class="pdf-cap">бонус владения</span><strong>${fmtMod(pb())}</strong></div><div class="pdf-box p24-stat"><span class="pdf-cap">класс защиты</span><strong>${armorClass()}</strong><span class="pdf-cap">инициатива ${fmtMod(initiative())}</span></div><div class="pdf-box p24-stat"><span class="pdf-cap">хиты</span><strong>${game.hpCur!=null?game.hpCur:maxHp()} / ${maxHp()}</strong><span class="pdf-cap">временные ${game.hpTemp||0}</span></div>
+        <div class="pdf-box p24-stat p24-level"><span class="pdf-cap">уровень</span><strong>${totalLvl()}</strong><span class="pdf-cap">опыт ${C.xp||0}</span></div><div class="pdf-box p24-stat p24-ac"><span class="pdf-cap">класс защиты</span><strong>${armorClass()}</strong><span class="pdf-cap">${hasShield()?'щит ◇':''}</span></div><div class="pdf-box p24-stat p24-hp"><span class="pdf-cap">хиты</span><div class="pdf-row"><b>${game.hpCur!=null?game.hpCur:maxHp()}</b><span>текущие</span></div><div class="pdf-row"><b>${game.hpTemp||0}</b><span>временные</span></div><div class="pdf-small">максимум ${maxHp()}</div></div><div class="pdf-box p24-stat"><span class="pdf-cap">кости хитов</span><strong>${totalLvl()-(game.hdUsed||0)} / ${totalLvl()}</strong><span class="pdf-cap">${hitDiceStr()}</span></div><div class="pdf-box p24-stat p24-death"><span class="pdf-cap">спасброски от смерти</span><span class="pdf-small">Успехи ${[0,1,2].map(i=>game.dsOk>i?'◆':'◇').join(' ')}</span><span class="pdf-small">Провалы ${[0,1,2].map(i=>game.dsFail>i?'◆':'◇').join(' ')}</span></div>
       </header>
-      <div class="p24-body"><div class="p24-col">${ABILS.slice(0,3).map(([id,n])=>ability(id,n)).join('')}<div class="pdf-box"><div class="pdf-title">истощение</div>${Array.from({length:6},(_,i)=>`<span class="p24-check${(game.exh||0)>i?' on':''}" style="display:inline-block;margin:2px 4px"></span>`).join('')}</div><div class="pdf-box"><div class="pdf-title">Героическое вдохновение</div>${game.insp?'●':'○'}</div><div class="pdf-box"><div class="pdf-title">владения</div><div class="pdf-small">${profs}</div></div></div>
-        <div class="p24-col">${ABILS.slice(3).map(([id,n])=>ability(id,n)).join('')}<div class="pdf-box"><div class="pdf-title">прочие параметры</div><div class="pdf-small">Кости хитов: ${totalLvl()-(game.hdUsed||0)} / ${totalLvl()} (${hitDiceStr()})<br>Успехи / провалы смерти: ${game.dsOk||0} / ${game.dsFail||0}<br>Состояния: ${esc(game.conditions)||'—'}</div></div></div>
-        <div class="p24-col"><div class="p24-minirow"><div class="pdf-box p24-mini"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">восприятие</span><strong>${passivePerception()}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">спасброски</span><strong>${ABILS.filter(([id])=>saves[id].prof).map(([id])=>id.toUpperCase()).join(' ')||'—'}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div></div>
-          <div class="pdf-box"><div class="pdf-title">оружие и атаки</div><table class="p24-table"><tr><th>название</th><th>бонус</th><th>урон</th><th>тип</th></tr>${weapons}</table></div><div class="pdf-box p24-features"><div class="pdf-title">умения и способности</div><ul>${features}</ul></div><div class="pdf-box"><div class="pdf-title">черты и особенности вида</div><div class="pdf-small">${[...(race.traits||[]),...(sub?.traits||[])].map(esc).join(' · ')||'—'}</div></div></div>
+      <div class="p24-body"><div class="p24-col"><div class="pdf-box p24-pb"><span class="pdf-cap">бонус владения</span><strong>${fmtMod(pb())}</strong></div>${ABILS.slice(0,3).map(([id,n])=>ability(id,n)).join('')}<div class="pdf-box"><div class="pdf-title">истощение</div>${Array.from({length:6},(_,i)=>`<span class="p24-check${(game.exh||0)>i?' on':''}" style="display:inline-block;margin:2px 4px"></span>`).join('')}</div><div class="pdf-box"><div class="pdf-title">Героическое вдохновение</div>${game.insp?'●':'○'}</div><div class="pdf-box"><div class="pdf-title">владение снаряжением и умения</div><div class="pdf-small">${profs}</div></div></div>
+        <div class="p24-col">${ABILS.slice(3).map(([id,n])=>ability(id,n)).join('')}</div>
+        <div class="p24-col"><div class="p24-minirow p24-overview"><div class="pdf-box p24-mini"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">п. восприятие</span><strong>${passivePerception()}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">состояния</span><strong>${esc(game.conditions||'')}</strong></div></div>
+          <div class="pdf-box p24-weapons"><div class="pdf-title">оружие и боевые заговоры</div><table class="p24-table"><tr><th>название</th><th>бонус / сложность</th><th>урон / вид</th><th>заметки</th></tr>${weapons}</table></div><div class="pdf-box p24-features"><div class="pdf-title">умения и способности</div><ul>${features}</ul></div><div class="p24-notegrid"><div class="pdf-box"><div class="pdf-title">атаки и заклинания</div></div><div class="pdf-box"><div class="pdf-title">черты</div><div class="pdf-small">${[...(race.traits||[]),...(sub?.traits||[])].map(esc).join('<br>')||'—'}</div></div></div></div>
       </div>
     </section>
     <section class="pdf-page pdf-page24 p24-page2" data-sheet-page="2"><div class="p24-frame"></div><div class="pdf-box portrait"><div class="pdf-title">портрет</div></div><div class="pdf-box allies"><div class="pdf-title">союзники и организации</div><div class="pdf-lines" style="height:92%">${esc(C.allies||'')}</div></div><div class="pdf-box goals"><div class="pdf-title">цели и задачи</div><div class="pdf-lines" style="height:93%">${esc(C.backstory||'')}</div></div><div class="pdf-box extra"><div class="pdf-title">дополнительные способности и умения</div><div class="pdf-lines" style="height:90%">${esc(C.featuresNotes||'')}</div></div><div class="pdf-box treasure"><div class="pdf-title">сокровища</div><div class="pdf-lines" style="height:90%">${esc(C.treasure||'')}</div></div></section>
-    <section class="pdf-page pdf-page24 p24-page3" data-sheet-page="3"><div class="p24-frame"></div>${Array.from({length:6},(_,i)=>`<div class="pdf-box"><div class="pdf-title">заметки${i===0?' · '+esc(C.name):''}</div></div>`).join('')}</section>
-    <section class="pdf-page pdf-page24 p24-page4" data-sheet-page="4"><div class="p24-frame"></div><div class="p24-spellhead"><div class="pdf-box p24-stat"><span class="pdf-cap">характеристика</span><strong>${casters.map(c=>ABIL_RU_FULL[CLASSES[c.cls].spellAbility]).join(', ')||''}</strong></div><div class="pdf-box p24-stat"><span class="pdf-cap">размер</span><strong></strong></div><div class="pdf-box p24-stat"><span class="pdf-cap">грузоподъёмность</span><strong></strong></div><div class="pdf-box p24-stat"><span class="pdf-cap">прыжок в длину</span><strong></strong></div><div class="pdf-box p24-stat"><span class="pdf-cap">прыжок в высоту</span><strong></strong></div><div class="pdf-box wide"><span class="pdf-cap">ячейки заклинаний</span><div class="pdf-row">${Array.from({length:9},(_,i)=>`<span>${i+1}-й · ${slots[i]||0}</span>`).join('')}</div></div></div>
-      <div class="p24-spellbody"><div class="pdf-box p24-spelltable"><div class="pdf-title">заговоры и подготовленные заклинания</div><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>компоненты</span><span>длительность</span></div>${spellRows}${spellPad}</div><div class="p24-spellside"><div class="pdf-box detail"><div class="pdf-title">внешность</div></div><div class="pdf-box detail"><div class="pdf-title">предыстория и личные качества</div><div class="pdf-small">${esc(C.backstory||'')}<br>${Object.values(personality).map(v=>esc(v||'')).filter(Boolean).join('<br>')}</div></div><div class="pdf-box detail"><div class="pdf-title">снаряжение</div><div class="pdf-small">${(C.inventory||[]).map(i=>`${esc(itemName(i))}${(i.qty||1)>1?' ×'+i.qty:''}`).join('<br>')}<br><br>Золото: ${C.gold||0} зм</div></div></div></div>
+    <section class="pdf-page pdf-page24 p24-page3" data-sheet-page="3"><div class="p24-frame"></div>${Array.from({length:6},()=>`<div class="pdf-box"><div class="pdf-title">заметки</div></div>`).join('')}</section>
+    <section class="pdf-page pdf-page24 p24-page4" data-sheet-page="4"><div class="p24-frame"></div>
+      <div class="p24-spellhead"><div class="pdf-box p24-spell-main"><div class="pdf-cap">характеристика</div><b class="pdf-value">${casters.map(c=>ABIL_RU_FULL[CLASSES[c.cls].spellAbility]).join(', ')||''}</b><div class="pdf-title">ячейки заклинаний</div><div class="p24-slot-grid">${Array.from({length:3},(_,col)=>Array.from({length:3},(_,row)=>{const level=col*3+row+1;return `<span>${level}-й · ${slots[level-1]||0}</span>`}).join('')).join('')}</div></div>
+        <div class="p24-statboxes">${[['размер',race.size],['грузоподъёмность',`${abil('str')*15} фун.`],['прыжок в высоту',`${Math.max(0,3+am('str'))} фт.`],['прыжок в длину',`${abil('str')} фт.`]].map(([label,value])=>`<div class="pdf-box p24-stat"><span class="pdf-cap">${label}</span><strong>${value}</strong></div>`).join('')}</div>
+        <div class="pdf-box p24-appearance"><div class="pdf-title">внешность</div><div class="pdf-lines"></div></div>
+      </div>
+      <div class="p24-spellbody"><div class="pdf-box p24-spelltable"><div class="pdf-title">заговоры и подготовленные заклинания</div><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>конц.</span><span>ритуал</span><span>матер.</span><span>заметки</span></div>${spells.map(s=>`<div class="p24-spellrow"><span>${s.lvl===0?'0':s.lvl}</span><b>${esc(s.ru)}</b><span>${esc(s.time)}</span><span>${esc(s.range)}</span><span>◇ К</span><span>◇ Р</span><span>◇ М</span><span></span></div>`).join('')}${spellPad}</div>
+        <div class="p24-spellside"><div class="pdf-box detail"><div class="pdf-title">предыстория и личные качества</div><div class="pdf-small">${esc(C.backstory||'')}<br>${Object.values(personality).map(v=>esc(v||'')).filter(Boolean).join('<br>')}</div></div><div class="pdf-box detail"><div class="pdf-title">снаряжение</div><div class="pdf-small">${(C.inventory||[]).map(i=>`${esc(itemName(i))}${(i.qty||1)>1?' ×'+i.qty:''}`).join('<br>')}</div></div><div class="p24-coinrow">${[['ММ',0],['СМ',0],['ЗМ',C.gold||0],['ЭМ',0],['ПМ',0]].map(([name,value])=>`<div class="pdf-box"><div class="pdf-title">${name}</div><b>${value||''}</b></div>`).join('')}</div></div>
+      </div>
     </section>
   </div>`;
 }

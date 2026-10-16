@@ -135,4 +135,5 @@ test('2024 sheet renders four printable pages with character data', () => {
   assert.equal([...html.matchAll(/data-sheet-page="\d"/g)].length, 4);
   assert.match(html, /Test hero/);
   assert.match(html, /Героическое вдохновение/);
+  assert.doesNotMatch(html, /Long Story Short/);
 });
