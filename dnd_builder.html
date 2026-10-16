@@ -86,6 +86,7 @@ label.chk.wide{flex-basis:45%}
 .tbl{width:100%;border-collapse:collapse;font-size:.9rem}
 .tbl th,.tbl td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
 .tbl th{color:var(--accent);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
+.table-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .prof-row{background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .traits,.feats{margin:.4rem 0;padding-left:1.2rem;font-size:.9rem}
 .feats li{margin-bottom:5px}
@@ -232,6 +233,31 @@ label.chk.wide{flex-basis:45%}
   .sh-main{grid-template-columns:1fr 1fr}
   .sh-col3{grid-column:1/-1}
 }
+@media (max-width:600px){
+  .tabs{position:static}
+  .page,.card,.grid{min-width:0}
+  .grid.two,.grid.cards{grid-template-columns:minmax(0,1fr)}
+  .spell-grid{grid-template-columns:minmax(0,1fr)}
+  .shop-row{flex-wrap:wrap}
+  .shop-row>span:first-child{min-width:0;overflow-wrap:anywhere}
+  #main.tab-sheet .sheet{padding:12px}
+  #main.tab-sheet .sh-header{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #main.tab-sheet .sh-main{grid-template-columns:minmax(0,1fr)}
+  #main.tab-sheet .sh-col3{grid-column:auto}
+  #main.tab-sheet .sh-row4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #main.tab-sheet .sh-row2{grid-template-columns:minmax(0,1fr)}
+  #main.tab-sheet .sh-hp-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+  #main.tab-sheet .sh-hp-cur{min-width:0;font-size:18px}
+  #main.tab-sheet .sh-feats ul{columns:1}
+  #main.tab-sheet .sh-tbl{table-layout:fixed;overflow-wrap:anywhere}
+}
+@media (pointer:coarse){
+  .tab,.top-actions .btn{min-height:44px}
+  #main:not(.tab-game) .btn,#main:not(.tab-game) .btn.sm{min-height:44px}
+  #main:not(.tab-game) input:not([type="checkbox"]):not([type="radio"]),#main:not(.tab-game) select,#main:not(.tab-game) textarea{min-height:44px}
+  #main:not(.tab-game) label.chk{min-height:44px}
+}
+@media (max-height:500px) and (orientation:landscape){.tabs{position:static}}
 /* ============ Печать: всегда светлая, без интерфейса ============ */
 @media print{
   body{background:#fff}
@@ -1528,7 +1554,7 @@ function render(){
       <span class="tab-char">${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}</span>
     </nav>`;
   }
-  h+='<main id="main">'+renderTab()+'</main>';
+  h+='<main id="main" class="tab-'+TAB+'">'+renderTab()+'</main>';
   const openDet=[...document.querySelectorAll('details.spell-lvl[open],details.shop-sec[open]')].map(d=>d.dataset.key);
   app.innerHTML=h;
   applyTheme();
@@ -1756,8 +1782,8 @@ function renderAbil(){
     ${halfElf}
     ${asiBlock}
     <div class="card"><h3>Итог</h3>
-    <table class="tbl"><tr><th>Характеристика</th><th>База</th><th>Раса</th><th>ASI</th><th>Итог</th><th>Модификатор</th></tr>
-    ${ABILS.map(([a,n])=>`<tr><td>${n}</td><td>${B[a]??'—'}</td><td>${racial[a]?fmtMod(racial[a]):'—'}</td><td>${asib[a]?fmtMod(asib[a]):'—'}</td><td><b>${abil(a)}</b></td><td><b>${fmtMod(am(a))}</b></td></tr>`).join('')}</table>
+    <div class="table-scroll"><table class="tbl"><tr><th>Характеристика</th><th>База</th><th>Раса</th><th>ASI</th><th>Итог</th><th>Модификатор</th></tr>
+    ${ABILS.map(([a,n])=>`<tr><td>${n}</td><td>${B[a]??'—'}</td><td>${racial[a]?fmtMod(racial[a]):'—'}</td><td>${asib[a]?fmtMod(asib[a]):'—'}</td><td><b>${abil(a)}</b></td><td><b>${fmtMod(am(a))}</b></td></tr>`).join('')}</table></div>
     <p class="muted small">Бонус мастерства: <b>${fmtMod(pb())}</b> · Инициатива: <b>${fmtMod(initiative())}</b> · Пассивное Восприятие: <b>${passivePerception()}</b></p>
     </div>
   </div>`;
