@@ -1697,7 +1697,7 @@ function renderHome(){
       <div class="char-card-name">${esc(c.name)}</div>
       <div class="muted">${esc(race)} · ${esc(cls)}</div>
       <div class="muted small">изменён: ${new Date(c.updated||c.created).toLocaleString('ru')}</div>
-      <div class="row gap">
+      <div class="row gap wrap">
         <button class="btn" onclick="openChar('${c.id}')">Открыть</button>
         <button class="btn ghost" onclick="dupChar('${c.id}')">Дублировать</button>
         <button class="btn danger ghost" onclick="delChar('${c.id}')">Удалить</button>
