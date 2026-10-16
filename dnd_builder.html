@@ -1532,6 +1532,7 @@ function render(){
   const openDet=[...document.querySelectorAll('details.spell-lvl[open],details.shop-sec[open]')].map(d=>d.dataset.key);
   app.innerHTML=h;
   applyTheme();
+  if(TAB==='spells')filterSpellRows();
   openDet.forEach(k=>{const d=document.querySelector(`details[data-key="${k}"]`);if(d)d.open=true});
   if(TAB==='game')drawGameTrackers();
 }
@@ -1927,10 +1928,26 @@ function toggleMetamagic(id,max,on){
 
 // ================= Вкладка Заклинания =================
 const LVL_NAMES=['Заговоры','1 круг','2 круг','3 круг','4 круг','5 круг','6 круг','7 круг','8 круг','9 круг'];
+let SPELL_QUERY='';
+function spellSearchData(s){return esc([s.ru,s.en,s.school,s.ritual?'ритуал':''].join(' ').toLocaleLowerCase('ru'))}
+function setSpellQuery(value){SPELL_QUERY=value;filterSpellRows()}
+function filterSpellRows(){
+  const q=SPELL_QUERY.trim().toLocaleLowerCase('ru');
+  $$('.spell-row').forEach(row=>row.hidden=!!q&&!row.dataset.search.includes(q));
+  $$('.spell-lvl').forEach(group=>{
+    const hasMatch=!!group.querySelector('.spell-row:not([hidden])');
+    group.hidden=!!q&&!hasMatch;
+    if(q&&hasMatch)group.open=true;
+  });
+  const empty=$('#spellNoResults');
+  if(empty)empty.hidden=!q||$$('.spell-row').some(row=>!row.hidden);
+}
 function renderSpells(){
   const casters=spellcasterClasses();
   if(!casters.length)return `<div class="page"><h1>Заклинания</h1><p class="muted">У выбранных классов нет магии. Добавьте класс заклинателя (жрец, волшебник, бард и т.д.).</p></div>`;
   return `<div class="page"><h1>Заклинания</h1>
+  <label>Поиск по названию, языковому названию или школе<input type="search" aria-label="Поиск заклинаний" value="${esc(SPELL_QUERY)}" oninput="setSpellQuery(this.value)"></label>
+  <p id="spellNoResults" class="muted" hidden>Ничего не найдено.</p>
   ${casters.map(c=>renderCasterBlock(c)).join('')}
   </div>`;
 }
@@ -2014,7 +2031,7 @@ function spellPicker(cls,lvl,sel,limit,store,bonusIds=[]){
   return `<details class="spell-lvl" data-key="${cls}-${lvl}"${lvl===0?' open':''}><summary>${LVL_NAMES[lvl]} <span class="muted">(${list.length})</span></summary>
   <div class="spell-grid">${list.map(s=>{
     const checked=sel.includes(s.id), bonus=bonusIds.includes(s.id);
-    return `<div class="spell-row${checked?' picked':''}${bonus?' bonus':''}">
+    return `<div class="spell-row${checked?' picked':''}${bonus?' bonus':''}" data-search="${spellSearchData(s)}">
       <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus?'disabled':''} onchange="toggleSpell('${store}','${cls}',${limit},'${s.id}',this.checked)">
       <span class="spell-name" onclick="openSpellModal('${s.id}')">${esc(s.ru)}</span></label>
       <span class="muted small">${esc(s.school)}${s.ritual?' · ритуал':''}</span>
@@ -2037,7 +2054,7 @@ function renderWizardSpells(c,maxLvl){
     h+=`<details class="spell-lvl" data-key="wizard-book-${l}"><summary>${LVL_NAMES[l]}</summary>
     <div class="spell-grid">${spellsForClass('wizard',l).map(s=>{
       const inBook=book.includes(s.id), prepped=prep.includes(s.id);
-      return `<div class="spell-row${inBook?' picked':''}">
+      return `<div class="spell-row${inBook?' picked':''}" data-search="${spellSearchData(s)}">
         <label class="chk"><input type="checkbox" ${inBook?'checked':''} onchange="toggleSpellbook('${s.id}',this.checked)"><span class="spell-name" onclick="openSpellModal('${s.id}')">${esc(s.ru)}</span></label>
         ${inBook?`<label class="chk prep"><input type="checkbox" ${prepped?'checked':''} onchange="toggleSpell('spellsPrepared','wizard',${limit},'${s.id}',this.checked)"> подг.</label>`:'<span class="muted small">не в книге</span>'}
       </div>`}).join('')}</div></details>`;

@@ -10,14 +10,20 @@ assert.ok(script, 'inline application script exists');
 const initAt = script.indexOf('// ================= Инициализация =================');
 assert.notEqual(initAt, -1, 'initialization marker exists');
 
+const dom = { rows: [], levels: [], empty: { hidden: true } };
 const context = vm.createContext({
   localStorage: { getItem: () => null, setItem: () => {} },
+  document: {
+    querySelector: selector => selector === '#spellNoResults' ? dom.empty : null,
+    querySelectorAll: selector => selector === '.spell-row' ? dom.rows : selector === '.spell-lvl' ? dom.levels : [],
+  },
   console,
   alert: () => {},
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
+  setSpellQuery,
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -69,6 +75,31 @@ test('armor class includes Dexterity and an equipped shield', () => {
     { type: 'shield', id: 'shield', equipped: true },
   ];
   assert.equal(api.armorClass(), 16); // 12 + 2 Dex + 2 shield
+});
+
+test('spell search filters rows and hides empty spell levels', () => {
+  const spell = search => ({ dataset: { search }, hidden: false });
+  const acid = spell('брызги кислоты acid splash воплощение');
+  const mageArmor = spell('доспехи мага mage armor ограждение');
+  const cantrips = { hidden: false, open: true, querySelector: () => acid.hidden ? null : acid };
+  const firstCircle = { hidden: false, open: false, querySelector: () => mageArmor.hidden ? null : mageArmor };
+  dom.rows = [acid, mageArmor];
+  dom.levels = [cantrips, firstCircle];
+
+  api.setSpellQuery('кислоты');
+  assert.equal(acid.hidden, false);
+  assert.equal(mageArmor.hidden, true);
+  assert.equal(cantrips.hidden, false);
+  assert.equal(firstCircle.hidden, true);
+  assert.equal(cantrips.open, true);
+  assert.equal(dom.empty.hidden, true);
+
+  api.setSpellQuery('not-a-spell');
+  assert.equal(dom.empty.hidden, false);
+  api.setSpellQuery('');
+  assert.equal(acid.hidden, false);
+  assert.equal(mageArmor.hidden, false);
+  assert.equal(dom.empty.hidden, true);
 });
 
 test('import validation rejects malformed character data', () => {
