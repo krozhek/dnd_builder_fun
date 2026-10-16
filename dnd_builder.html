@@ -151,7 +151,7 @@ label.chk.wide{flex-basis:45%}
 .pdf-sheet{display:flex;flex-direction:column;align-items:center;gap:12px}
 .pdf-page{width:min(794px,100%);aspect-ratio:210/297;padding:4.8%;background:#fff;color:#111;font:8px/1.2 Arial,sans-serif;position:relative;overflow:hidden;box-shadow:0 3px 14px #0003;display:grid;gap:5px}
 .pdf-page *{box-sizing:border-box}
-.pdf-page14{font-family:Arial,sans-serif;background:#fff;padding:4.8% 5.9%}
+.pdf-page14{font-family:Arial,sans-serif;background:#fff;padding:4.8% 5.9% 10%}
 .pdf-page14 .pdf-cap{font-size:7px}
 .pdf-page14 .pdf-title{font-size:8px}
 .pdf-page14 .pdf-small{font-size:7px}
@@ -166,59 +166,82 @@ label.chk.wide{flex-basis:45%}
 .pdf-row{display:flex;justify-content:space-between;align-items:center;gap:3px;min-width:0}
 .pdf-small{font-size:6.5px}
 .pdf-lines{background-image:linear-gradient(to bottom,transparent 11px,#ccc 11px,#ccc 12px,transparent 12px);background-size:100% 12px;background-repeat:repeat}
-.p14-page1{grid-template-rows:9% 1fr;row-gap:26px}
-.p14-header{display:grid;grid-template-columns:32fr 68fr;gap:8px;align-items:start}
+.p14-page1{grid-template-rows:9% 1fr;row-gap:30px}
+.p14-header{display:grid;grid-template-columns:32.8fr 67.2fr;gap:12px;align-items:start}
 .p14-name{align-self:center;border-bottom:1px solid #222;padding-bottom:3px;min-height:12px}
 .p14-id{border:1px solid #333;border-radius:2px;padding:4px;display:grid;grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:4px 8px;min-height:100%}
-.p14-body{display:grid;grid-template-columns:32fr 31fr 32fr;gap:11px;min-height:0}
+.p14-body{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;min-height:0}
 .p14-col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
-.p14-leftsplit{display:grid;grid-template-columns:29fr 71fr;gap:0;flex:2;min-height:0}
-.p14-abilities{display:flex;flex-direction:column;gap:3px;min-height:0;background:#eee;border-radius:24px;padding:0}
+.p14-leftsplit{display:grid;grid-template-columns:minmax(0,29fr) minmax(0,71fr);gap:2px;flex:2.15;min-height:0}
+.p14-abilities{display:flex;flex-direction:column;gap:20px;min-height:0;background:#eee;border-radius:24px;padding:30px 3px 45px}
 .p14-ability{position:relative;display:block;padding:4px 3px;flex:1;min-height:0;border:1px solid #222;border-radius:7px;background:#fff}
-.p14-ability .pdf-cap{display:block;text-align:center}
+.p14-ability .pdf-cap{display:block;text-align:center;font-size:5.5px;white-space:nowrap}
 .p14-ability .pdf-row{display:block}
 .p14-ability .mod{position:absolute;left:4px;top:28px;width:34px;height:34px;border:1px solid #222;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;font-size:12px}
 .p14-ability .score{position:absolute;right:4px;bottom:5px;width:24px;height:24px;border:1px solid #222;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;font-size:8px}
 .p14-list{display:flex;flex-direction:column;gap:2px;min-height:0}
-.p14-leftside{gap:6px}
-.p14-insp{flex:0 0 36px;text-align:center}
-.p14-pb{align-self:center;flex:0 0 38px;width:38px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1px}
+.p14-leftside{gap:0}
+.p14-insp{flex:0 0 35px;text-align:center}
+.p14-pb{align-self:center;flex:0 0 35px;width:35px;margin-top:15px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1px}
 .p14-pb strong{font:bold 13px Georgia,serif}
 .p14-pb .pdf-cap{font-size:4.5px}
-.p14-saves{flex:0 0 23%}
-.p14-skills{flex:1}
-.p14-skills .p14-list{gap:1px}
-.p14-skills .p14-skill{min-height:15px}
+.p14-saves{flex:0 0 133px;margin-top:0}
+.p14-saves .p14-list{gap:1px}
+.p14-skills{flex:1;margin-top:18px}
+.p14-skills .p14-list{gap:0}
+.p14-skills .p14-skill{min-height:14px}
 .p14-saves .p14-skill{min-height:15px}
 .p14-skill{display:flex;gap:4px;align-items:baseline;font-size:7.5px;min-height:17px}
 .p14-skill b{min-width:20px;text-align:right}
-.p14-status{display:grid;grid-template-columns:.9fr 1fr 1fr;gap:20px}
-.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child{clip-path:polygon(15% 0,85% 0,100% 15%,88% 78%,50% 100%,12% 78%,0 15%)}
+.p14-passive{display:flex;align-items:center;gap:8px;flex:0 0 32px;border-radius:18px;padding:2px}
+.p14-passive span{flex:1;text-align:center;font-size:6px;font-weight:bold;text-transform:uppercase}
+.p14-status{display:grid;grid-template-columns:.85fr 1fr 1fr;gap:24px}
+.p14-col>.p14-status:not(.p14-dice){flex:0 0 70px;padding-top:5px}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:not(:first-child){display:flex;flex-direction:column;align-items:center;justify-content:center;height:54px;margin-top:7px}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:not(:first-child) .pdf-cap{order:2;margin-top:auto}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child .pdf-cap{position:absolute;top:5px;z-index:1;font-size:5px}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;height:62px;border:0;background:transparent;clip-path:none}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child::before,.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child::after{content:'';position:absolute;inset:0;clip-path:polygon(15% 0,85% 0,100% 15%,88% 78%,50% 100%,12% 78%,0 15%)}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child::before{z-index:0;background:#111}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child::after{inset:1px;z-index:0;background:#fff}
+.p14-col>.p14-status:not(.p14-dice) .pdf-box:first-child strong{position:relative;z-index:1;margin-top:10px}
 .p14-status.four{grid-template-columns:repeat(4,1fr)}
-.p14-status .pdf-box{text-align:center;min-height:70px}
-.p14-hp{min-height:84px;text-align:center}
-.p14-currenthp{min-height:82px;display:flex;flex-direction:column;justify-content:space-around;text-align:center}
-.p14-dice{min-height:62px;grid-template-columns:1fr 1fr}
-.p14-dice .pdf-box{text-align:center;min-height:62px}
-.p14-attacks,.p14-equipment{flex:1;min-height:0}
-.p14-attacks .pdf-lines,.p14-equipment .pdf-lines{flex:1;min-height:0}
-.p14-personality{display:grid;grid-template-rows:repeat(4,1fr);gap:4px;flex:0 0 35%;min-height:0}
-.p14-status strong{display:block;font:bold 14px Georgia,serif}
+.p14-status .pdf-box{text-align:center;min-height:0}
+.p14-hp{flex:0 0 86px;min-height:0;text-align:center}
+.p14-currenthp{flex:0 0 70px;min-height:0;margin-top:6px;display:flex;flex-direction:column;justify-content:space-around;text-align:center}
+.p14-dice{flex:0 0 62px;min-height:0;margin-top:0;grid-template-columns:1fr 1fr}
+.p14-dice .pdf-box{text-align:center;min-height:0;height:100%}
+.p14-attacks{display:flex;flex:0 0 28.2%;flex-direction:column;min-height:0;margin-top:17px}
+.p14-attacks>.pdf-title{order:3;margin-top:auto}
+.p14-attacks .p24-table{order:1}
+.p14-attacks .pdf-lines{order:2;flex:1;min-height:0}
+.p14-equipment{display:flex;flex:1;flex-direction:column;min-height:0}
+.p14-equipment .pdf-row{order:1}
+.p14-equipment>.pdf-small{order:2}
+.p14-equipment .pdf-lines{order:3;flex:1;min-height:0}
+.p14-equipment>.pdf-title{order:4;margin-top:auto}
+.p14-body>.p14-col:last-child{gap:18px}
+.p14-personality{display:grid;grid-template-rows:repeat(4,1fr);gap:4px;flex:0 0 34.5%;min-height:0}
+.p14-body>.p14-col:first-child{gap:6px}
+.p14-body>.p14-col:first-child>.pdf-box:last-child{display:flex;flex-direction:column}
+.p14-passive{margin-top:6px}
+.p14-body>.p14-col:first-child>.pdf-box:last-child>.pdf-title{order:2;margin-top:auto}
 .p14-personality .pdf-lines{flex:1}
 .p14-personality .pdf-title{margin-top:auto}
-.p14-features{flex:1;min-height:0;background-image:linear-gradient(#ddd 1px,transparent 1px);background-size:100% 14px}
+.p14-features{display:flex;flex-direction:column;flex:1;min-height:0;background-image:linear-gradient(#ddd 1px,transparent 1px);background-size:100% 14px}
+.p14-features>.pdf-title{order:3;margin-top:auto}
 .p14-features ul{margin:0;padding:0 0 0 10px;font-size:7.2px}
 .p14-features li{margin:0 0 3px;break-inside:avoid}
-.p14-page2{grid-template-rows:9% 1fr;row-gap:26px}
+.p14-page2{grid-template-rows:9% 1fr;row-gap:30px}
 .p14-appearance{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:4px;min-height:0}
-.p14-page2grid{display:grid;grid-template-columns:32fr 68fr;grid-template-rows:1fr 1fr;gap:6px;min-height:0}
+.p14-page2grid{display:grid;grid-template-columns:33fr 67fr;grid-template-rows:1fr 1fr;gap:11px;min-height:0}
 .p14-page2grid .story{grid-row:1}
 .p14-page2grid .goals{grid-row:2}
 .p14-page2grid .detail-stack{display:grid;grid-column:2;grid-row:1/3;grid-template-rows:1fr 1fr 1fr;gap:6px;min-height:0}
 .p14-page2grid>.pdf-box,.p14-page2grid .detail-stack>.pdf-box{display:flex;flex-direction:column}
 .p14-page2grid .pdf-lines{flex:1;min-height:0}
 .p14-page2grid .pdf-title{margin-top:auto}
-.p14-page3{grid-template-rows:9% 1fr;row-gap:25px}
+.p14-page3{grid-template-rows:9% 1fr;row-gap:29px}
 .p14-notes-header{display:flex;align-items:end}
 .p14-notes-header .p14-name{width:32%;margin-bottom:0}
 .p14-notes-grid{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:repeat(3,1fr);gap:7px 11px;min-height:0}
@@ -226,22 +249,38 @@ label.chk.wide{flex-basis:45%}
 .p14-notes-grid .pdf-lines{order:1}
 .p14-notes-grid .pdf-box{display:flex;flex-direction:column;min-height:0}
 .p14-notes-grid .pdf-lines{flex:1;margin-top:3px}
-.p14-page4{grid-template-rows:6% 1fr;row-gap:12px}
+.p14-page4{grid-template-rows:6% 1fr;row-gap:15px}
 .p14-spellhead{display:grid;grid-template-columns:1.75fr 1fr 1fr 1fr;gap:24px;align-items:center}
 .p14-spellcols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;min-height:0}
 .p14-spellcol{display:flex;flex-direction:column;gap:6px;min-height:0}
-.p14-spellgroup{flex:1;min-height:0}
-.p14-spellrow{height:9px;border-bottom:1px solid #ccc;font-size:6.5px;overflow:hidden;white-space:nowrap}
+.p14-spellgroup{display:flex;flex:1;flex-direction:column;min-height:0;border:0;background:transparent;padding:0;overflow:visible}
+.p14-spellgroup>.pdf-title{position:relative;flex:0 0 20px;border:1px solid #111;border-radius:12px;margin:0 0 4px;padding:3px 4px 3px 22px;background:#fff;white-space:nowrap}
+.p14-spellgroup>.pdf-title::before{content:attr(data-level);position:absolute;left:-1px;top:-1px;z-index:2;width:20px;height:20px;border:1px solid #111;border-radius:50%;display:grid;place-items:center;background:#fff;font-weight:normal;font-size:12px}
+.p14-spellgroup>.pdf-title::after{content:'';position:absolute;left:10px;top:-1px;z-index:1;width:50px;height:20px;border:1px solid #111;border-radius:0 12px 12px 0;background:#fff}
+.p14-spellrow{position:relative;flex:1;height:auto;min-height:0;border-bottom:1px solid #ccc;padding-left:10px;font-size:6.5px;overflow:hidden;white-space:nowrap}
+.p14-spellrow::before{content:'';position:absolute;left:0;top:50%;width:6px;height:6px;border:1px solid #888;border-radius:50%;background:#fff;transform:translateY(-50%)}
+.p14-spellgroup[data-level="0"] .p14-spellrow::before{display:none}
+.p14-spellcol:first-child .p14-spellgroup:first-child{flex:.67}
+.p14-spellcol:first-child .p14-spellgroup:nth-child(2){flex:.95}
+.p14-spellcol:nth-child(2) .p14-spellgroup{flex:.96}
+.p14-spellcol:nth-child(2) .p14-spellgroup:last-child{flex:.73}
+.p14-spellcol:nth-child(3) .p14-spellgroup:nth-child(1),.p14-spellcol:nth-child(3) .p14-spellgroup:nth-child(2){flex:1.04}
+.p14-spellcol:nth-child(3) .p14-spellgroup:nth-child(n+3){flex:.95}
 .p24-page1{grid-template-rows:10% 1fr;row-gap:34px}
-.p24-page1::after{content:'';position:absolute;top:14%;left:4.5%;right:4.5%;border-top:1px solid #aaa}
+.p24-page1::after{content:'';position:absolute;top:14%;left:5%;right:5%;border-top:1px solid #aaa}
 .p24-frame{position:absolute;inset:5%;border:1px solid #aaa;border-radius:7px;pointer-events:none}
 .p24-frame::before{content:'';position:absolute;inset:-5px;background:radial-gradient(circle at 5px 5px,#aaa 4px,transparent 4.5px),radial-gradient(circle at calc(100% - 5px) 5px,#aaa 4px,transparent 4.5px),radial-gradient(circle at 5px calc(100% - 5px),#aaa 4px,transparent 4.5px),radial-gradient(circle at calc(100% - 5px) calc(100% - 5px),#aaa 4px,transparent 4.5px);pointer-events:none}
-.p24-header{display:grid;grid-template-columns:1.55fr .4fr .4fr .65fr .4fr .4fr;gap:4px;position:relative}
+.p24-header{display:grid;grid-template-columns:1.6fr .38fr .38fr .65fr .3fr .36fr;gap:4px;position:relative}
+.p24-header>.p24-level{width:110%;transform:translateX(-23px);z-index:2}
+.p24-header>.p24-ac{transform:translateX(-12px)}
+.p24-header>.p24-hp{transform:translateX(-7px)}
+.p24-header>.p24-stat:nth-child(5){transform:translateX(-4px)}
+.p24-header>.p24-death{transform:translateX(-1px)}
 .p24-id{display:grid;grid-template-columns:1fr 1fr;gap:3px 6px;padding:4px}
 .p24-id .wide{grid-column:1/-1}
 .p24-stat{text-align:center;display:flex;flex-direction:column;justify-content:center;align-items:center}
 .p24-stat strong{font: bold 17px Georgia,serif}
-.p24-body{display:grid;grid-template-columns:1.16fr 1fr 3.7fr;gap:5px;min-height:0}
+.p24-body{display:grid;grid-template-columns:1.14fr .98fr 3.65fr;gap:11px;min-height:0}
 .p24-col{display:flex;flex-direction:column;gap:4px;min-height:0;min-width:0}
 .p24-ability{padding:3px 4px}
 .p24-ability-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #bbb}
@@ -250,7 +289,7 @@ label.chk.wide{flex-basis:45%}
 .p24-skill{display:flex;align-items:center;gap:3px;font-size:6.2px;line-height:1.35;min-width:0}
 .p24-check{width:6px;height:6px;border:1px solid #555;border-radius:50%;flex:none}
 .p24-check.on{background:#333}
-.p24-pb{flex:0 0 6%;text-align:center}
+.p24-pb{align-self:flex-start;flex:0 0 6.4%;width:125px;margin:0 0 0 -1px;text-align:center}
 .p24-pb strong{font:bold 20px Georgia,serif}
 .p24-minirow{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}
 .p24-mini{text-align:center;min-height:0}
@@ -273,8 +312,8 @@ label.chk.wide{flex-basis:45%}
 .p24-page1 .p24-body>.p24-col:nth-child(2)>.p24-ability:nth-child(1){flex:0 0 23%}
 .p24-page1 .p24-body>.p24-col:nth-child(2)>.p24-ability:nth-child(2){flex:0 0 22%}
 .p24-page1 .p24-body>.p24-col:nth-child(2)>.p24-ability:nth-child(3){flex:0 0 20%}
-.p24-page1 .p24-body>.p24-col:nth-child(3){gap:8px}
-.p24-features{flex:1;min-height:0}
+.p24-page1 .p24-body>.p24-col:nth-child(3){gap:6px}
+.p24-features{flex:1;min-height:0;margin-top:4px}
 .p24-features ul{margin:0;padding-left:10px;font-size:7px}
 .p24-features li{margin-bottom:3px;break-inside:avoid}
 .p24-skill{font-size:7px}
@@ -292,10 +331,10 @@ label.chk.wide{flex-basis:45%}
 .p24-page2 .pdf-box{display:flex;flex-direction:column}
 .p24-page2 .pdf-lines{flex:1;min-height:0}
 .p24-page4{grid-template-rows:14% 1fr;row-gap:8px}
-.p24-spellhead{display:grid;grid-template-columns:1.2fr 2.9fr 1.9fr;gap:8px;min-height:0}
+.p24-spellhead{display:grid;grid-template-columns:1.19fr 2.84fr 1.97fr;gap:8px;min-height:0}
 .p24-spell-main{display:flex;flex-direction:column;min-height:0}
-.p24-statboxes{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;min-width:0}
-.p24-spellbody{display:grid;grid-template-columns:2.1fr 1fr;gap:8px;min-height:0}
+.p24-statboxes{display:grid;grid-template-columns:1fr 1.7fr 1fr .9fr;gap:6px;min-width:0}
+.p24-spellbody{display:grid;grid-template-columns:2.1fr 1fr;gap:14px;min-height:0}
 .p24-spelltable{display:flex;flex-direction:column;min-height:0}
 .p24-spelltable .p24-spellrow{flex:0 0 20px}
 .p24-slot-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px 5px;font-size:6px}
@@ -333,7 +372,7 @@ label.chk.wide{flex-basis:45%}
   .pdf-sheet{gap:0}
   .pdf-page{width:210mm;height:297mm;aspect-ratio:auto;padding:10mm;box-shadow:none;border:0;break-after:page;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pdf-page:last-child{break-after:auto}
-  .pdf-page14{padding:10mm 12.5mm}
+  .pdf-page14{padding:10mm 12.5mm 20mm}
   .pdf-page24{padding:10mm 11mm}
   .p24-page2,.p24-page3{padding-top:10.5mm}
   @page{size:A4;margin:0}
@@ -2507,7 +2546,7 @@ function renderSheet2014(){
   const casters=spellcasterClasses(), slots=spellSlots()||[];
   const spellIds=[...new Set(casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]))];
   const spells=spellIds.map(id=>SPELLS.find(sp=>sp.id===id)).filter(Boolean);
-  const spellGroup=level=>`<section class="pdf-box p14-spellgroup"><div class="pdf-title">${level===0?'Заговоры':`${level}-й круг`}${level?` · ячеек ${slots[level-1]||0}`:''}</div>${spells.filter(sp=>sp.lvl===level).map(sp=>`<div class="p14-spellrow">${esc(sp.ru)}</div>`).join('')}${Array.from({length:level===0?14:12},()=>'<div class="p14-spellrow"></div>').join('')}</section>`;
+  const spellGroup=level=>`<section class="pdf-box p14-spellgroup" data-level="${level}"><div class="pdf-title" data-level="${level}">${level===0?'Заговоры':`${level}-й круг`}${level?` · ячеек ${slots[level-1]||0}`:''}</div>${spells.filter(sp=>sp.lvl===level).map(sp=>`<div class="p14-spellrow">${esc(sp.ru)}</div>`).join('')}${Array.from({length:level===0?14:12},()=>'<div class="p14-spellrow"></div>').join('')}</section>`;
   const personality=C.personality||{};
   return `<div class="pdf-sheet">
     <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2014</span></div>
@@ -2518,13 +2557,13 @@ function renderSheet2014(){
       </div></header>
       <div class="p14-body">
         <div class="p14-col"><div class="p14-leftsplit"><div class="p14-abilities">${abilityBlocks}</div><div class="p14-col p14-leftside"><div class="pdf-box p14-insp"><span class="pdf-cap">вдохновение</span><div>${game.insp?'●':'○'}</div></div><div class="pdf-box p14-pb"><strong>${fmtMod(pb())}</strong><span class="pdf-cap">бонус владения</span></div><div class="pdf-box p14-saves"><div class="pdf-title">спасброски</div><div class="p14-list">${saveRows}</div></div><div class="pdf-box p14-skills"><div class="pdf-title">навыки</div><div class="p14-list">${skillRows}</div></div></div></div>
-          <div class="pdf-box"><div class="pdf-title">пассивная мудрость (восприятие) · ${passivePerception()}</div></div><div class="pdf-box" style="flex:1"><div class="pdf-title">прочие владения и языки</div><div class="pdf-small"><b>Доспехи:</b> ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}<br><b>Оружие:</b> ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}<br><b>Инструменты:</b> ${esc([...tools].join(', ')||'—')}<br><b>Языки:</b> ${esc([...new Set(langs)].join(', ')||'—')}</div></div></div>
-        <div class="p14-col"><div class="p14-status"><div class="pdf-box"><span class="pdf-cap">класс защиты</span><strong>${armorClass()}</strong></div><div class="pdf-box"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div></div>
+          <div class="pdf-box p14-passive"><strong>${passivePerception()}</strong><span>пассивная мудрость (восприятие)</span></div><div class="pdf-box" style="flex:1"><div class="pdf-title">прочие владения и языки</div><div class="pdf-small"><b>Доспехи:</b> ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}<br><b>Оружие:</b> ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}<br><b>Инструменты:</b> ${esc([...tools].join(', ')||'—')}<br><b>Языки:</b> ${esc([...new Set(langs)].join(', ')||'—')}</div></div></div>
+        <div class="p14-col"><div class="p14-status"><div class="pdf-box"><span class="pdf-cap">КЗ</span><strong>${armorClass()}</strong></div><div class="pdf-box"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div></div>
           <div class="pdf-box p14-hp"><div class="pdf-title">максимум хитов</div><div class="pdf-value">${maxHp()}</div><div class="pdf-small">Кость хитов: ${hitDiceStr()}</div></div>
           <div class="pdf-box p14-currenthp"><div class="pdf-title">текущие хиты</div><div class="pdf-row"><span>текущие</span><b>${game.hpCur!=null?game.hpCur:maxHp()}</b></div><div class="pdf-row"><span>временные</span><b>${game.hpTemp||0}</b></div><div class="pdf-lines" style="flex:1"></div></div>
           <div class="p14-status p14-dice"><div class="pdf-box"><div class="pdf-title">кости хитов</div><div class="pdf-value">${totalLvl()} · ${hitDiceStr()}</div></div><div class="pdf-box"><div class="pdf-title">спасброски от смерти</div><div class="pdf-small">Успехи ${[0,1,2].map(i=>game.dsOk>i?'●':'○').join(' ')}<br>Провалы ${[0,1,2].map(i=>game.dsFail>i?'●':'○').join(' ')}</div></div></div>
           <div class="pdf-box p14-attacks"><div class="pdf-title">атаки и заклинания</div><table class="p24-table"><tr><th>название</th><th>бонус атаки</th><th>урон / вид</th><th>заметки</th></tr>${weaponRows||'<tr><td colspan="4">—</td></tr>'}</table><div class="pdf-lines"></div></div>
-          <div class="pdf-box p14-equipment"><div class="pdf-title">снаряжение</div><div class="pdf-small">${(C.inventory||[]).map(it=>`${esc(itemName(it))}${(it.qty||1)>1?' ×'+it.qty:''}`).join('<br>')||'—'}</div><div class="pdf-lines"></div><div class="pdf-row pdf-small">${['ММ','СМ','ЗМ','ЭМ','ПМ'].map(c=>`<span>${c}<br>${c==='ЗМ'?C.gold||0:''}</span>`).join('')}</div></div>
+          <div class="pdf-box p14-equipment"><div class="pdf-row pdf-small">${['ММ','СМ','ЗМ','ЭМ','ПМ'].map(c=>`<span>${c}<br>${c==='ЗМ'?C.gold||0:''}</span>`).join('')}</div><div class="pdf-small">${(C.inventory||[]).map(it=>`${esc(itemName(it))}${(it.qty||1)>1?' ×'+it.qty:''}`).join('<br>')||'—'}</div><div class="pdf-lines"></div><div class="pdf-title">снаряжение</div></div>
         </div>
         <div class="p14-col"><div class="p14-personality">${[['Черты характера',personality.traits],['Идеалы',personality.ideals],['Привязанности',personality.bonds],['Слабости',personality.flaws]].map(([h,v])=>`<div class="pdf-box"><div class="pdf-lines">${esc(v||'')}</div><div class="pdf-title">${h}</div></div>`).join('')}</div><div class="pdf-box p14-features"><div class="pdf-title">умения и способности</div><ul>${feats.map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>'}</ul><div class="pdf-small">${[...(r.traits||[]),...(sub?.traits||[])].map(esc).join('<br>')}</div></div></div>
       </div>
