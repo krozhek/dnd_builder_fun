@@ -248,7 +248,7 @@ label.chk.wide{flex-basis:45%}
 <div id="modal"></div>
 <div id="app"></div>
 <script>
-// Статические данные SRD 5.1 (D&D 5e 2014), русская локализация
+// Статические данные D&D 5e (2014); источники и ограничения перечислены в CONTENT_SOURCES.md
 const ABILS=[['str','Сила'],['dex','Ловкость'],['con','Телосложение'],['int','Интеллект'],['wis','Мудрость'],['cha','Харизма']];
 const ABIL_RU_FULL={str:'Сила',dex:'Ловкость',con:'Телосложение',int:'Интеллект',wis:'Мудрость',cha:'Харизма'};
 const SKILLS=[ // [id, название, характеристика]
@@ -1576,7 +1576,7 @@ function renderHome(){
       <label class="btn" for="importFile2">⬆ Импорт персонажа / копии</label><input type="file" id="importFile2" accept=".json" hidden onchange="importJson(this)">
     </div>
     <div class="grid cards">${cards||'<p class="muted">Пока пусто. Создайте первого героя!</p>'}</div>
-    <footer class="foot muted small">Правила: D&D 5e (2014), SRD 5.1 · Названия заклинаний: 5e14.ttg.club · Работает офлайн, данные хранятся в браузере</footer>
+    <footer class="foot muted small">D&D 5e (2014) · SRD 5.1 и дополнительные материалы PHB/«Котла Таши» · источники: README · Работает офлайн, данные хранятся в браузере</footer>
   </div>`;
 }
 function createChar(){C=newChar();persist();TAB='main';render()}
