@@ -1216,21 +1216,29 @@ function newChar(){
   };
 }
 
-let LIB=[], C=null, TAB='home', THEME=localStorage.getItem(LS_THEME)||'dark';
+let LIB=[], C=null, TAB='home', THEME=localStorage.getItem(LS_THEME)||'dark', STORAGE_WARNING_SHOWN=false;
 
 function loadLib(){
   try{LIB=JSON.parse(localStorage.getItem(LS_KEY)||'[]')}catch(e){LIB=[]}
   if(!Array.isArray(LIB))LIB=[];
 }
-function saveLib(){localStorage.setItem(LS_KEY,JSON.stringify(LIB))}
+function warnStorage(){
+  if(STORAGE_WARNING_SHOWN)return;
+  STORAGE_WARNING_SHOWN=true;
+  alert('Не удалось сохранить данные персонажей в браузере. Скачайте резервную копию и проверьте свободное место в хранилище.');
+}
+function saveLib(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify(LIB));STORAGE_WARNING_SHOWN=false;return true}
+  catch(e){console.error('Не удалось сохранить библиотеку персонажей',e);warnStorage();return false}
+}
 function persist(){
   if(!C)return;
   C.updated=Date.now();
   const i=LIB.findIndex(c=>c.id===C.id);
   const snap=JSON.parse(JSON.stringify(C));
   if(i>=0)LIB[i]=snap;else LIB.push(snap);
-  saveLib();
-  localStorage.setItem(LS_CUR,C.id);
+  if(!saveLib())return;
+  try{localStorage.setItem(LS_CUR,C.id)}catch(e){console.error('Не удалось сохранить текущего персонажа',e);warnStorage()}
 }
 function openChar(id){
   const f=LIB.find(c=>c.id===id);
@@ -1561,9 +1569,10 @@ function renderHome(){
     </div>`}).join('');
   return `<div class="page">
     <h1>Мои герои</h1>
-    <div class="row gap">
+    <div class="row gap wrap">
       <button class="btn primary" onclick="createChar()">＋ Новый персонаж</button>
-      <label class="btn" for="importFile2">⬆ Импорт из JSON</label><input type="file" id="importFile2" accept=".json" hidden onchange="importJson(this)">
+      <button class="btn ghost" onclick="exportLibrary()" ${LIB.length?'':'disabled'}>⬇ Резервная копия</button>
+      <label class="btn" for="importFile2">⬆ Импорт персонажа / копии</label><input type="file" id="importFile2" accept=".json" hidden onchange="importJson(this)">
     </div>
     <div class="grid cards">${cards||'<p class="muted">Пока пусто. Создайте первого героя!</p>'}</div>
     <footer class="foot muted small">Правила: D&D 5e (2014), SRD 5.1 · Названия заклинаний: 5e14.ttg.club · Работает офлайн, данные хранятся в браузере</footer>
@@ -1588,17 +1597,39 @@ function exportJson(){
   a.download=(C.name||'character').replace(/[\\/:*?"<>|]/g,'_')+'.json';
   a.click();URL.revokeObjectURL(a.href);
 }
+function exportLibrary(){
+  const backup={format:'dnd-builder-backup',version:1,exportedAt:new Date().toISOString(),characters:LIB};
+  const blob=new Blob([JSON.stringify(backup,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`dnd-builder-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+}
+function validCharacter(ch){
+  return !!ch&&typeof ch==='object'&&!Array.isArray(ch)&&typeof ch.name==='string'&&Array.isArray(ch.classes)&&ch.classes.length>0&&ch.classes.every(c=>c&&CLASSES[c.cls]&&Number.isInteger(c.lvl)&&c.lvl>=1&&c.lvl<=20);
+}
 function importJson(inp){
   const f=inp.files[0];if(!f)return;
   const r=new FileReader();
   r.onload=()=>{
     try{
       const data=JSON.parse(r.result);
-      const ch=migrate(data);
-      ch.id=uid();ch.updated=Date.now();
-      LIB.push(ch);saveLib();
-      if(C&&TAB!=='home'){openChar(ch.id)}else{render()}
-      alert('Персонаж «'+ch.name+'» импортирован');
+      if(data&&data.format==='dnd-builder-backup'){
+        if(data.version!==1||!Array.isArray(data.characters)||!data.characters.every(validCharacter))throw new Error('Некорректная резервная копия');
+        if(!confirm(`Заменить текущую библиотеку резервной копией (${data.characters.length} персонажей)?`)){inp.value='';return}
+        const previous=LIB;
+        LIB=data.characters.map(migrate);
+        if(!saveLib()){LIB=previous;return}
+        C=null;TAB='home';render();
+        alert(`Восстановлено персонажей: ${LIB.length}`);
+      }else{
+        if(!validCharacter(data))throw new Error('Файл не содержит корректного персонажа или резервной копии');
+        const ch=migrate(data);
+        ch.id=uid();ch.updated=Date.now();
+        LIB.push(ch);if(!saveLib()){LIB.pop();return}
+        if(C&&TAB!=='home'){openChar(ch.id)}else{render()}
+        alert('Персонаж «'+ch.name+'» импортирован');
+      }
     }catch(e){alert('Не удалось прочитать файл: '+e.message)}
     inp.value='';
   };
