@@ -252,6 +252,7 @@ test('Tasha optional class features can be selected and appear on character shee
   c.choices.tashaFeatures = { barbarian: ['primal_knowledge', 'instinctive_pounce'] };
   api.setChar(c);
   const html = api.renderClass();
+  assert.match(html, /data-tasha-features="barbarian"/);
   assert.match(html, /type="checkbox" checked onchange="toggleTashaFeature\('barbarian','primal_knowledge',this.checked\)"/);
   assert.match(html, /Умения из «Котла Таши»/);
   assert.match(api.renderSheet2014(), /Природные знания \(Таша\)/);

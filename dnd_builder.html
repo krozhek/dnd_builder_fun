@@ -1668,12 +1668,15 @@ function toggleTashaFeature(cls,id,on){
   C.choices.tashaFeatures=C.choices.tashaFeatures||{};
   const selected=new Set(C.choices.tashaFeatures[cls]||[]);
   on?selected.add(id):selected.delete(id);
-  C.choices.tashaFeatures[cls]=[...selected];persist();render();
+  C.choices.tashaFeatures[cls]=[...selected];
+  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
+  persist();render();
+  if(wasOpen){const details=$(selector);if(details)details.open=true}
 }
 function tashaFeaturePicker(c){
   const options=TASHA_FEATURES[c.cls]||[];if(!options.length)return '';
   const selected=(C.choices.tashaFeatures||{})[c.cls]||[];
-  return `<details><summary>Умения из «Котла Таши» · выбрано ${selectedTashaFeatures(c).length}</summary><div class="col-list">${options.map(([id,lvl,name,desc])=>`<label class="chk wide"><input type="checkbox" ${selected.includes(id)?'checked':''}${lvl>c.lvl?' disabled':''} onchange="toggleTashaFeature('${c.cls}','${id}',this.checked)"><span><b>${name}</b> (${lvl} ур.) <span class="tag">Таша</span><br><span class="muted small">${desc}</span></span></label>`).join('')}</div><p class="muted small">Выбор сохраняется в карточке и отображается в разделе умений листа; игровые расчёты не меняются.</p></details>`;
+  return `<details data-tasha-features="${c.cls}"><summary>Умения из «Котла Таши» · выбрано ${selectedTashaFeatures(c).length}</summary><div class="col-list">${options.map(([id,lvl,name,desc])=>`<label class="chk wide"><input type="checkbox" ${selected.includes(id)?'checked':''}${lvl>c.lvl?' disabled':''} onchange="toggleTashaFeature('${c.cls}','${id}',this.checked)"><span><b>${name}</b> (${lvl} ур.) <span class="tag">Таша</span><br><span class="muted small">${desc}</span></span></label>`).join('')}</div><p class="muted small">Выбор сохраняется в карточке и отображается в разделе умений листа; игровые расчёты не меняются.</p></details>`;
 }
 // классовые умения, доступные на уровне
 function availableFeats(){
