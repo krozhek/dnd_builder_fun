@@ -1697,6 +1697,52 @@ function asiPending(){
   const have=Object.keys(C.asi||{}).length;
   return {need,have};
 }
+function characterReadiness(){
+  const issues=[],add=(tab,text,recommended=false)=>issues.push({tab,text,recommended}),r=raceOf(),sub=subraceOf();
+  if(r.subs&&!C.subrace)add('main','Выберите подрасу.');
+  if(r.asiChoice&&(C.halfElfPicks||[]).filter(Boolean).length<r.asiChoice.count)add('abil',`Выберите ещё ${r.asiChoice.count-(C.halfElfPicks||[]).filter(Boolean).length} бонуса характеристики от расы.`);
+  if(r.flexibleAsi){const count=C.raceAsiMode==='three'?3:2,picks=(C.raceAsiPicks||[]).filter(Boolean);if(new Set(picks).size<count)add('abil',`Распределите расовые бонусы характеристик: выберите ${count} разные характеристики.`)}
+  if(r.skillChoice&&(C.raceSkills||[]).length<r.skillChoice)add('skills',`Выберите ещё ${r.skillChoice-(C.raceSkills||[]).length} расовых навыка.`);
+  const langs=C.extraLangs||[],langCount=languageChoiceCount(),chosenLangs=langs.slice(0,langCount).filter(Boolean);
+  if(chosenLangs.length<langCount)add('main',`Выберите ещё ${langCount-chosenLangs.length} язык(а).`);
+  if(new Set(chosenLangs).size<chosenLangs.length)add('main','Уберите повторяющиеся языки.');
+  for(const choice of racialCantripChoices())if(!(C.racialSpells||{})[choice.key])add('spells',`Выберите расовый заговор: ${choice.name}.`);
+  for(const c of C.classes){
+    const cl=CLASSES[c.cls],picks=(C.classSkills||{})[c.cls]||[];
+    if(picks.length<cl.skillCount)add('skills',`${cl.name}: выберите ещё ${cl.skillCount-picks.length} навыка класса.`);
+    if(cl.sub&&c.lvl>=cl.subLvl&&!c.sub)add('main',`Выберите подкласс для класса «${cl.name}».`);
+    const subcl=SUBCLASSES[c.sub];
+    if(subcl?.choices)for(const [lvl,block] of Object.entries(subcl.choices))if(c.lvl>=+lvl&&!C.choices[`hunter_${lvl}`])add('cls',`Выберите умение «${block.name}» (${lvl} ур.).`);
+    if(c.cls==='ranger'&&c.lvl>=1){const variants=(C.choices.tashaFeatures||{}).ranger||[];if(!C.choices.favoredEnemy&&!variants.includes('favored_foe'))add('cls','Выберите «Избранного врага» или вариант из «Котла Таши».');if(!C.choices.favoredTerrain&&!variants.includes('deft_explorer'))add('cls','Выберите «Избранную местность» или вариант «Искусный исследователь» из «Котла Таши».')}
+    if(c.cls==='druid'&&c.sub==='land'&&c.lvl>=2&&!C.choices.druidLand)add('cls','Выберите местность для круга друида.');
+    if(c.cls==='sorcerer'&&c.sub==='draconic'&&!C.choices.draconicType)add('cls','Выберите тип дракона-прародителя.');
+    if(c.cls==='warlock'){
+      if(c.lvl>=3&&!C.choices.pactBoon)add('cls','Выберите договорный дар колдуна.');
+      const invMax=TABLES.warlock.invocations[c.lvl-1]||0;if((C.choices.invocations||[]).length<invMax)add('cls',`Выберите мистические откровения: ${(C.choices.invocations||[]).length}/${invMax}.`);
+      if(c.lvl>=11){const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`)}
+    }
+    if(c.cls==='sorcerer'&&c.lvl>=3){const max=c.lvl>=17?4:c.lvl>=10?3:2;if((C.choices.metamagic||[]).length<max)add('cls',`Выберите приёмы Метамагии: ${(C.choices.metamagic||[]).length}/${max}.`)}
+    const cantrips=cantripLimit(c.cls),selectedCantrips=(C.cantrips||{})[c.cls]||[];if(cantrips>selectedCantrips.length)add('spells',`${cl.name}: выберите заговоры (${selectedCantrips.length}/${cantrips}).`);
+    const known=knownLimit(c.cls),knownSelected=(C.spellsKnown||{})[c.cls]||[];if(known>knownSelected.length)add('spells',`${cl.name}: выберите известные заклинания (${knownSelected.length}/${known}).`);
+    if(c.cls==='wizard'){const min=6+(c.lvl-1)*2;if((C.spellbook||[]).length<min)add('spells',`Книга волшебника: рекомендуется не менее ${min} заклинаний.`,true)}
+  }
+  const styleRequired=C.classes.some(c=>(c.cls==='fighter'&&c.lvl>=1)||(['paladin','ranger'].includes(c.cls)&&c.lvl>=2));
+  if(styleRequired&&!C.choices.fightingStyle)add('cls','Выберите боевой стиль.');
+  const {need}=asiPending();
+  for(let i=0;i<need;i++){
+    const a=(C.asi||{})['asi'+i];let complete=false;
+    if(Array.isArray(a))complete=a.length===2;
+    else if(a?.type==='asi')complete=(a.vals||[]).length===2;
+    else if(a?.type==='feat'&&a.id){const feat=FEATS.find(f=>f[0]===a.id);complete=!!feat&&(!feat[3]||!!a.bonus)}
+    if(!complete)add('abil',`Заполните увеличение характеристики или черту #${i+1}.`);
+  }
+  return issues;
+}
+function renderReadiness(){
+  const issues=characterReadiness(),required=issues.filter(i=>!i.recommended),recommended=issues.filter(i=>i.recommended);
+  const rows=[...required,...recommended].map(i=>`<li>${i.recommended?'Рекомендуется: ':''}<button class="btn ghost sm" onclick="setTab('${i.tab}')">${esc(i.text)}</button></li>`).join('');
+  return `<div class="card"><h3>Проверка заполнения</h3>${issues.length?`<p class="warn">Незавершённых выборов: ${required.length}${recommended.length?` · рекомендаций: ${recommended.length}`:''}</p><ul>${rows}</ul><p class="muted small">Это подсказки: они не блокируют сохранение и печать.</p>`:'<p class="ok-t">Обязательные выборы заполнены.</p>'}</div>`;
+}
 // ================= Рендер интерфейса =================
 const TABS=[['home','Герои'],['main','Основное'],['abil','Характеристики'],['skills','Навыки','Здесь выбираются владения навыками (от класса, расы, предыстории) и компетентность плута/барда.\nКаждое владение добавляет бонус мастерства к проверкам навыка, меняет модификаторы в быстрых проверках (Игра) и на листе персонажа.'],['cls','Класс'],['spells','Заклинания'],['equip','Снаряжение'],['game','Игра'],['sheet','Лист']];
 function setTab(t){TAB=t;render();window.scrollTo(0,0)}
@@ -1837,6 +1883,15 @@ function importJson(inp){
 }
 
 // ---------- Основное ----------
+function languageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
+function setExtraLang(index,value){C.extraLangs=C.extraLangs||[];C.extraLangs[index]=value;persist();render()}
+function languageChoiceFields(){
+  const r=raceOf(),langs=C.extraLangs||[];
+  return Array.from({length:languageChoiceCount()},(_,i)=>{
+    const selected=langs[i]||'',used=[...(r.langs||[]),...langs.filter((l,j)=>j!==i&&l)];
+    return `<label>Язык на выбор ${i+1}<select onchange="setExtraLang(${i},this.value)"><option value="">— выберите —</option>${LANGS.filter(l=>!used.includes(l)||l===selected).map(l=>`<option${selected===l?' selected':''}>${l}</option>`).join('')}</select></label>`;
+  }).join('');
+}
 function renderMain(){
   const r=raceOf(), s=subraceOf();
   const raceOpts=Object.entries(RACES).map(([id,x])=>`<option value="${id}"${C.race===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
@@ -1853,8 +1908,8 @@ function renderMain(){
       </div>
       ${c.lvl<CLASSES[c.cls].subLvl?`<div class="warn small">Подкласс открывается на ${CLASSES[c.cls].subLvl} уровне</div>`:''}
     </div>`).join('');
-  return `<div class="page">
-    <h1>Основное</h1>
+  return `<div class="page"><h1>Основное</h1>
+    ${renderReadiness()}
     <div class="grid two">
       <div class="card">
         <h3>Личность</h3>
@@ -1864,7 +1919,7 @@ function renderMain(){
           ${subOpts||'<span></span>'}
         </div>
         ${C.race==='dragonborn'?`<label>Прародитель-дракон<select onchange="setField('dragonColor',this.value);render()">${DRAGONS.map((d,i)=>`<option value="${['black','blue','brass','bronze','copper','gold','green','red','silver','white'][i]}"${C.dragonColor===['black','blue','brass','bronze','copper','gold','green','red','silver','white'][i]?' selected':''}>${d[0][0].toUpperCase()+d[0].slice(1)} (${d[1]}, ${d[2]})</option>`).join('')}</select>`:''}
-        <label>Предыстория<select onchange="setField('bg',this.value);render()">${bgOpts}</select></label>
+        <label>Предыстория<select onchange="changeBackground(this.value)">${bgOpts}</select></label>
         <div class="bg-desc" onclick="openBgModal('${C.bg}')">📖 ${esc(bg.name)}${bg.src?' ('+bg.src+')':''} — нажмите для описания</div>
         <div class="grid two">
           <label>Мировоззрение<select onchange="setField('align',this.value)">${ALIGN.map(a=>`<option${C.align===a?' selected':''}>${a}</option>`).join('')}</select></label>
@@ -1875,8 +1930,8 @@ function renderMain(){
       <div class="card">
         <h3>Расовые черты${r.src?' ('+r.src+')':''}</h3>
         <ul class="traits">${r.traits.map(t=>`<li>${esc(t)}</li>`).join('')}${s?s.traits.map(t=>`<li>${esc(t)}</li>`).join(''):''}</ul>
-        <div class="muted small">Скорость: ${speed()} фт · Языки: ${[...r.langs,...(C.extraLangs||[])].join(', ')||'—'}</div>
-        ${r.extraLang?`<label>+${r.extraLang} язык на выбор<select onchange="C.extraLangs=[this.value];persist();render()"><option value="">— выберите —</option>${LANGS.filter(l=>!r.langs.includes(l)).map(l=>`<option${(C.extraLangs||[])[0]===l?' selected':''}>${l}</option>`).join('')}</select></label>`:''}
+        <div class="muted small">Скорость: ${speed()} фт · Языки: ${[...r.langs,...(C.extraLangs||[]).filter(Boolean)].join(', ')||'—'}</div>
+        <div class="grid two">${languageChoiceFields()}</div>
         ${r.asiChoice?`<div class="hint">Полуэльф: +1 к двум характеристикам (кроме Хар) — выберите на вкладке «Характеристики»</div>`:''}
       </div>
     </div>
@@ -1897,7 +1952,8 @@ function renderMain(){
 }
 function updTabChar(){const el=$('.tab-char');if(el)el.innerHTML=`${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}`}
 function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
-function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
+function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
+function changeBackground(v){C.bg=v;C.extraLangs=[];persist();render()}
 function changeClass(i,v){C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';persist();render()}
 function changeLvl(i,v){C.classes[i].lvl=+v;persist();render()}
 function changeSub(i,v){C.classes[i].sub=v;persist();render()}
@@ -2648,8 +2704,8 @@ function renderSheet2014(){
   const weaponRows=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('');
   const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
   C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
-  const langs=[...new Set([...(r.langs||[]),...(C.extraLangs||[])])];
-  for(let i=0;i<(BACKGROUNDS[C.bg].langs||0);i++)langs.push('на выбор');
+  const langs=[...(r.langs||[])];
+  for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');
   if(C.classes.some(c=>c.cls==='druid'))langs.push('Друидический');
   if(C.classes.some(c=>c.cls==='rogue'))langs.push('Воровской жаргон');
   const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();
@@ -2708,8 +2764,8 @@ function renderSheet2024(){
   const features=[...availableFeats(),...chosenTashaFeatures(),...(bgFeat?[{lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]}]:[])].map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>';
   const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
   C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
-  const langs=[...new Set([...(race.langs||[]),...(C.extraLangs||[])])];
-  for(let i=0;i<(BACKGROUNDS[C.bg].langs||0);i++)langs.push('на выбор');
+  const langs=[...(race.langs||[])];
+  for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');
   const profs=`Доспехи: ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}.<br>Оружие: ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}.<br>Инструменты: ${esc([...tools].join(', ')||'—')}<br>Языки: ${esc([...new Set(langs)].join(', ')||'—')}`;
   const weapons=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('')||'<tr><td colspan="4">—</td></tr>';
   const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();

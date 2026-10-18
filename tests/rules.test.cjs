@@ -29,7 +29,7 @@ globalThis.api = {
   renderMain, renderAbil, renderClass, renderSheet,
   renderSheet2014,
   renderSheet2024,
-  RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats,
+  RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount,
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -244,6 +244,23 @@ test('AAG background feat appears on both character-sheet styles', () => {
   api.setChar(c);
   assert.match(api.renderSheet2014(), /Посвящённый в магию: жрец \(PHB\) \(AAG\)/);
   assert.match(api.renderSheet2024(), /Посвящённый в магию: жрец \(PHB\) \(AAG\)/);
+});
+
+test('readiness checklist reports missing race, language, skill, and class choices', () => {
+  const c = character();
+  c.race = 'halfelf';
+  c.bg = 'acolyte';
+  api.setChar(c);
+  const issues = api.characterReadiness();
+  assert.equal(api.languageChoiceCount(), 3);
+  assert.ok(issues.some(i => i.tab === 'main' && i.text.includes('язык')));
+  assert.ok(issues.some(i => i.tab === 'abil' && i.text.includes('характеристики')));
+  assert.ok(issues.some(i => i.tab === 'skills' && i.text.includes('навыка')));
+  assert.ok(issues.some(i => i.tab === 'cls' && i.text.includes('боевой стиль')));
+  const html = api.renderMain();
+  assert.match(html, /Проверка заполнения/);
+  assert.equal((html.match(/Язык на выбор/g) || []).length, 3);
+  assert.match(html, /не блокируют сохранение и печать/);
 });
 
 test('Tasha optional class features can be selected and appear on character sheets', () => {
