@@ -26,10 +26,10 @@ globalThis.api = {
   setSpellQuery,
   spellPicker, renderWizardSpells, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
-  renderMain, renderAbil, renderSheet,
+  renderMain, renderAbil, renderClass, renderSheet,
   renderSheet2014,
   renderSheet2024,
-  RACES, BACKGROUNDS, racialAsi,
+  RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats,
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -244,4 +244,22 @@ test('AAG background feat appears on both character-sheet styles', () => {
   api.setChar(c);
   assert.match(api.renderSheet2014(), /Посвящённый в магию: жрец \(PHB\) \(AAG\)/);
   assert.match(api.renderSheet2024(), /Посвящённый в магию: жрец \(PHB\) \(AAG\)/);
+});
+
+test('Tasha optional class features can be selected and appear on character sheets', () => {
+  const c = character();
+  c.classes = [{ cls: 'barbarian', lvl: 7, sub: 'berserk' }];
+  c.choices.tashaFeatures = { barbarian: ['primal_knowledge', 'instinctive_pounce'] };
+  api.setChar(c);
+  const html = api.renderClass();
+  assert.match(html, /type="checkbox" checked onchange="toggleTashaFeature\('barbarian','primal_knowledge',this.checked\)"/);
+  assert.match(html, /Умения из «Котла Таши»/);
+  assert.match(api.renderSheet2014(), /Природные знания \(Таша\)/);
+  assert.match(api.renderSheet2024(), /Инстинктивный бросок \(Таша\)/);
+
+  c.classes = [{ cls: 'ranger', lvl: 1, sub: 'hunter' }];
+  c.choices.tashaFeatures = { ranger: ['deft_explorer', 'favored_foe'] };
+  api.setChar(c);
+  assert.equal(api.availableFeats().some(f => f.name === 'Естественный исследователь' || f.name === 'Избранный враг'), false);
+  assert.equal(api.TASHA_FEATURES.ranger.length, 6);
 });
