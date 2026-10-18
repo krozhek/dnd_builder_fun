@@ -1,4 +1,5 @@
 const { readFileSync } = require('node:fs');
+const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
@@ -266,6 +267,12 @@ test('readiness checklist reports missing race, language, skill, and class choic
   assert.match(html, /Проверка заполнения/);
   assert.equal((html.match(/Язык на выбор/g) || []).length, 3);
   assert.match(html, /не блокируют сохранение и печать/);
+});
+
+test('content source audit reports untagged records without inventing sources', () => {
+  const report = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'audit-content-sources.cjs')], { encoding: 'utf8' });
+  assert.match(report, /SPELLS\s+319\s+Source not recorded/);
+  assert.match(report, /без источника на записи: 355/);
 });
 
 test('Tasha optional class features can be selected and appear on character sheets', () => {

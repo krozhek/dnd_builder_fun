@@ -1,0 +1,37 @@
+{
+  "PHB": {
+    "title": "Player's Handbook (2014)",
+    "kind": "sourcebook",
+    "status": "label-present; distribution terms not independently verified"
+  },
+  "Таша": {
+    "title": "Tasha's Cauldron of Everything",
+    "kind": "sourcebook",
+    "status": "label-present; distribution terms not independently verified"
+  },
+  "AAG": {
+    "title": "Astral Adventurer's Guide",
+    "kind": "sourcebook",
+    "status": "label-present; distribution terms not independently verified"
+  },
+  "SRD 5.1": {
+    "title": "Systems Reference Document 5.1",
+    "kind": "rules reference",
+    "status": "source label recorded; verify text and license before redistribution"
+  },
+  "Open5e": {
+    "title": "Open5e database",
+    "kind": "data aggregator",
+    "status": "mentioned as an input; per-entry attribution is incomplete"
+  },
+  "5e14.ttg.club": {
+    "title": "5e14.ttg.club",
+    "kind": "reference site",
+    "status": "mentioned as an input; per-entry attribution is incomplete"
+  },
+  "UNATTRIBUTED": {
+    "title": "Source not recorded on the individual entry",
+    "kind": "unknown",
+    "status": "requires source research; do not infer a source from absence of a label"
+  }
+}
