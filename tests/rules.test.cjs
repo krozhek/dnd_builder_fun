@@ -181,6 +181,9 @@ test('racial spell choices are separate from class limits and appear on sheets',
   assert.equal(entries.length, 1);
   assert.equal(entries[0].spell.id, 'sacred_flame');
   assert.equal(entries[0].ability, 'cha');
+  assert.equal(entries[0].saveDc, 10);
+  assert.equal(entries[0].attackBonus, 2);
+  assert.match(api.renderSpells(), /КС 10 · бонус атаки \+2/);
   assert.equal(c.cantrips.fighter, undefined);
   assert.match(api.renderSheet2014(), /Священное пламя.*дар расы/);
   assert.match(api.renderSheet2024(), /Священное пламя/);
@@ -189,6 +192,8 @@ test('racial spell choices are separate from class limits and appear on sheets',
   c.racialSpells = {};
   api.setChar(c);
   assert.equal(api.racialSpellEntries().map(x => x.spell.id).join(','), 'thaumaturgy');
+  assert.equal(api.racialSpellEntries()[0].saveDc, 11);
+  assert.equal(api.racialSpellEntries()[0].attackBonus, 3);
   c.classes[0].lvl = 3;
   assert.ok(api.racialSpellEntries().some(x => x.spell.id === 'hellish_rebuke'));
   c.classes[0].lvl = 5;

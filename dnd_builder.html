@@ -1554,8 +1554,10 @@ function pactSlots(){
   return {count:t.pactSlots[w.lvl-1],level:t.pactLevel[w.lvl-1]};
 }
 function spellAbilityOf(cls){if(cls==='fighter'||cls==='rogue')return 'int';return CLASSES[cls].spellAbility}
-function spellSaveDc(cls){return 8+pb()+am(spellAbilityOf(cls))}
-function spellAttack(cls){return pb()+am(spellAbilityOf(cls))}
+function spellSaveDcForAbility(ability){return 8+pb()+am(ability)}
+function spellAttackForAbility(ability){return pb()+am(ability)}
+function spellSaveDc(cls){return spellSaveDcForAbility(spellAbilityOf(cls))}
+function spellAttack(cls){return spellAttackForAbility(spellAbilityOf(cls))}
 function knownLimit(cls){
   const c=C.classes.find(x=>x.cls===cls);if(!c)return 0;
   const t=TABLES[cls];
@@ -2213,7 +2215,7 @@ function racialCantripChoices(){
   return choices.map(c=>({...c,spells:c.spells||c.ids.map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean)}));
 }
 function racialSpellEntries(){
-  const entries=[],add=(id,ability,minLevel=1,usage='Постоянно')=>{const spell=SPELLS.find(s=>s.id===id);if(spell&&totalLvl()>=minLevel)entries.push({spell,ability,usage})};
+  const entries=[],add=(id,ability,minLevel=1,usage='Постоянно')=>{const spell=SPELLS.find(s=>s.id===id);if(spell&&totalLvl()>=minLevel)entries.push({spell,ability,usage,saveDc:spellSaveDcForAbility(ability),attackBonus:spellAttackForAbility(ability)})};
   for(const choice of racialCantripChoices()){
     const id=(C.racialSpells||{})[choice.key],ability=(C.racialSpells||{})[choice.key+'Ability']||choice.defaultAbility||choice.ability;
     if(id&&choice.spells.some(s=>s.id===id))add(id,ability,1,'Заговор');
@@ -2233,8 +2235,8 @@ function renderRacialSpells(){
   const choices=racialCantripChoices(),entries=racialSpellEntries();if(!choices.length&&!entries.length)return '';
   const abilityName=id=>ABIL_RU_FULL[id]||id;
   return `<div class="card"><h3>Заклинания, дарованные расой</h3><p class="hint">Эти заговоры и заклинания получены от вида и не расходуют лимит выбора класса.</p>
-    ${choices.map(c=>{const selected=(C.racialSpells||{})[c.key]||'',ability=(C.racialSpells||{})[c.key+'Ability']||c.defaultAbility||c.ability;return `<h4>${c.name} — выберите один заговор</h4>${c.abilities?`<label>Базовая характеристика<select onchange="setRacialSpellAbility('${c.key}',this.value)">${c.abilities.map(a=>`<option value="${a}"${ability===a?' selected':''}>${abilityName(a)}</option>`).join('')}</select></label>`:''}<div class="spell-grid">${c.spells.map(s=>`<div class="spell-row${selected===s.id?' picked':''}" data-search="${spellSearchData(s)}"><label class="chk"><input type="radio" name="racial_${c.key}" ${selected===s.id?'checked':''} onchange="setRacialSpell('${c.key}','${s.id}')"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label><span class="tag">Дар расы</span></div>`).join('')}</div>`}).join('')}
-    ${entries.filter(e=>!choices.some(c=>(C.racialSpells||{})[c.key]===e.spell.id)).map(e=>`<div class="spell-row" data-search="${spellSearchData(e.spell)}"><span class="spell-name" onclick="spellNameClick(event,'${e.spell.id}')">${esc(e.spell.ru)}</span><span class="muted small">${e.usage}${e.ability?' · '+abilityName(e.ability):''}</span><span class="tag">Дар расы</span></div>`).join('')}
+    ${choices.map(c=>{const selected=(C.racialSpells||{})[c.key]||'',ability=(C.racialSpells||{})[c.key+'Ability']||c.defaultAbility||c.ability,spell=entries.find(e=>e.spell.id===selected);return `<h4>${c.name} — выберите один заговор</h4>${c.abilities?`<label>Базовая характеристика<select onchange="setRacialSpellAbility('${c.key}',this.value)">${c.abilities.map(a=>`<option value="${a}"${ability===a?' selected':''}>${abilityName(a)}</option>`).join('')}</select></label>`:''}<div class="spell-grid">${c.spells.map(s=>`<div class="spell-row${selected===s.id?' picked':''}" data-search="${spellSearchData(s)}"><label class="chk"><input type="radio" name="racial_${c.key}" ${selected===s.id?'checked':''} onchange="setRacialSpell('${c.key}','${s.id}')"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label><span class="tag">Дар расы</span></div>`).join('')}</div>${spell?`<p class="muted small">${abilityName(spell.ability)} · КС ${spell.saveDc} · бонус атаки ${fmtMod(spell.attackBonus)}</p>`:''}`}).join('')}
+    ${entries.filter(e=>!choices.some(c=>(C.racialSpells||{})[c.key]===e.spell.id)).map(e=>`<div class="spell-row" data-search="${spellSearchData(e.spell)}"><span class="spell-name" onclick="spellNameClick(event,'${e.spell.id}')">${esc(e.spell.ru)}</span><span class="muted small">${e.usage}${e.ability?' · '+abilityName(e.ability):''}${e.ability?` · КС ${e.saveDc} · атака ${fmtMod(e.attackBonus)}`:''}</span><span class="tag">Дар расы</span></div>`).join('')}
   </div>`;
 }
 function renderSpells(){
