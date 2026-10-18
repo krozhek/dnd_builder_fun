@@ -25,6 +25,7 @@ globalThis.api = {
   newChar, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
   setSpellQuery,
   spellPicker, renderWizardSpells, spellNameClick, SPELLS,
+  renderSpells, racialCantripChoices, racialSpellEntries,
   renderMain, renderAbil, renderSheet,
   renderSheet2014,
   renderSheet2024,
@@ -160,6 +161,50 @@ test('2024 sheet renders four printable pages with character data', () => {
   assert.match(html, /Test hero/);
   assert.match(html, /Героическое вдохновение/);
   assert.doesNotMatch(html, /Long Story Short/);
+});
+
+test('racial spell choices are separate from class limits and appear on sheets', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  c.race = 'astralelf';
+  api.setChar(c);
+  const html = api.renderSpells();
+  assert.match(html, /Астральный огонь/);
+  assert.match(html, /name="racial_astralelf"/);
+  assert.match(html, /Дар расы/);
+  assert.equal(api.racialCantripChoices()[0].spells.length, 3);
+
+  c.racialSpells.astralelf = 'sacred_flame';
+  c.racialSpells.astralelfAbility = 'cha';
+  api.setChar(c);
+  const entries = api.racialSpellEntries();
+  assert.equal(entries.length, 1);
+  assert.equal(entries[0].spell.id, 'sacred_flame');
+  assert.equal(entries[0].ability, 'cha');
+  assert.equal(c.cantrips.fighter, undefined);
+  assert.match(api.renderSheet2014(), /Священное пламя.*дар расы/);
+  assert.match(api.renderSheet2024(), /Священное пламя/);
+
+  c.race = 'tiefling';
+  c.racialSpells = {};
+  api.setChar(c);
+  assert.equal(api.racialSpellEntries().map(x => x.spell.id).join(','), 'thaumaturgy');
+  c.classes[0].lvl = 3;
+  assert.ok(api.racialSpellEntries().some(x => x.spell.id === 'hellish_rebuke'));
+  c.classes[0].lvl = 5;
+  assert.ok(api.racialSpellEntries().some(x => x.spell.id === 'darkness'));
+  c.race = 'elf';
+  c.subrace = 'drow';
+  api.setChar(c);
+  assert.ok(api.racialSpellEntries().some(x => x.spell.id === 'faerie_fire'));
+  c.race = 'gnome';
+  c.subrace = 'forest';
+  api.setChar(c);
+  assert.ok(api.racialSpellEntries().some(x => x.spell.id === 'minor_illusion'));
+  c.race = 'elf';
+  c.subrace = 'high';
+  api.setChar(c);
+  assert.ok(api.racialCantripChoices()[0].spells.length > 0);
 });
 
 test('AAG species and backgrounds carry source tags in the builder', () => {

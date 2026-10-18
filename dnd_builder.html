@@ -1362,7 +1362,7 @@ function newChar(){
     classSkills:{}, raceSkills:[], expertise:[],
     languages:['Общий'], extraLangs:[],
     choices:{}, // fightingStyle, favoredEnemy, favoredTerrain, hunter{3,7,11,15}, pactBoon, druidLand, metamagic[], invocations[]
-    cantrips:{}, spellsKnown:{}, spellsPrepared:{}, spellbook:[], arcanum:{},
+    cantrips:{}, spellsKnown:{}, spellsPrepared:{}, spellbook:[], arcanum:{}, racialSpells:{},
     equipChoice:{}, goldMode:'equipment', gold:0, inventory:[], attunement:['','',''],
     game:{hpCur:null,hpTemp:0,hdUsed:0,slotsUsed:{},pactUsed:0,resources:{},dsOk:0,dsFail:0,conditions:'',notes:'',insp:false,exh:0},
     personality:{traits:'',ideals:'',bonds:'',flaws:''}, allies:'', backstory:'', treasure:'', featuresNotes:'',
@@ -2106,15 +2106,48 @@ function filterSpellRows(){
   const empty=$('#spellNoResults');
   if(empty)empty.hidden=!q||$$('.spell-row').some(row=>!row.hidden);
 }
+function racialCantripChoices(){
+  const choices=[];
+  if(C.race==='astralelf')choices.push({key:'astralelf',name:'Астральный огонь',ids:['dancing_lights','light','sacred_flame'],abilities:['int','wis','cha'],defaultAbility:'wis'});
+  if(C.race==='elf'&&C.subrace==='high')choices.push({key:'highelf',name:'Заговор высшего эльфа',spells:SPELLS.filter(s=>s.lvl===0&&s.cls.includes('wizard')),ability:'int'});
+  return choices.map(c=>({...c,spells:c.spells||c.ids.map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean)}));
+}
+function racialSpellEntries(){
+  const entries=[],add=(id,ability,minLevel=1,usage='Постоянно')=>{const spell=SPELLS.find(s=>s.id===id);if(spell&&totalLvl()>=minLevel)entries.push({spell,ability,usage})};
+  for(const choice of racialCantripChoices()){
+    const id=(C.racialSpells||{})[choice.key],ability=(C.racialSpells||{})[choice.key+'Ability']||choice.defaultAbility||choice.ability;
+    if(id&&choice.spells.some(s=>s.id===id))add(id,ability,1,'Заговор');
+  }
+  if(C.race==='elf'&&C.subrace==='drow'){
+    add('dancing_lights','cha');add('faerie_fire','cha',3,'1/долгий отдых');add('darkness','cha',5,'1/долгий отдых');
+  }
+  if(C.race==='gnome'&&C.subrace==='forest')add('minor_illusion','int',1,'Заговор');
+  if(C.race==='tiefling'){
+    add('thaumaturgy','cha',1,'Заговор');add('hellish_rebuke','cha',3,'1/долгий отдых · 2-й круг');add('darkness','cha',5,'1/долгий отдых');
+  }
+  return entries;
+}
+function setRacialSpell(key,id){const choice=racialCantripChoices().find(c=>c.key===key);if(!choice||!choice.spells.some(s=>s.id===id))return;C.racialSpells=C.racialSpells||{};C.racialSpells[key]=id;if(choice.defaultAbility&&!C.racialSpells[key+'Ability'])C.racialSpells[key+'Ability']=choice.defaultAbility;persist();render()}
+function setRacialSpellAbility(key,ability){const choice=racialCantripChoices().find(c=>c.key===key);if(!choice||!choice.abilities?.includes(ability))return;C.racialSpells=C.racialSpells||{};C.racialSpells[key+'Ability']=ability;persist();render()}
+function renderRacialSpells(){
+  const choices=racialCantripChoices(),entries=racialSpellEntries();if(!choices.length&&!entries.length)return '';
+  const abilityName=id=>ABIL_RU_FULL[id]||id;
+  return `<div class="card"><h3>Заклинания, дарованные расой</h3><p class="hint">Эти заговоры и заклинания получены от вида и не расходуют лимит выбора класса.</p>
+    ${choices.map(c=>{const selected=(C.racialSpells||{})[c.key]||'',ability=(C.racialSpells||{})[c.key+'Ability']||c.defaultAbility||c.ability;return `<h4>${c.name} — выберите один заговор</h4>${c.abilities?`<label>Базовая характеристика<select onchange="setRacialSpellAbility('${c.key}',this.value)">${c.abilities.map(a=>`<option value="${a}"${ability===a?' selected':''}>${abilityName(a)}</option>`).join('')}</select></label>`:''}<div class="spell-grid">${c.spells.map(s=>`<div class="spell-row${selected===s.id?' picked':''}" data-search="${spellSearchData(s)}"><label class="chk"><input type="radio" name="racial_${c.key}" ${selected===s.id?'checked':''} onchange="setRacialSpell('${c.key}','${s.id}')"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label><span class="tag">Дар расы</span></div>`).join('')}</div>`}).join('')}
+    ${entries.filter(e=>!choices.some(c=>(C.racialSpells||{})[c.key]===e.spell.id)).map(e=>`<div class="spell-row" data-search="${spellSearchData(e.spell)}"><span class="spell-name" onclick="spellNameClick(event,'${e.spell.id}')">${esc(e.spell.ru)}</span><span class="muted small">${e.usage}${e.ability?' · '+abilityName(e.ability):''}</span><span class="tag">Дар расы</span></div>`).join('')}
+  </div>`;
+}
 function renderSpells(){
-  const casters=spellcasterClasses();
-  if(!casters.length)return `<div class="page"><h1>Заклинания</h1><p class="muted">У выбранных классов нет магии. Добавьте класс заклинателя (жрец, волшебник, бард и т.д.).</p></div>`;
+  const casters=spellcasterClasses(),racial=renderRacialSpells();
+  if(!casters.length&&!racial)return `<div class="page"><h1>Заклинания</h1><p class="muted">У выбранных классов и расы нет магии.</p></div>`;
   return `<div class="page"><h1>Заклинания</h1>
   <label>Поиск по названию, языковому названию или школе<input type="search" aria-label="Поиск заклинаний" value="${esc(SPELL_QUERY)}" oninput="setSpellQuery(this.value)"></label>
   <p id="spellNoResults" class="muted" hidden>Ничего не найдено.</p>
+  ${racial}
   ${casters.map(c=>renderCasterBlock(c)).join('')}
   </div>`;
 }
+
 function renderCasterBlock(c){
   const cls=c.cls, cl=CLASSES[cls], abilRu=ABIL_RU_FULL[spellAbilityOf(cls)];
   const t=TABLES[cls];
@@ -2574,10 +2607,11 @@ function renderSheet2014(){
   for(let i=0;i<(BACKGROUNDS[C.bg].langs||0);i++)langs.push('на выбор');
   if(C.classes.some(c=>c.cls==='druid'))langs.push('Друидический');
   if(C.classes.some(c=>c.cls==='rogue'))langs.push('Воровской жаргон');
-  const casters=spellcasterClasses(), slots=spellSlots()||[];
-  const spellIds=[...new Set(casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]))];
+  const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();
+  const racialSpellIds=new Set(racialSpells.map(x=>x.spell.id));
+  const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id)])];
   const spells=spellIds.map(id=>SPELLS.find(sp=>sp.id===id)).filter(Boolean);
-  const spellGroup=level=>`<section class="pdf-box p14-spellgroup" data-level="${level}"><div class="pdf-title" data-level="${level}">${level===0?'Заговоры':`${level}-й круг`}${level?` · ячеек ${slots[level-1]||0}`:''}</div>${spells.filter(sp=>sp.lvl===level).map(sp=>`<div class="p14-spellrow">${esc(sp.ru)}</div>`).join('')}${Array.from({length:level===0?14:12},()=>'<div class="p14-spellrow"></div>').join('')}</section>`;
+  const spellGroup=level=>`<section class="pdf-box p14-spellgroup" data-level="${level}"><div class="pdf-title" data-level="${level}">${level===0?'Заговоры':`${level}-й круг`}${level?` · ячеек ${slots[level-1]||0}`:''}</div>${spells.filter(sp=>sp.lvl===level).map(sp=>`<div class="p14-spellrow">${esc(sp.ru)}${racialSpellIds.has(sp.id)?' · дар расы':''}</div>`).join('')}${Array.from({length:level===0?14:12},()=>'<div class="p14-spellrow"></div>').join('')}</section>`;
   const personality=C.personality||{};
   return `<div class="pdf-sheet">
     <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2014</span></div>
@@ -2633,8 +2667,9 @@ function renderSheet2024(){
   for(let i=0;i<(BACKGROUNDS[C.bg].langs||0);i++)langs.push('на выбор');
   const profs=`Доспехи: ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}.<br>Оружие: ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}.<br>Инструменты: ${esc([...tools].join(', ')||'—')}<br>Языки: ${esc([...new Set(langs)].join(', ')||'—')}`;
   const weapons=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('')||'<tr><td colspan="4">—</td></tr>';
-  const casters=spellcasterClasses(), slots=spellSlots()||[];
-  const spellIds=[...new Set(casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]))];
+  const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();
+  const racialSpellIds=new Set(racialSpells.map(x=>x.spell.id));
+  const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id)])];
   const spells=spellIds.map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean);
   const spellPad=Array.from({length:Math.max(0,35-spells.length)},()=>'<div class="p24-spellrow"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>').join('');
   const personality=C.personality||{};
@@ -2657,7 +2692,7 @@ function renderSheet2024(){
         <div class="p24-statboxes">${[['размер',race.size],['грузоподъёмность',`${abil('str')*15} фун.`],['прыжок в высоту',`${Math.max(0,3+am('str'))} фт.`],['прыжок в длину',`${abil('str')} фт.`]].map(([label,value])=>`<div class="pdf-box p24-stat"><span class="pdf-cap">${label}</span><strong>${value}</strong></div>`).join('')}</div>
         <div class="pdf-box p24-appearance"><div class="pdf-title">внешность</div><div class="pdf-lines"></div></div>
       </div>
-      <div class="p24-spellbody"><div class="pdf-box p24-spelltable"><div class="pdf-title">заговоры и подготовленные заклинания</div><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>конц.</span><span>ритуал</span><span>матер.</span><span>заметки</span></div>${spells.map(s=>`<div class="p24-spellrow"><span>${s.lvl===0?'0':s.lvl}</span><b>${esc(s.ru)}</b><span>${esc(s.time)}</span><span>${esc(s.range)}</span><span>◇ К</span><span>◇ Р</span><span>◇ М</span><span></span></div>`).join('')}${spellPad}</div>
+      <div class="p24-spellbody"><div class="pdf-box p24-spelltable"><div class="pdf-title">заговоры и подготовленные заклинания</div><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>конц.</span><span>ритуал</span><span>матер.</span><span>заметки</span></div>${spells.map(s=>`<div class="p24-spellrow"><span>${s.lvl===0?'0':s.lvl}</span><b>${esc(s.ru)}</b><span>${esc(s.time)}</span><span>${esc(s.range)}</span><span>◇ К</span><span>◇ Р</span><span>◇ М</span><span>${racialSpellIds.has(s.id)?'Дар расы':''}</span></div>`).join('')}${spellPad}</div>
         <div class="p24-spellside"><div class="pdf-box detail"><div class="pdf-title">предыстория и личные качества</div><div class="pdf-small">${esc(C.backstory||'')}<br>${Object.values(personality).map(v=>esc(v||'')).filter(Boolean).join('<br>')}</div></div><div class="pdf-box detail"><div class="pdf-title">снаряжение</div><div class="pdf-small">${(C.inventory||[]).map(i=>`${esc(itemName(i))}${(i.qty||1)>1?' ×'+i.qty:''}`).join('<br>')}</div></div><div class="p24-coinrow">${[['ММ',0],['СМ',0],['ЗМ',C.gold||0],['ЭМ',0],['ПМ',0]].map(([name,value])=>`<div class="pdf-box"><div class="pdf-title">${name}</div><b>${value||''}</b></div>`).join('')}</div></div>
       </div>
     </section>
