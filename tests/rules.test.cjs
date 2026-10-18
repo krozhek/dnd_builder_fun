@@ -24,6 +24,7 @@ const context = vm.createContext({
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, migrate, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
+  expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills,
   setSpellQuery,
   spellPicker, renderWizardSpells, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
@@ -291,6 +292,25 @@ test('content source audit reports untagged records without inventing sources', 
   const report = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'audit-content-sources.cjs')], { encoding: 'utf8' });
   assert.match(report, /SPELLS\s+319\s+Source not recorded/);
   assert.match(report, /без источника на записи: 355/);
+});
+
+test('Deft Explorer grants expertise to a selected proficient skill', () => {
+  const c = character();
+  c.classes = [{ cls: 'ranger', lvl: 1, sub: 'hunter' }];
+  c.classSkills.ranger = ['survival'];
+  c.choices.tashaFeatures = { ranger: ['deft_explorer'] };
+  api.setChar(c);
+  assert.equal(api.expertiseAvailable(), 1);
+  assert.ok(api.characterReadiness().some(i => i.text.includes('навык для компетентности')));
+
+  c.choices.deftExplorerSkill = 'survival';
+  api.setChar(c);
+  assert.deepEqual(Array.from(api.expertiseSkills()), ['survival']);
+  assert.equal(api.skillMod('survival'), 4);
+  assert.equal(api.characterReadiness().some(i => i.text.includes('навык для компетентности')), false);
+  assert.match(api.renderClass(), /Навык для компетентности/);
+  assert.match(api.renderClass(), /value="survival" selected/);
+  assert.match(api.renderSkills(), /Искусный исследователь/);
 });
 
 test('Tasha optional class features can be selected and appear on character sheets', () => {

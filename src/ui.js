@@ -353,7 +353,7 @@ function setAsi(i,vals){
 // ---------- Навыки ----------
 function renderSkills(){
   const bg=bgSkills(), race=raceSkills();
-  const expertAv=expertiseAvailable();
+  const expertAv=expertiseAvailable(),expertSelected=expertiseSkills();
   return `<div class="page"><h1>Навыки</h1>
     <p class="hint">Отметьте владения от класса (и расы — для полуэльфа). Владение добавляет <b>бонус мастерства (${fmtMod(pb())})</b> к проверкам навыка, компетентность (◈) — удвоенный бонус. Итог отображается в таблице ниже, на листе и в быстрых проверках игрового режима.</p>
     <div class="card"><h3>Владения от предыстории и расы</h3>
@@ -370,11 +370,11 @@ function renderSkills(){
         return `<label class="chk"><input type="checkbox" ${picks.includes(s)?'checked':''} onchange="toggleClassSkill('${c.cls}',${cl.skillCount},'${s}',this.checked)"> ${n}</label>`}).join('')}</div>
       ${picks.length<cl.skillCount?`<div class="warn small">выберите ещё ${cl.skillCount-picks.length}</div>`:''}</div>`}).join('')}
     ${expertAv>0?`<div class="card"><h3>Компетентность (удвоенный бонус мастерства)</h3>
-      <p class="hint">Доступно: ${expertAv}, выбрано: ${(C.expertise||[]).length}</p>
-      <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${(C.expertise||[]).includes(s)?'checked':''} onchange="toggleExpertise('${s}',${expertAv},this.checked)"> ${SKILLS.find(x=>x[0]===s)[1]}</label>`).join('')}</div></div>`:''}
+      <p class="hint">Доступно: ${expertAv}, выбрано: ${expertSelected.length}</p>
+      <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${expertSelected.includes(s)?'checked':''}${deftExplorerSkill()===s?' disabled':''} onchange="toggleExpertise('${s}',${expertAv},this.checked)"> ${SKILLS.find(x=>x[0]===s)[1]}${deftExplorerSkill()===s?' (Искусный исследователь)':''}</label>`).join('')}</div></div>`:''}
     <div class="card"><h3>Итоговые модификаторы</h3>
     <table class="tbl"><tr><th>Навык</th><th>Хар-ка</th><th>Мод.</th></tr>
-    ${SKILLS.map(([id,n,a])=>{const p=profSkills().includes(id),e=(C.expertise||[]).includes(id);
+    ${SKILLS.map(([id,n,a])=>{const p=profSkills().includes(id),e=expertiseSkills().includes(id);
       return `<tr class="${p?'prof-row':''}"><td>${e?'◈':p?'●':'○'} ${n}</td><td class="muted">${ABIL_RU_FULL[a].slice(0,3)}</td><td><b>${fmtMod(skillMod(id))}</b></td></tr>`}).join('')}</table></div>
   </div>`;
 }
@@ -384,6 +384,7 @@ function expertiseAvailable(){
     if(c.cls==='rogue'){if(c.lvl>=1)n+=2;if(c.lvl>=6)n+=2}
     if(c.cls==='bard'){if(c.lvl>=3)n+=2;if(c.lvl>=10)n+=2}
   });
+  if(deftExplorerActive())n++;
   return n;
 }
 function toggleRaceSkill(id,on){
@@ -401,7 +402,7 @@ function toggleClassSkill(cls,max,id,on){
 }
 function toggleExpertise(id,max,on){
   C.expertise=C.expertise||[];
-  if(on){if(C.expertise.length>=max){alert('Максимум '+max);render();return}C.expertise.push(id)}
+  if(on){if(deftExplorerSkill()===id)return;if(expertiseSkills().length>=max){alert('Максимум '+max);render();return}C.expertise.push(id)}
   else C.expertise=C.expertise.filter(x=>x!==id);
   persist();render();
 }
