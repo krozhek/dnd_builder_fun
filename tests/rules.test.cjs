@@ -24,9 +24,10 @@ vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
   setSpellQuery,
-  renderSheet,
+  renderMain, renderAbil, renderSheet,
   renderSheet2014,
   renderSheet2024,
+  RACES, BACKGROUNDS, racialAsi,
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -136,4 +137,43 @@ test('2024 sheet renders four printable pages with character data', () => {
   assert.match(html, /Test hero/);
   assert.match(html, /Героическое вдохновение/);
   assert.doesNotMatch(html, /Long Story Short/);
+});
+
+test('AAG species and backgrounds carry source tags in the builder', () => {
+  const c = character();
+  c.race = 'astralelf';
+  c.bg = 'astraldrifter';
+  api.setChar(c);
+  const html = api.renderMain();
+  assert.match(html, /Астральный эльф \(AAG\)/);
+  assert.match(html, /Астральный скиталец \(AAG\)/);
+  assert.match(api.renderAbil(), /Бонусы характеристик \(AAG\)/);
+  assert.equal(Object.values(api.RACES).filter(r => r.src === 'AAG').length, 6);
+  assert.equal(Object.values(api.BACKGROUNDS).filter(b => b.src === 'AAG').length, 2);
+});
+
+test('AAG flexible ability increases apply +2/+1 or +1 to three abilities', () => {
+  const c = character();
+  c.race = 'astralelf';
+  c.raceAsiMode = 'two';
+  c.raceAsiPicks = ['dex', 'wis'];
+  api.setChar(c);
+  let asi = api.racialAsi();
+  assert.equal(asi.dex, 2);
+  assert.equal(asi.wis, 1);
+  c.raceAsiMode = 'three';
+  c.raceAsiPicks = ['str', 'con', 'cha'];
+  api.setChar(c);
+  asi = api.racialAsi();
+  assert.equal(asi.str, 1);
+  assert.equal(asi.con, 1);
+  assert.equal(asi.cha, 1);
+});
+
+test('AAG background feat appears on both character-sheet styles', () => {
+  const c = character();
+  c.bg = 'astraldrifter';
+  api.setChar(c);
+  assert.match(api.renderSheet2014(), /Посвящённый в магию: жрец \(PHB\) \(AAG\)/);
+  assert.match(api.renderSheet2024(), /Посвящённый в магию: жрец \(PHB\) \(AAG\)/);
 });

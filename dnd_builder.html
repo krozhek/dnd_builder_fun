@@ -428,7 +428,19 @@ const RACES={
  halforc:{name:'Полуорк',speed:30,size:'Средний',langs:['Общий','Орочий'],asi:{str:2,con:1},darkvision:60,skillProf:['intimidation'],
   traits:['Тёмное зрение 60 фт','Угрожающий вид: владение навыком Запугивание','Неумолимая стойкость: при падении до 0 хитов падает до 1 (1/длинный отдых)','Свирепые атаки: +1 кость урона при крите рукопашным оружием']},
  tiefling:{name:'Тифлинг',speed:30,size:'Средний',langs:['Общий','Инфернальный'],asi:{cha:2,int:1},darkvision:60,
-  traits:['Тёмное зрение 60 фт','Адское сопротивление: сопротивление урону огнём','Наследие преисподней: заговор Чудотворство; с 3 ур. — Адская карa 1/день (2-й круг); с 5 ур. — Тьма 1/день (Хар)']}
+  traits:['Тёмное зрение 60 фт','Адское сопротивление: сопротивление урону огнём','Наследие преисподней: заговор Чудотворство; с 3 ур. — Адская карa 1/день (2-й круг); с 5 ур. — Тьма 1/день (Хар)']},
+ astralelf:{name:'Астральный эльф',src:'AAG',flexibleAsi:true,speed:30,size:'Средний',langs:['Общий','Эльфийский'],asi:{},darkvision:60,
+  traits:['Тёмное зрение 60 фт; преимущество против очарования, магический сон не действует','Астральный огонь: выберите заговор Пляшущие огоньки, Свет или Священное пламя (Инт/Мдр/Хар)','Звёздный шаг: бонусным действием телепортация на 30 фт; использований = БМ за долгий отдых, с 3 уровня после шага — сопротивление излучению до начала следующего хода','Астральный транс: долгий отдых за 4 часа; после отдыха можно получить владение одним навыком или инструментом до следующего отдыха']},
+ autognome:{name:'Автогном',src:'AAG',flexibleAsi:true,speed:30,size:'Маленький',langs:['Общий','Гномий'],asi:{},darkvision:60,
+  traits:['Конструкт; тёмное зрение 60 фт; не нуждается в еде, питье и дыхании','Бронированный корпус: КД 13 + модификатор Ловкости без доспеха','Сделано на совесть: БМ раз за долгий отдых добавьте к4 к атаке, проверке или спасброску после броска','Ремонт: «Починка» восстанавливает хиты; на коротком отдыхе можно получить дополнительные хиты после расходования костей хитов','Механическая природа: сопротивление урону ядом, преимущество против состояния «отравлен», иммунитет к болезням','Дежурный отдых: 6 часов неподвижности без сна, оставаясь в сознании; владение одним навыком и одним инструментом']},
+ giff:{name:'Гифф',src:'AAG',flexibleAsi:true,speed:30,size:'Средний',langs:['Общий'],asi:{},
+  traits:['Гиппопотамья мощь: преимущество к проверкам и спасброскам Силы; при расчёте переносимого веса считаетесь на размер крупнее','Мастерство огнестрельного оружия: владение огнестрельным оружием, игнорирование свойства «перезарядка»','Астральная искра: при попадании оружием можно добавить урон силовым полем, равный БМ; использований = БМ за долгий отдых']},
+ hadozee:{name:'Хадози',src:'AAG',flexibleAsi:true,speed:30,size:'Средний',langs:['Общий'],asi:{},
+  traits:['Размер Маленький или Средний (выберите вручную)','Ловкие ноги: стопами можно манипулировать небольшими предметами и выполнять простые действия с ними','Планирование: при падении можно реакцией планировать по горизонтали до 5 фт за каждый фут снижения и избежать урона от падения до 10 фт','Устойчивость хадози: реакцией уменьшите полученный урон на к6 + БМ; использований = БМ за долгий отдых']},
+ plasmoid:{name:'Плазмоид',src:'AAG',flexibleAsi:true,speed:30,size:'Средний',langs:['Общий'],asi:{},darkvision:60,
+  traits:['Размер Маленький или Средний (выберите вручную); тёмное зрение 60 фт','Аморфность: можно протиснуться через отверстие шириной от 1 дюйма, если нет надетого и переносимого снаряжения','Задержка дыхания до 1 часа; преимущество против отравления и сопротивление урону ядом','Изменение формы: можно вытянуть до двух псевдоподий для манипуляций с предметами на расстоянии до 10 фт']},
+ thrikreen:{name:'Тхри-крин',src:'AAG',flexibleAsi:true,speed:30,size:'Средний',langs:['Общий'],asi:{},darkvision:60,
+  traits:['Размер Маленький или Средний (выберите вручную); тёмное зрение 60 фт','Хамелеонья оболочка: преимущество на Скрытность для попытки спрятаться; цвет меняется действием без доспеха','Дополнительные руки: ещё две малые руки для простых манипуляций и владения лёгким оружием','Бессонный: не нуждается во сне, оставаясь в сознании во время отдыха; телепатия до 120 фт с существом, понимающим хотя бы один язык; общий язык не обязателен']}
 };
 const DRAGONS=[['черный','кислотой','линия 5×30 фт, спас. Лов'],['blue','электричеством','линия 5×30 фт, спас. Лов'],['латунный','огнём','линия 5×30 фт, спас. Лов'],['бронзовый','электричеством','линия 5×30 фт, спас. Лов'],['медный','кислотой','линия 5×30 фт, спас. Лов'],['золотой','огнём','конус 15 фт, спас. Лов'],['зелёный','ядом','конус 15 фт, спас. Тел'],['красный','огнём','конус 15 фт, спас. Лов'],['серебряный','холодом','конус 15 фт, спас. Тел'],['белый','холодом','конус 15 фт, спас. Тел']];
 DRAGONS[1][0]='синий'; // blue
@@ -473,7 +485,11 @@ const BACKGROUNDS={
   traits:['Дисциплина — моё всё','Я сплю в любых условиях'],ideals:['Честь','Долг'],bonds:['Мои соратники не вернулись'],flaws:['Я слишком люблю приказы']},
  urchin:{name:'Беспризорник',skills:['sleight','stealth'],tools:['Набор для грима','Воровские инструменты'],langs:0,
   desc:'Дитя улиц. Умение «Городские тайны»: тайные тропы города, вдвое быстрее между двух точек.',
-  traits:['Я никому не верю','Я делюсь с теми, у кого меньше'],ideals:['Выживание','Бунт'],bonds:['Моя шайка — моя семья'],flaws:['Я ворую по привычке']}
+  traits:['Я никому не верю','Я делюсь с теми, у кого меньше'],ideals:['Выживание','Бунт'],bonds:['Моя шайка — моя семья'],flaws:['Я ворую по привычке']},
+ astraldrifter:{name:'Астральный скиталец',src:'AAG',skills:['insight','religion'],tools:[],langs:2,feat:'magic_initiate_cleric',
+  desc:'Долгое странствие по Астральному морю. Владение Проницательностью и Религией, два языка на выбор; черта «Посвящённый в магию: жрец».',traits:[],ideals:[],bonds:[],flaws:[]},
+ wildspacer:{name:'Покоритель дикого космоса',src:'AAG',skills:['athletics','survival'],tools:['Транспорт (космический)'],langs:0,feat:'tough',
+  desc:'Опыт жизни и работы в диком космосе. Владение Атлетикой и Выживанием, транспортом (космическим); черта «Крепкий».',traits:[],ideals:[],bonds:[],flaws:[]}
 };
 
 const CLASSES={
@@ -1272,6 +1288,7 @@ for(const k in PHB_SUBCLASSES)SUBCLASSES[k]=PHB_SUBCLASSES[k];
 
 // Черты PHB (выбираются вместо ASI)
 FEATS.push(
+ ['magic_initiate_cleric','Посвящённый в магию: жрец (PHB)','Два заговора жреца (Мдр) и одно заклинание 1 круга из списка жреца; заклинание можно наложить без ячейки 1/долгий отдых.',null],
  ['alert','Бдительный (PHB)','+5 к инициативе; вас нельзя застать врасплох; скрытые враги не получают преимущество атак по вам.',null],
  ['athlete','Атлет (PHB)','+1 Сил/Лов; вставание стоит 5 фт; прыжки с короткого разбега; карабканье не замедлено.',['str','dex']],
  ['actor','Актёр (PHB)','+1 Хар; преимущество на Обман/Выступление при перевоплощении; мимикрия речи и звуков.',['cha']],
@@ -1341,7 +1358,7 @@ function newChar(){
     classes:[{cls:'fighter',lvl:1,sub:'champion'}],
     bg:'soldier', align:'Истинно нейтральный', size:'Средний', xp:0,
     abilityMethod:'standard', bases:{standard:{...std}, point:{...ab8}, manual:{...ab}},
-    asi:{}, halfElfPicks:[], feat:{},
+    asi:{}, halfElfPicks:[], raceAsiMode:'two', raceAsiPicks:[], feat:{},
     classSkills:{}, raceSkills:[], expertise:[],
     languages:['Общий'], extraLangs:[],
     choices:{}, // fightingStyle, favoredEnemy, favoredTerrain, hunter{3,7,11,15}, pactBoon, druidLand, metamagic[], invocations[]
@@ -1408,6 +1425,11 @@ function racialAsi(){
   const r=raceOf(), s=subraceOf();
   const add=o=>{for(const k in o)out[k]+=o[k]};
   add(r.asi||{}); if(s)add(s.asi||{});
+  if(r.flexibleAsi){
+    const picks=(C.raceAsiPicks||[]).filter(Boolean);
+    if(C.raceAsiMode==='three')picks.slice(0,3).forEach(a=>{if(out[a]!=null)out[a]++});
+    else{if(out[picks[0]]!=null)out[picks[0]]+=2;if(out[picks[1]]!=null)out[picks[1]]++}
+  }
   if(r.asiChoice){(C.halfElfPicks||[]).slice(0,r.asiChoice.count).forEach(a=>{if(!r.asiChoice.exclude.includes(a))out[a]+=r.asiChoice.val})}
   return out;
 }
@@ -1713,7 +1735,7 @@ function renderHome(){
       <label class="btn" for="importFile2">⬆ Импорт персонажа / копии</label><input type="file" id="importFile2" accept=".json" hidden onchange="importJson(this)">
     </div>
     <div class="grid cards">${cards||'<p class="muted">Пока пусто. Создайте первого героя!</p>'}</div>
-    <footer class="foot muted small">D&D 5e (2014) · SRD 5.1 и дополнительные материалы PHB/«Котла Таши» · источники: README · Работает офлайн, данные хранятся в браузере</footer>
+    <footer class="foot muted small">D&D 5e (2014) · SRD 5.1 и дополнительные материалы PHB/«Котла Таши»/AAG · источники: README · Работает офлайн, данные хранятся в браузере</footer>
   </div>`;
 }
 function createChar(){C=newChar();persist();TAB='main';render()}
@@ -1777,9 +1799,9 @@ function importJson(inp){
 // ---------- Основное ----------
 function renderMain(){
   const r=raceOf(), s=subraceOf();
-  const raceOpts=Object.entries(RACES).map(([id,x])=>`<option value="${id}"${C.race===id?' selected':''}>${x.name}</option>`).join('');
+  const raceOpts=Object.entries(RACES).map(([id,x])=>`<option value="${id}"${C.race===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
   const subOpts=r.subs?`<label>Подраса<select onchange="setField('subrace',this.value);render()"><option value="">—</option>${Object.entries(r.subs).map(([id,x])=>`<option value="${id}"${C.subrace===id?' selected':''}>${x.name}</option>`).join('')}</select>`:'';
-  const bgOpts=Object.entries(BACKGROUNDS).map(([id,x])=>`<option value="${id}"${C.bg===id?' selected':''}>${x.name}</option>`).join('');
+  const bgOpts=Object.entries(BACKGROUNDS).map(([id,x])=>`<option value="${id}"${C.bg===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
   const bg=BACKGROUNDS[C.bg];
   let classRows=C.classes.map((c,i)=>`
     <div class="card class-row">
@@ -1803,7 +1825,7 @@ function renderMain(){
         </div>
         ${C.race==='dragonborn'?`<label>Прародитель-дракон<select onchange="setField('dragonColor',this.value);render()">${DRAGONS.map((d,i)=>`<option value="${['black','blue','brass','bronze','copper','gold','green','red','silver','white'][i]}"${C.dragonColor===['black','blue','brass','bronze','copper','gold','green','red','silver','white'][i]?' selected':''}>${d[0][0].toUpperCase()+d[0].slice(1)} (${d[1]}, ${d[2]})</option>`).join('')}</select>`:''}
         <label>Предыстория<select onchange="setField('bg',this.value);render()">${bgOpts}</select></label>
-        <div class="bg-desc" onclick="openBgModal('${C.bg}')">📖 ${esc(bg.name)} — нажмите для описания</div>
+        <div class="bg-desc" onclick="openBgModal('${C.bg}')">📖 ${esc(bg.name)}${bg.src?' ('+bg.src+')':''} — нажмите для описания</div>
         <div class="grid two">
           <label>Мировоззрение<select onchange="setField('align',this.value)">${ALIGN.map(a=>`<option${C.align===a?' selected':''}>${a}</option>`).join('')}</select></label>
           <label>Размер<select onchange="setField('size',this.value)">${['Крошечный','Маленький','Средний','Большой','Огромный'].map(a=>`<option${C.size===a?' selected':''}>${a}</option>`).join('')}</select></label>
@@ -1811,7 +1833,7 @@ function renderMain(){
         <label>Опыт (XP)<input type="number" min="0" value="${C.xp||0}" oninput="setText('xp',+this.value||0)"></label>
       </div>
       <div class="card">
-        <h3>Расовые черты</h3>
+        <h3>Расовые черты${r.src?' ('+r.src+')':''}</h3>
         <ul class="traits">${r.traits.map(t=>`<li>${esc(t)}</li>`).join('')}${s?s.traits.map(t=>`<li>${esc(t)}</li>`).join(''):''}</ul>
         <div class="muted small">Скорость: ${speed()} фт · Языки: ${[...r.langs,...(C.extraLangs||[])].join(', ')||'—'}</div>
         ${r.extraLang?`<label>+${r.extraLang} язык на выбор<select onchange="C.extraLangs=[this.value];persist();render()"><option value="">— выберите —</option>${LANGS.filter(l=>!r.langs.includes(l)).map(l=>`<option${(C.extraLangs||[])[0]===l?' selected':''}>${l}</option>`).join('')}</select></label>`:''}
@@ -1835,7 +1857,7 @@ function renderMain(){
 }
 function updTabChar(){const el=$('.tab-char');if(el)el.innerHTML=`${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}`}
 function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
-function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];persist();render()}
+function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
 function changeClass(i,v){C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';persist();render()}
 function changeLvl(i,v){C.classes[i].lvl=+v;persist();render()}
 function changeSub(i,v){C.classes[i].sub=v;persist();render()}
@@ -1847,8 +1869,9 @@ function subclassOpts(c){
 }
 function openBgModal(id){
   const bg=BACKGROUNDS[id];if(!bg)return;
-  showModal(`<h2>${esc(bg.name)}</h2>
+  showModal(`<h2>${esc(bg.name)}${bg.src?' ('+bg.src+')':''}</h2>
     <p>${esc(bg.desc)}</p>
+    ${bg.feat&&FEATS.find(f=>f[0]===bg.feat)?`<p><b>Черта предыстории:</b> ${esc(FEATS.find(f=>f[0]===bg.feat)[1])}</p>`:''}
     <p><b>Навыки:</b> ${bg.skills.map(s=>SKILLS.find(x=>x[0]===s)[1]).join(', ')||'—'}</p>
     <p><b>Инструменты:</b> ${bg.tools.join(', ')||'—'} · <b>Языки:</b> ${bg.langs||'—'}</p>`);
 }
@@ -1882,6 +1905,7 @@ function renderAbil(){
     ${Array.from({length:need},(_,i)=>asiPicker(i)).join('')}</div>`:'';
   const halfElf=r.asiChoice?`<div class="card"><h3>Бонус полуэльфа: +1 к двум характеристикам</h3>
     <div class="row gap wrap">${ABILS.filter(([a])=>!r.asiChoice.exclude.includes(a)).map(([a,n])=>`<label class="chk"><input type="checkbox" ${(C.halfElfPicks||[]).includes(a)?'checked':''} onchange="toggleHalfElf('${a}',this.checked)"> ${n}</label>`).join('')}</div></div>`:'';
+  const flexibleAsi=r.flexibleAsi?(()=>{const mode=C.raceAsiMode==='three'?'three':'two',count=mode==='three'?3:2,picks=C.raceAsiPicks||[];return `<div class="card"><h3>Бонусы характеристик (${r.src})</h3><p class="hint">Гибкое распределение по правилу «Котла Таши»: +2 к одной и +1 к другой характеристике либо +1 к трём.</p><label>Распределение<select onchange="setRaceAsiMode(this.value)"><option value="two"${mode==='two'?' selected':''}>+2 и +1</option><option value="three"${mode==='three'?' selected':''}>+1 к трём</option></select></label><div class="row gap wrap">${Array.from({length:count},(_,i)=>`<label>${mode==='two'?(i===0?'+2 к':'+1 к'):'+1 к'}<select onchange="setRaceAsi(${i},this.value)"><option value="">—</option>${ABILS.map(([a,n])=>`<option value="${a}"${picks[i]===a?' selected':''}${picks.includes(a)&&picks[i]!==a?' disabled':''}>${n}</option>`).join('')}</select></label>`).join('')}</div></div>`})():'';
   return `<div class="page"><h1>Характеристики</h1>
     <div class="card">
       <div class="row gap wrap">
@@ -1891,6 +1915,7 @@ function renderAbil(){
       ${methodHtml}
     </div>
     ${halfElf}
+    ${flexibleAsi}
     ${asiBlock}
     <div class="card"><h3>Итог</h3>
     <div class="table-scroll"><table class="tbl"><tr><th>Характеристика</th><th>База</th><th>Раса</th><th>ASI</th><th>Итог</th><th>Модификатор</th></tr>
@@ -1913,6 +1938,8 @@ function stepPoint(a,d){
   B[a]=v;persist();render();
 }
 function setManual(a,v){C.bases.manual[a]=Math.max(3,Math.min(18,+v||10));persist();render()}
+function setRaceAsiMode(v){C.raceAsiMode=v;C.raceAsiPicks=[];persist();render()}
+function setRaceAsi(i,v){C.raceAsiPicks=C.raceAsiPicks||[];C.raceAsiPicks[i]=v;persist();render()}
 function toggleHalfElf(a,on){
   C.halfElfPicks=C.halfElfPicks||[];
   if(on){if(C.halfElfPicks.length>=2){alert('Можно выбрать только две');render();return}C.halfElfPicks.push(a)}
@@ -2538,6 +2565,7 @@ function renderSheet2014(){
   const skillRows=SKILLS.map(([id,name])=>`<div class="p14-skill"><span>${profSkills().includes(id)?((C.expertise||[]).includes(id)?'◈':'●'):'○'}</span><b>${fmtMod(skillMod(id))}</b><span>${name}</span></div>`).join('');
   const feats=availableFeats();
   if(typeof FEATS!=='undefined')for(const key in (C.asi||[])){const a=C.asi[key];if(a&&a.type==='feat'&&a.id){const f=FEATS.find(x=>x[0]===a.id);if(f)feats.push({cls:'',lvl:99,name:f[1],desc:f[2]})}}
+  const bgFeat=FEATS.find(f=>f[0]===BACKGROUNDS[C.bg]?.feat);if(bgFeat)feats.push({cls:'',lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]});
   const weaponRows=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('');
   const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
   C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
@@ -2596,7 +2624,8 @@ function renderSheet2024(){
   const clsText=C.classes.map(c=>CLASSES[c.cls].name).join(' / ');
   const subText=C.classes.map(c=>SUBCLASSES[c.sub]?.name).filter(Boolean).join(' / ');
   const ability=(id,name)=>`<div class="pdf-box p24-ability"><div class="p24-ability-head"><strong>${name}</strong><span class="p24-mod">${fmtMod(am(id))}</span></div><div class="pdf-small">Значение ${abil(id)} · спасбросок ${fmtMod(saves[id].mod)}</div>${SKILLS.filter(x=>x[2]===id).map(([skillId,skillName])=>`<div class="p24-skill"><i class="p24-check${profSkills().includes(skillId)?' on':''}"></i><b>${fmtMod(skillMod(skillId))}</b><span>${skillName}</span></div>`).join('')}</div>`;
-  const features=availableFeats().map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>';
+  const bgFeat=FEATS.find(f=>f[0]===BACKGROUNDS[C.bg]?.feat);
+  const features=[...availableFeats(),...(bgFeat?[{lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]}]:[])].map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>';
   const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
   C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
   const langs=[...new Set([...(race.langs||[]),...(C.extraLangs||[])])];
