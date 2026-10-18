@@ -1370,11 +1370,13 @@ const STD_SET=[15,14,13,12,10,8];
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 
+const CHARACTER_SCHEMA=2;
 function newChar(){
   const ab={};ABILS.forEach(([k])=>ab[k]=10);
   const ab8={};ABILS.forEach(([k])=>ab8[k]=8);
   const std={};ABILS.forEach(([k],i)=>std[k]=STD_SET[i]);
   return {
+    schemaVersion:CHARACTER_SCHEMA,
     id:uid(), name:'Новый герой', race:'human', subrace:'', dragonColor:'red',
     classes:[{cls:'fighter',lvl:1,sub:'champion'}],
     bg:'soldier', align:'Истинно нейтральный', size:'Средний', xp:0,
@@ -1431,8 +1433,15 @@ function migrate(ch){
   });
   m.game={...d.game,...(ch.game||{})};
   m.personality={...d.personality,...(ch.personality||{})};
-  m.choices={...d.choices,...(ch.choices||{})};
+  m.choices={...d.choices,...(isRecord(ch.choices)?ch.choices:{})};
+  m.race=RACES[m.race]?m.race:d.race;
+  m.bg=BACKGROUNDS[m.bg]?m.bg:d.bg;
+  if(!['standard','point','manual'].includes(m.abilityMethod))m.abilityMethod=d.abilityMethod;
+  for(const key of ['asi','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice'])m[key]={...d[key],...(isRecord(ch[key])?ch[key]:{})};
+  for(const key of ['halfElfPicks','raceSkills','raceAsiPicks','expertise','languages','extraLangs','spellbook','inventory','attunement'])m[key]=Array.isArray(ch[key])?ch[key]:d[key];
   if(!Array.isArray(m.classes)||!m.classes.length)m.classes=[{cls:'fighter',lvl:1,sub:'champion'}];
+  if(typeof m.id!=='string'||!m.id)m.id=uid();
+  m.schemaVersion=CHARACTER_SCHEMA;
   return m;
 }
 
@@ -1853,8 +1862,31 @@ function exportLibrary(){
   a.download=`dnd-builder-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();URL.revokeObjectURL(a.href);
 }
+function isRecord(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
+function optionalRecord(value){return value==null||isRecord(value)}
+function stringArray(value,allowBlank=false){return Array.isArray(value)&&value.every(x=>typeof x==='string'||(allowBlank&&(x===null||x==='')))}
+function stringArrayMap(value){return value==null||isRecord(value)&&Object.values(value).every(v=>stringArray(v))}
 function validCharacter(ch){
-  return !!ch&&typeof ch==='object'&&!Array.isArray(ch)&&typeof ch.name==='string'&&Array.isArray(ch.classes)&&ch.classes.length>0&&ch.classes.every(c=>c&&CLASSES[c.cls]&&Number.isInteger(c.lvl)&&c.lvl>=1&&c.lvl<=20);
+  if(!isRecord(ch)||typeof ch.name!=='string'||!Array.isArray(ch.classes)||!ch.classes.length)return false;
+  if(ch.schemaVersion!=null&&(!Number.isInteger(ch.schemaVersion)||ch.schemaVersion<1||ch.schemaVersion>CHARACTER_SCHEMA))return false;
+  if(ch.classes.some(c=>!isRecord(c)||!CLASSES[c.cls]||!Number.isInteger(c.lvl)||c.lvl<1||c.lvl>20||(c.sub!=null&&typeof c.sub!=='string')))return false;
+  if(ch.classes.reduce((sum,c)=>sum+c.lvl,0)>20||new Set(ch.classes.map(c=>c.cls)).size!==ch.classes.length)return false;
+  if(ch.race!=null&&!RACES[ch.race]||ch.bg!=null&&!BACKGROUNDS[ch.bg])return false;
+  if(ch.abilityMethod!=null&&!['standard','point','manual'].includes(ch.abilityMethod))return false;
+  if(ch.xp!=null&&(!Number.isFinite(ch.xp)||ch.xp<0)||ch.gold!=null&&(!Number.isFinite(ch.gold)||ch.gold<0))return false;
+  for(const key of ['bases','asi','choices','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice','game','personality'])if(!optionalRecord(ch[key]))return false;
+  for(const key of ['raceSkills','halfElfPicks','raceAsiPicks','expertise','languages','attunement'])if(ch[key]!=null&&!stringArray(ch[key]))return false;
+  if(ch.extraLangs!=null&&!stringArray(ch.extraLangs,true))return false;
+  if(!stringArrayMap(ch.classSkills)||!stringArrayMap(ch.cantrips)||!stringArrayMap(ch.spellsKnown)||!stringArrayMap(ch.spellsPrepared))return false;
+  if(ch.spellbook!=null&&!stringArray(ch.spellbook))return false;
+  if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
+  if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
+  if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||!stringArrayMap(ch.choices.tashaFeatures)))return false;
+  if(ch.racialSpells&&Object.values(ch.racialSpells).some(v=>typeof v!=='string'))return false;
+  if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)))return false;
+  if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
+  if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean'))))return false;
+  return true;
 }
 function importJson(inp){
   const f=inp.files[0];if(!f)return;
@@ -1886,7 +1918,7 @@ function importJson(inp){
 
 // ---------- Основное ----------
 function languageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
-function setExtraLang(index,value){C.extraLangs=C.extraLangs||[];C.extraLangs[index]=value;persist();render()}
+function setExtraLang(index,value){C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;persist();render()}
 function languageChoiceFields(){
   const r=raceOf(),langs=C.extraLangs||[];
   return Array.from({length:languageChoiceCount()},(_,i)=>{
