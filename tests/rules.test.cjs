@@ -43,6 +43,10 @@ function character() {
   return c;
 }
 
+test('offline HTML is generated from the modular source files', () => {
+  execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'build.cjs'), '--check']);
+});
+
 test('proficiency bonus and modifiers follow total character level', () => {
   const c = character();
   assert.equal(api.totalLvl(), 1);
