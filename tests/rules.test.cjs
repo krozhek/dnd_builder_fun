@@ -10,11 +10,11 @@ assert.ok(script, 'inline application script exists');
 const initAt = script.indexOf('// ================= Инициализация =================');
 assert.notEqual(initAt, -1, 'initialization marker exists');
 
-const dom = { rows: [], levels: [], empty: { hidden: true } };
+const dom = { rows: [], levels: [], empty: { hidden: true }, modal: { style: {} } };
 const context = vm.createContext({
   localStorage: { getItem: () => null, setItem: () => {} },
   document: {
-    querySelector: selector => selector === '#spellNoResults' ? dom.empty : null,
+    querySelector: selector => selector === '#spellNoResults' ? dom.empty : selector === '#modal' ? dom.modal : null,
     querySelectorAll: selector => selector === '.spell-row' ? dom.rows : selector === '.spell-lvl' ? dom.levels : [],
   },
   console,
@@ -24,6 +24,7 @@ vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
   setSpellQuery,
+  spellPicker, renderWizardSpells, spellNameClick, SPELLS,
   renderMain, renderAbil, renderSheet,
   renderSheet2014,
   renderSheet2024,
@@ -104,6 +105,28 @@ test('spell search filters rows and hides empty spell levels', () => {
   assert.equal(acid.hidden, false);
   assert.equal(mageArmor.hidden, false);
   assert.equal(dom.empty.hidden, true);
+});
+
+test('clicking a spell name opens its details without selecting it', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  api.setChar(c);
+  const spell = api.SPELLS.find(s => s.lvl === 1 && s.cls.includes('wizard'));
+  const knownPicker = api.spellPicker('wizard', 1, [], 4, 'spellsKnown');
+  assert.match(knownPicker, /onchange="toggleSpell\('spellsKnown'/);
+  assert.match(knownPicker, /onclick="spellNameClick\(event,/);
+
+  const event = { prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; } };
+  api.spellNameClick(event, spell.id);
+  assert.equal(event.prevented, true);
+  assert.equal(event.stopped, true);
+  assert.deepEqual(c.spellsKnown.wizard || [], []);
+  assert.equal(dom.modal.style.display, 'block');
+  assert.ok(dom.modal.innerHTML.includes(spell.ru));
+
+  const bookPicker = api.renderWizardSpells(c, 1);
+  assert.match(bookPicker, /onchange="toggleSpellbook\(/);
+  assert.match(bookPicker, /onclick="spellNameClick\(event,/);
 });
 
 test('import validation rejects malformed character data', () => {

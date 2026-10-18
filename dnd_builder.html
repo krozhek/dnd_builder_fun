@@ -2197,7 +2197,7 @@ function spellPicker(cls,lvl,sel,limit,store,bonusIds=[]){
     const checked=sel.includes(s.id), bonus=bonusIds.includes(s.id);
     return `<div class="spell-row${checked?' picked':''}${bonus?' bonus':''}" data-search="${spellSearchData(s)}">
       <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus?'disabled':''} onchange="toggleSpell('${store}','${cls}',${limit},'${s.id}',this.checked)">
-      <span class="spell-name" onclick="openSpellModal('${s.id}')">${esc(s.ru)}</span></label>
+      <span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
       <span class="muted small">${esc(s.school)}${s.ritual?' · ритуал':''}</span>
     </div>`}).join('')}</div></details>`;
 }
@@ -2219,7 +2219,7 @@ function renderWizardSpells(c,maxLvl){
     <div class="spell-grid">${spellsForClass('wizard',l).map(s=>{
       const inBook=book.includes(s.id), prepped=prep.includes(s.id);
       return `<div class="spell-row${inBook?' picked':''}" data-search="${spellSearchData(s)}">
-        <label class="chk"><input type="checkbox" ${inBook?'checked':''} onchange="toggleSpellbook('${s.id}',this.checked)"><span class="spell-name" onclick="openSpellModal('${s.id}')">${esc(s.ru)}</span></label>
+        <label class="chk"><input type="checkbox" ${inBook?'checked':''} onchange="toggleSpellbook('${s.id}',this.checked)"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
         ${inBook?`<label class="chk prep"><input type="checkbox" ${prepped?'checked':''} onchange="toggleSpell('spellsPrepared','wizard',${limit},'${s.id}',this.checked)"> подг.</label>`:'<span class="muted small">не в книге</span>'}
       </div>`}).join('')}</div></details>`;
   }
@@ -2234,6 +2234,7 @@ function toggleSpellbook(id,on){
   }
   persist();render();
 }
+function spellNameClick(event,id){event.preventDefault();event.stopPropagation();openSpellModal(id)}
 function openSpellModal(id){
   const s=SPELLS.find(x=>x.id===id);if(!s)return;
   showModal(`<h2>${esc(s.ru)}</h2><p class="muted">${esc(s.en)}</p>
