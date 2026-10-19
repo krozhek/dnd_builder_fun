@@ -36,7 +36,7 @@ globalThis.api = {
   setSpellQuery,
   spellPicker, renderWizardSpells, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
-  renderMain, renderHome, renderEquip, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet,
+  renderMain, renderHome, renderEquip, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount,
@@ -77,6 +77,25 @@ test('expertise adds proficiency bonus twice to a proficient skill', () => {
   c.classSkills.fighter = ['athletics'];
   c.expertise = ['athletics'];
   assert.equal(api.skillMod('athletics'), 6);
+});
+
+test('Circle of the Land spells unlock by druid class level', () => {
+  const c = character();
+  c.classes = [{ cls: 'druid', lvl: 2, sub: 'land' }];
+  c.choices.druidLand = 'arctic';
+  const spellsAt = level => {
+    c.classes[0].lvl = level;
+    api.setChar(c);
+    return Array.from(api.domainSpellsOf(c.classes[0]), s => s.id).sort();
+  };
+  assert.deepEqual(spellsAt(2), []);
+  assert.deepEqual(spellsAt(3), ['hold_person', 'spike_growth'].sort());
+  assert.deepEqual(spellsAt(5), ['hold_person', 'spike_growth', 'sleet_storm', 'slow'].sort());
+  assert.deepEqual(spellsAt(7), ['hold_person', 'spike_growth', 'sleet_storm', 'slow', 'freedom_of_movement', 'ice_storm'].sort());
+  assert.deepEqual(spellsAt(9), ['hold_person', 'spike_growth', 'sleet_storm', 'slow', 'freedom_of_movement', 'ice_storm', 'commune_with_nature', 'cone_of_cold'].sort());
+  delete c.choices.druidLand;
+  api.setChar(c);
+  assert.deepEqual(Array.from(api.domainSpellsOf(c.classes[0])), []);
 });
 
 test('multiclass spell slots use the combined caster level table', () => {
