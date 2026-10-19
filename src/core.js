@@ -310,14 +310,17 @@ function weaponAttack(w){
   if(ranged&&(C.choices.fightingStyle==='archery'||C.choices.fightingStyle2==='archery'))bonus+=2;
   return bonus;
 }
-function weaponDamage(w){
+function wieldedWeaponCount(){return C.inventory.filter(i=>i.type==='weapon'&&i.wielded).length}
+function weaponDamage(w,item=null){
   const finesse=w[5].includes('Фехтовальное');
   const ranged=w[6]==='ranged';
   let ab=ranged?am('dex'):(finesse?Math.max(am('str'),am('dex')):am('str'));
   const monk=C.classes.find(c=>c.cls==='monk');
   if(monk&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
-  let bonus=ab,dice=w[3];
-  if(C.choices.fightingStyle==='dueling'||C.choices.fightingStyle2==='dueling'){if(!w[5].includes('Двуручное')&&w[6]==='melee')bonus+=2}
+  let bonus=ab;
+  const versatile=w[5].match(/Универсальное \(([^)]+)\)/);
+  let dice=item?.grip==='two-handed'&&versatile?`${versatile[1]} ${w[3].replace(/^\S+\s*/, '')}`:w[3];
+  if((C.choices.fightingStyle==='dueling'||C.choices.fightingStyle2==='dueling')&&item?.wielded&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!(item.grip==='two-handed'&&versatile)&&wieldedWeaponCount()===1)bonus+=2;
   if(bonus!==0)return dice+' '+fmtMod(bonus);
   return dice;
 }

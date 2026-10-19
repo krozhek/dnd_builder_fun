@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, WEAPONS, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, WEAPONS, toggleWieldWeapon, setWeaponGrip, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -66,6 +66,34 @@ test('proficiency bonus and modifiers follow total character level', () => {
   assert.equal(api.am('dex'), 2); // Human +1: 15 Dexterity
   c.classes[0].lvl = 5;
   assert.equal(api.pb(), 3);
+});
+
+test('Dueling requires a single wielded one-handed weapon and grip affects versatile damage', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  c.bases.manual.str = 18;
+  c.choices.fightingStyle = 'dueling';
+  c.inventory = [{ type: 'weapon', id: 'longsword', qty: 2, equipped: false }];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  const longsword = api.WEAPONS.find(w => w[0] === 'longsword');
+  api.toggleWieldWeapon(0);
+  assert.equal(c.inventory[0].qty, 1);
+  assert.equal(c.inventory[0].wielded, true);
+  assert.equal(c.inventory[1].qty, 1);
+  assert.equal(api.weaponDamage(longsword, c.inventory[0]), '1к8 рубящий +6');
+  api.setWeaponGrip(0, 'two-handed');
+  assert.equal(api.weaponDamage(longsword, c.inventory[0]), '1к10 рубящий +4');
+  api.setWeaponGrip(0, 'one-handed');
+  api.toggleWieldWeapon(1);
+  assert.equal(api.weaponDamage(longsword, c.inventory[0]), '1к8 рубящий +4');
+  c.inventory[1].wielded = false;
+  c.inventory.push({ type: 'shield', id: 'shield', equipped: true });
+  assert.equal(api.weaponDamage(longsword, c.inventory[0]), '1к8 рубящий +6');
+  assert.match(api.renderEquip(), /Хват оружия/);
+  assert.equal(api.validCharacter({ ...c, inventory: [{ type: 'weapon', id: 'longsword', qty: 2, wielded: true }] }), false);
+  api.setRenderFn(oldRender);
 });
 
 test('weapon proficiencies follow class and multiclass tables', () => {

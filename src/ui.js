@@ -151,7 +151,7 @@ function validCharacter(ch){
   if(ch.racialSpells&&Object.entries(ch.racialSpells).some(([key,value])=>key.endsWith('Ability')?!ABILS.some(([id])=>id===value):!SPELL_IDS.has(value)))return false;
   if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)))return false;
   if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
-  if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean'))))return false;
+  if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean')||(i.wielded!=null&&typeof i.wielded!=='boolean')||(i.grip!=null&&!['one-handed','two-handed'].includes(i.grip))||(i.type==='weapon'&&i.wielded&&i.qty>1))))return false;
   return true;
 }
 function importJson(inp){
@@ -728,6 +728,7 @@ function renderEquip(){
         ${inv.map((it,i)=>`<tr><td>${esc(itemName(it))}</td><td>${it.qty||1}</td>
           <td class="nowrap">
           ${it.type==='armor'||it.type==='shield'?`<button class="btn sm${it.equipped?' primary':''}" onclick="toggleEquipItem(${i})">${it.equipped?'надето':'надеть'}</button>`:''}
+          ${it.type==='weapon'?`<button class="btn sm${it.wielded?' primary':''}" onclick="toggleWieldWeapon(${i})">${it.wielded?'в руке':'взять в руку'}</button>${WEAPONS.find(w=>w[0]===it.id)?.[5].includes('Универсальное')?`<select aria-label="Хват оружия" onchange="setWeaponGrip(${i},this.value)"><option value="one-handed"${it.grip!=='two-handed'?' selected':''}>1 рука</option><option value="two-handed"${it.grip==='two-handed'?' selected':''}>2 руки</option></select>`:''}`:''}
           <button class="btn sm ghost" onclick="sellItem(${i})">продать</button>
           <button class="btn sm danger ghost" onclick="delItem(${i})">✕</button></td></tr>`).join('')}</table>`:'<p class="muted">Пусто.</p>'}
         <h4>Атаки</h4>${attacksHtml()}
@@ -772,7 +773,7 @@ function buyItem(type,id,price){
 }
 function addItem(type,id,qty){
   C.inventory=C.inventory||[];
-  const ex=C.inventory.find(i=>i.type===type&&i.id===id&&i.type!=='armor'&&i.type!=='shield');
+  const ex=C.inventory.find(i=>i.type===type&&i.id===id&&i.type!=='armor'&&i.type!=='shield'&&!(type==='weapon'&&i.wielded));
   if(ex)ex.qty=(ex.qty||1)+qty;else C.inventory.push({type,id,qty,equipped:false});
 }
 function sellItem(i){
@@ -794,6 +795,18 @@ function toggleEquipItem(i){
   if(it.type==='armor')C.inventory.forEach(x=>{if(x.type==='armor')x.equipped=false});
   if(it.type==='shield')C.inventory.forEach(x=>{if(x.type==='shield')x.equipped=false});
   it.equipped=!it.equipped;persist();render();
+}
+function toggleWieldWeapon(i){
+  const it=C.inventory[i];if(!it||it.type!=='weapon')return;
+  if(it.wielded)it.wielded=false;
+  else if((it.qty||1)>1){it.qty--;C.inventory.splice(i,0,{...it,qty:1,wielded:true,grip:'one-handed'})}
+  else it.wielded=true;
+  persist();render();
+}
+function setWeaponGrip(i,grip){
+  const it=C.inventory[i],w=it&&WEAPONS.find(x=>x[0]===it.id);
+  if(!w||!w[5].includes('Универсальное')||!['one-handed','two-handed'].includes(grip))return;
+  it.grip=grip;persist();render();
 }
 function applyStartingKit(){
   if(!confirm('Добавить стартовое снаряжение классов в инвентарь?'))return;
@@ -830,7 +843,7 @@ function attacksHtml(){
   const monk=C.classes.find(c=>c.cls==='monk');
   let rows=weapons.map(it=>{
     const w=WEAPONS.find(x=>x[0]===it.id);if(!w)return '';
-    return `<tr><td>${w[1]}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td class="muted small">${w[5]}</td></tr>`;
+    return `<tr><td>${w[1]}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td class="muted small">${w[5]}</td></tr>`;
   }).join('');
   if(monk){
     const die=TABLES.monk.ma[monk.lvl-1];
@@ -1018,7 +1031,7 @@ function renderSheet2014(){
   if(typeof FEATS!=='undefined')for(const key in (C.asi||[])){const a=C.asi[key];if(a&&a.type==='feat'&&a.id){const f=FEATS.find(x=>x[0]===a.id);if(f)feats.push({cls:'',lvl:99,name:f[1],desc:f[2]})}}
   const bgFeat=FEATS.find(f=>f[0]===BACKGROUNDS[C.bg]?.feat);if(bgFeat)feats.push({cls:'',lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]});
   feats.push(...chosenTashaFeatures());
-  const weaponRows=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('');
+  const weaponRows=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('');
   const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
   C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
   if(deftExplorerActive()&&C.choices.deftExplorerMode==='language_tool'&&C.choices.deftExplorerTool)tools.add(C.choices.deftExplorerTool);
@@ -1086,7 +1099,7 @@ function renderSheet2024(){
   const langs=[...(race.langs||[])];
   for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');
   const profs=`Доспехи: ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}.<br>Оружие: ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}.<br>Инструменты: ${esc([...tools].join(', ')||'—')}<br>Языки: ${esc([...new Set(langs)].join(', ')||'—')}`;
-  const weapons=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('')||'<tr><td colspan="4">—</td></tr>';
+  const weapons=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('')||'<tr><td colspan="4">—</td></tr>';
   const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();
   const racialSpellIds=new Set(racialSpells.map(x=>x.spell.id)),primalSpells=primalAwarenessSpells(),primalSpellIds=new Set(primalSpells.map(x=>x.id));
   const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id),...primalSpells.map(x=>x.id)])];
