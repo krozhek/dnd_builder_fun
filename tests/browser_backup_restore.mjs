@@ -13,6 +13,7 @@ if (!chromePath) throw new Error('Chrome not found; set CHROME_BIN to a Chrome/C
 const root = path.resolve(__dirname, '..');
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dnd-backup-e2e-'));
 const backupPath = path.join(profile, 'backup.json');
+const singlePath = path.join(profile, 'single-character.json');
 const chrome = spawn(chromePath, ['--headless=new', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let ws;
@@ -32,6 +33,7 @@ try {
   let nextId = 0;
   const pending = new Map();
   const events = new Map();
+  const dialogResponses = [];
   const send = (method, params = {}) => new Promise((resolve, reject) => {
     const id = ++nextId;
     pending.set(id, { resolve, reject });
@@ -53,9 +55,11 @@ try {
       const request = pending.get(message.id);
       pending.delete(message.id);
       message.error ? request.reject(new Error(message.error.message)) : request.resolve(message.result || {});
-    } else if (message.method === 'Page.javascriptDialogOpening') {
-      send('Page.handleJavaScriptDialog', { accept: true }).catch(() => {});
     } else if (message.method) {
+      if (message.method === 'Page.javascriptDialogOpening') {
+        const accept = dialogResponses.length ? dialogResponses.shift() : true;
+        send('Page.handleJavaScriptDialog', { accept }).catch(() => {});
+      }
       for (const listener of events.get(message.method) || []) listener(message.params);
       events.set(message.method, []);
     }
@@ -64,9 +68,17 @@ try {
   await send('Page.enable');
   await send('Runtime.enable');
   await send('DOM.enable');
+  const appUrl = pathToFileURL(path.join(root, 'dnd_builder.html')).href;
   const loaded = waitFor('Page.loadEventFired');
-  await send('Page.navigate', { url: pathToFileURL(path.join(root, 'dnd_builder.html')).href });
+  await send('Page.navigate', { url: appUrl });
   await loaded;
+
+  await evaluate("createChar();C.name='Backup E2E';C.extraLangs=['Эльфийский'];persist()");
+  const reloaded = waitFor('Page.loadEventFired');
+  await send('Page.reload', { ignoreCache: true });
+  await reloaded;
+  const restoredSession = await evaluate(`(()=>({name:C?.name,id:C?.id,tab:TAB,library:LIB.length,language:C?.extraLangs?.[0]}))()`);
+  if (restoredSession.name !== 'Backup E2E' || restoredSession.tab !== 'main' || restoredSession.library !== 1 || restoredSession.language !== 'Эльфийский') throw new Error('Current character did not survive page reload');
 
   await evaluate(`(()=>{
     const create=URL.createObjectURL.bind(URL);
@@ -77,28 +89,56 @@ try {
       return click.call(this)
     };
   })()`);
-  await evaluate("createChar();C.name='Backup E2E';C.extraLangs=['Эльфийский'];persist();exportLibrary()");
+  await evaluate('exportLibrary()');
   const exported = await evaluate(`(async()=>({name:window.__backupName,json:await window.__backupBlob.text()}))()`);
   if (!exported?.json) throw new Error('Backup export produced no JSON blob');
   fs.writeFileSync(backupPath, exported.json);
   const backup = JSON.parse(exported.json);
   if (backup.format !== 'dnd-builder-backup' || backup.characters.length !== 1 || backup.characters[0].name !== 'Backup E2E') throw new Error('Unexpected exported backup contents');
+  const single = { ...backup.characters[0], id: 'single-import-e2e', name: 'Single Import E2E' };
+  fs.writeFileSync(singlePath, JSON.stringify(single));
 
   await evaluate("createChar();C.name='Should Be Replaced';persist();goHome()");
-  const documentNode = await send('DOM.getDocument');
-  const input = await send('DOM.querySelector', { nodeId: documentNode.root.nodeId, selector: '#importFile2' });
-  if (!input.nodeId) throw new Error('Backup restore input not found on Heroes page');
-  await send('DOM.setFileInputFiles', { files: [backupPath], nodeId: input.nodeId });
-  await evaluate("document.querySelector('#importFile2').dispatchEvent(new Event('change',{bubbles:true}))");
+  const findImportInput = async () => {
+    const document = await send('DOM.getDocument');
+    const result = await send('DOM.querySelector', { nodeId: document.root.nodeId, selector: '#importFile2' });
+    if (!result.nodeId) throw new Error('Import input not found on Heroes page');
+    return result.nodeId;
+  };
+  const submitFile = async file => {
+    const nodeId = await findImportInput();
+    await send('DOM.setFileInputFiles', { files: [file], nodeId });
+  };
+  const waitForCondition = async expression => {
+    for (let i = 0; i < 100; i++) {
+      await sleep(100);
+      if (await evaluate(expression)) return true;
+    }
+    return false;
+  };
 
-  let restored;
-  for (let i = 0; i < 100; i++) {
-    await sleep(100);
-    restored = await evaluate(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return data.length===1&&data[0].name==='Backup E2E'&&data[0].extraLangs[0]==='Эльфийский'})()`);
-    if (restored) break;
-  }
-  if (!restored) throw new Error('Backup restore did not replace the library with the exported character');
-  console.log('Browser E2E passed: JSON backup exported, then restored over the existing library with character data intact.');
+  dialogResponses.push(false);
+  const canceled = waitFor('Page.javascriptDialogOpening');
+  await submitFile(backupPath);
+  const cancelDialog = await canceled;
+  if (cancelDialog.type !== 'confirm') throw new Error(`Expected restore confirmation, got ${cancelDialog.type}`);
+  const canceledInputReset = await waitForCondition(`document.querySelector('#importFile2')?.value===''`);
+  if (!canceledInputReset) throw new Error('Canceled restore did not finish processing the selected file');
+  const unchanged = await evaluate(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return data.length===2&&data.some(c=>c.name==='Should Be Replaced')})()`);
+  if (!unchanged) throw new Error('Canceling backup restore changed the library');
+
+  const accepted = waitFor('Page.javascriptDialogOpening');
+  await submitFile(backupPath);
+  const acceptDialog = await accepted;
+  if (acceptDialog.type !== 'confirm') throw new Error(`Expected restore confirmation, got ${acceptDialog.type}`);
+  const replaced = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return data.length===1&&data[0].name==='Backup E2E'&&data[0].extraLangs[0]==='Эльфийский'})()`);
+  const restoredInputReset = await waitForCondition(`document.querySelector('#importFile2')?.value===''`);
+  if (!replaced || !restoredInputReset) throw new Error('Accepting backup restore did not replace the library');
+
+  await submitFile(singlePath);
+  const imported = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return data.length===2&&data.some(c=>c.name==='Single Import E2E')})()`);
+  if (!imported) throw new Error('Importing a single character did not add it to the library');
+  console.log('Browser E2E passed: current character survives reload; backup export, cancel/accept restore, and single-character import work.');
 } finally {
   if (ws) ws.close();
   chrome.kill('SIGTERM');
