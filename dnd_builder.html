@@ -1549,7 +1549,13 @@ function saveMods(){
   return out;
 }
 function passivePerception(){return 10+skillMod('perception')}
-function initiative(){return am('dex')}
+function initiative(){
+  let bonus=am('dex');
+  // Разные классовые особенности складываются и округляют половину БМ по своим правилам.
+  if(C.classes.some(c=>c.cls==='bard'&&c.lvl>=2))bonus+=Math.floor(pb()/2);
+  if(C.classes.some(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=7))bonus+=Math.ceil(pb()/2);
+  return bonus;
+}
 function speed(){
   const s=subraceOf();let value=(s&&s.speed)||raceOf().speed||30;
   const monk=C.classes.find(c=>c.cls==='monk');

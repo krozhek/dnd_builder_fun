@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -136,6 +136,26 @@ test('multiclass prerequisites check the new and existing classes', () => {
   api.addClass();
   assert.equal(c.classes.length, 1);
   assert.match(alerts.at(-1), /текущего класса «Воин»/);
+});
+
+test('initiative includes Jack of All Trades and Remarkable Athlete bonuses', () => {
+  const c = character();
+  c.bases.manual.dex = 14;
+  c.classes = [{ cls: 'bard', lvl: 2, sub: 'lore' }];
+  api.setChar(c);
+  assert.equal(api.initiative(), 3); // Dex +2, Jack of All Trades +1
+
+  c.classes = [{ cls: 'bard', lvl: 2, sub: 'lore' }, { cls: 'fighter', lvl: 3, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.initiative(), 3); // PB 3: Bard rounds half down
+
+  c.classes = [{ cls: 'fighter', lvl: 7, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.initiative(), 4); // PB 3: Champion rounds half up
+
+  c.classes = [{ cls: 'bard', lvl: 2, sub: 'lore' }, { cls: 'fighter', lvl: 7, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.initiative(), 6); // Distinct features both apply
 });
 
 test('ability scores cap at 20 and Primal Champion adds +4 to Strength and Constitution at barbarian 20', () => {
