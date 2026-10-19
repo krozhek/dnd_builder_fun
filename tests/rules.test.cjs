@@ -39,7 +39,7 @@ globalThis.api = {
   renderMain, renderHome, renderEquip, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
   renderSheet2024,
-  RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount,
+  RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount,
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -63,6 +63,30 @@ test('proficiency bonus and modifiers follow total character level', () => {
   assert.equal(api.am('dex'), 2); // Human +1: 15 Dexterity
   c.classes[0].lvl = 5;
   assert.equal(api.pb(), 3);
+});
+
+test('class skill choices use the starting or multiclass progression', () => {
+  assert.equal(api.classSkillChoiceCount(0, 'bard'), 3);
+  assert.equal(api.classSkillChoiceCount(1, 'bard'), 1);
+  assert.equal(api.classSkillChoiceCount(1, 'fighter'), 0);
+
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'bard', lvl: 1, sub: 'lore' }];
+  c.classSkills.fighter = ['history', 'perception'];
+  c.classSkills.bard = ['arcana'];
+  api.setChar(c);
+  assert.match(api.renderSkills(), /Навыки класса «Бард» — выбрано 1\/1/);
+  assert.equal(api.characterReadiness().some(i => i.tab === 'skills' && i.text.startsWith('Бард:')), false);
+
+  const c2 = character();
+  c2.classes = [{ cls: 'bard', lvl: 1, sub: 'lore' }, { cls: 'fighter', lvl: 1, sub: 'champion' }];
+  c2.classSkills.bard = ['arcana', 'history', 'perception'];
+  api.setChar(c2);
+  assert.match(api.renderSkills(), /Мультиклассирование в этот класс не даёт выбора навыков/);
+
+  c.classSkills.bard.push('nature');
+  api.setChar(c);
+  assert.ok(api.characterReadiness().some(i => i.tab === 'skills' && i.text.includes('Бард: уберите лишние навыки')));
 });
 
 test('fighter hit points use maximum first hit die and average thereafter', () => {

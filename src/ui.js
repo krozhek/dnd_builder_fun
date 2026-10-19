@@ -383,12 +383,14 @@ function renderSkills(){
     ${C.classes.map((c,i)=>{
       const cl=CLASSES[c.cls];
       const picks=C.classSkills[c.cls]||[];
-      const free=cl.skillList.filter(s=>!bg.includes(s)&&!race.includes(s));
-      return `<div class="card"><h3>Навыки класса «${cl.name}» — выбрано ${picks.length}/${cl.skillCount}</h3>
-      <div class="row gap wrap">${free.map(s=>{
+      const skillCount=classSkillChoiceCount(i,c.cls);
+      const otherPicks=C.classes.filter((_,j)=>j!==i).flatMap(x=>C.classSkills[x.cls]||[]);
+      const free=cl.skillList.filter(s=>picks.includes(s)||(!bg.includes(s)&&!race.includes(s)&&!otherPicks.includes(s)));
+      return `<div class="card"><h3>Навыки класса «${cl.name}» — выбрано ${picks.length}/${skillCount}</h3>
+      ${skillCount||picks.length?`<div class="row gap wrap">${free.map(s=>{
         const n=SKILLS.find(x=>x[0]===s)[1];
-        return `<label class="chk"><input type="checkbox" ${picks.includes(s)?'checked':''} onchange="toggleClassSkill('${c.cls}',${cl.skillCount},'${s}',this.checked)"> ${n}</label>`}).join('')}</div>
-      ${picks.length<cl.skillCount?`<div class="warn small">выберите ещё ${cl.skillCount-picks.length}</div>`:''}</div>`}).join('')}
+        return `<label class="chk"><input type="checkbox" ${picks.includes(s)?'checked':''} onchange="toggleClassSkill('${c.cls}',${skillCount},'${s}',this.checked)"> ${n}</label>`}).join('')}</div>`:'<p class="muted small">Мультиклассирование в этот класс не даёт выбора навыков.</p>'}
+      ${picks.length<skillCount?`<div class="warn small">выберите ещё ${skillCount-picks.length}</div>`:picks.length>skillCount?`<div class="warn small">уберите ${picks.length-skillCount} лишних навыка</div>`:''}</div>`}).join('')}
     ${expertAv>0?`<div class="card"><h3>Компетентность (удвоенный бонус мастерства)</h3>
       <p class="hint">Доступно: ${expertAv}, выбрано: ${expertSelected.length}</p>
       <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${expertSelected.includes(s)?'checked':''}${deftExplorerSkill()===s?' disabled':''} onchange="toggleExpertise('${s}',${expertAv},this.checked)"> ${SKILLS.find(x=>x[0]===s)[1]}${deftExplorerSkill()===s?' (Искусный исследователь)':''}</label>`).join('')}</div></div>`:''}
@@ -416,7 +418,7 @@ function toggleRaceSkill(id,on){
 }
 function toggleClassSkill(cls,max,id,on){
   C.classSkills[cls]=C.classSkills[cls]||[];
-  if(on){if(C.classSkills[cls].length>=max){alert('Максимум '+max);render();return}C.classSkills[cls].push(id)}
+  if(on){if(profSkills().includes(id)){alert('Навык уже выбран из другого источника');render();return}if(C.classSkills[cls].length>=max){alert('Максимум '+max);render();return}C.classSkills[cls].push(id)}
   else C.classSkills[cls]=C.classSkills[cls].filter(x=>x!==id);
   persist();render();
 }

@@ -128,6 +128,7 @@ function raceSkills(){
   return out;
 }
 function classSkills(){let o=[];C.classes.forEach(c=>{o=o.concat(C.classSkills[c.cls]||[])});return [...new Set(o)]}
+function classSkillChoiceCount(index,cls){const cl=CLASSES[cls];return index===0?cl.skillCount:(cl.multiclassSkillCount||0)}
 function profSkills(){return [...new Set([...bgSkills(),...raceSkills(),...classSkills()])]}
 function deftExplorerActive(){return C.classes.some(c=>c.cls==='ranger'&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer'))}
 function deftExplorerSkill(){const skill=C.choices.deftExplorerSkill;return deftExplorerActive()&&profSkills().includes(skill)?skill:''}
@@ -396,9 +397,14 @@ function characterReadiness(){
   if(chosenLangs.length<langCount)add('main',`Выберите ещё ${langCount-chosenLangs.length} язык(а).`);
   if(new Set(chosenLangs).size<chosenLangs.length)add('main','Уберите повторяющиеся языки.');
   for(const choice of racialCantripChoices())if(!(C.racialSpells||{})[choice.key])add('spells',`Выберите расовый заговор: ${choice.name}.`);
-  for(const c of C.classes){
-    const cl=CLASSES[c.cls],picks=(C.classSkills||{})[c.cls]||[];
-    if(picks.length<cl.skillCount)add('skills',`${cl.name}: выберите ещё ${cl.skillCount-picks.length} навыка класса.`);
+  for(const [classIndex,c] of C.classes.entries()){
+    const cl=CLASSES[c.cls],picks=(C.classSkills||{})[c.cls]||[],skillCount=classSkillChoiceCount(classIndex,c.cls);
+    const otherPicks=C.classes.filter((_,i)=>i!==classIndex).flatMap(x=>(C.classSkills||{})[x.cls]||[]);
+    const validPicks=new Set(picks.filter(id=>cl.skillList.includes(id)&&!bgSkills().includes(id)&&!raceSkills().includes(id)&&!otherPicks.includes(id)));
+    if(picks.length!==skillCount||validPicks.size!==skillCount){
+      const message=picks.length>skillCount?`уберите лишние навыки (выбрано ${picks.length}, максимум ${skillCount})`:picks.length<skillCount?`выберите ещё ${skillCount-picks.length} навыка`:'уберите повторяющиеся или недопустимые навыки';
+      add('skills',`${cl.name}: ${message}.`);
+    }
     if(cl.sub&&c.lvl>=cl.subLvl&&!c.sub)add('main',`Выберите подкласс для класса «${cl.name}».`);
     const subcl=SUBCLASSES[c.sub];
     if(subcl?.choices)for(const [lvl,block] of Object.entries(subcl.choices))if(c.lvl>=+lvl&&!C.choices[`hunter_${lvl}`])add('cls',`Выберите умение «${block.name}» (${lvl} ур.).`);

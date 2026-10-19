@@ -124,7 +124,7 @@ const CLASSES={
    [18,'Неукротимая мощь','Если проверка Силы меньше значения Силы — используйте значение Силы.'],
    [20,'Первобытный чемпион','+4 Силы и +4 Телосложения (максимум 24).']],
   sub:'berserk'},
- bard:{name:'Бард',hd:8,spell:'full',spellAbility:'cha',saves:['dex','cha'],skillList:SKILLS.map(s=>s[0]),skillCount:3,asiLvls:[4,8,12,16,19],subLvl:3,
+ bard:{name:'Бард',hd:8,spell:'full',spellAbility:'cha',saves:['dex','cha'],skillList:SKILLS.map(s=>s[0]),skillCount:3,multiclassSkillCount:1,asiLvls:[4,8,12,16,19],subLvl:3,
   armor:'Лёгкие доспехи',weapons:'Простое оружие, длинные мечи, рапиры, короткие мечи',tools:'3 музыкальных инструмента',
   feats:[
    [1,'Использование заклинаний','Заклинания барда, базовая характеристика — Харизма. Заклинания известны (не требуют подготовки).'],
@@ -205,7 +205,7 @@ const CLASSES={
    [11,'Улучшенная божественная кара','+1к8 излучением к урону всех рукопашных атак.'],
    [14,'Очищающее касание','Действием (Хар раз/длинный отдых): снятие заклинания с себя или союзника.']],
   sub:'devotion'},
- ranger:{name:'Следопыт',hd:10,spell:'half',spellAbility:'wis',saves:['str','dex'],skillList:['animal','athletics','insight','investigation','nature','perception','stealth','survival'],skillCount:3,asiLvls:[4,8,12,16,19],subLvl:3,
+ ranger:{name:'Следопыт',hd:10,spell:'half',spellAbility:'wis',saves:['str','dex'],skillList:['animal','athletics','insight','investigation','nature','perception','stealth','survival'],skillCount:3,multiclassSkillCount:1,asiLvls:[4,8,12,16,19],subLvl:3,
   armor:'Лёгкие и средние доспехи, щиты',weapons:'Простое и воинское оружие',tools:'—',
   feats:[
    [1,'Избранный враг','Тип врагов: помеха к Выживанию (выслеживание) и Интеллекту (знания) о них; +1 язык.'],
@@ -221,7 +221,7 @@ const CLASSES={
    [18,'Дикие чувства','Атаки по невидимым без помехи; обнаружение невидимых в 30 фт.'],
    [20,'Истребитель врагов','1/ход: +Мдр к броску атаки или урона по избранному врагу.']],
   sub:'hunter'},
- rogue:{name:'Плут',hd:8,spell:null,saves:['dex','int'],skillList:['acrobatics','athletics','deception','insight','intimidation','investigation','perception','performance','persuasion','sleight','stealth'],skillCount:4,asiLvls:[4,8,10,12,16,19],subLvl:3,
+ rogue:{name:'Плут',hd:8,spell:null,saves:['dex','int'],skillList:['acrobatics','athletics','deception','insight','intimidation','investigation','perception','performance','persuasion','sleight','stealth'],skillCount:4,multiclassSkillCount:1,asiLvls:[4,8,10,12,16,19],subLvl:3,
   armor:'Лёгкие доспехи',weapons:'Простое оружие, короткие мечи, длинные мечи, рапиры, ручные арбалеты',tools:'Воровские инструменты',
   feats:[
    [1,'Компетентность','Удвоенный БМ для двух навыков/воровских инструментов (ещё два на 6 ур.).'],
