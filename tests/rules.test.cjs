@@ -42,7 +42,7 @@ globalThis.api = {
   renderSheet2014,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
-  addClass, changeClass, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
+  addClass, changeClass, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -739,6 +739,33 @@ test('Primal Awareness grants additional spells by ranger level without using th
     assert.ok(api.renderSheet2014().includes(name), `2014 sheet includes ${name}`);
     assert.ok(api.renderSheet2024().includes(name), `2024 sheet includes ${name}`);
   }
+});
+
+test('clearing Deft Explorer mode removes only its extra language and tool choices', () => {
+  const c = character();
+  c.classes = [{ cls: 'ranger', lvl: 1, sub: 'hunter' }];
+  c.choices.tashaFeatures = { ranger: ['deft_explorer'] };
+  c.choices.deftExplorerMode = 'language_tool';
+  c.choices.deftExplorerTool = api.TOOL_PROFICIENCIES[0];
+  c.extraLangs = ['Эльфийский', 'Дварфийский'];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  assert.equal(api.languageChoiceCount(), 2);
+  api.setDeftExplorerMode('');
+  assert.equal(Object.hasOwn(c.choices, 'deftExplorerMode'), false);
+  assert.equal(Object.hasOwn(c.choices, 'deftExplorerTool'), false);
+  assert.deepEqual(Array.from(c.extraLangs), ['Эльфийский']);
+  assert.equal(api.languageChoiceCount(), 1);
+  assert.ok(api.characterReadiness().some(i => i.text.includes('Выберите дополнительные владения «Искусного исследователя»')));
+  assert.equal(api.validCharacter(c), true);
+  api.setDeftExplorerMode('two_languages');
+  assert.equal(api.languageChoiceCount(), 3);
+  assert.equal(c.extraLangs.length, 3);
+  api.setDeftExplorerMode(null);
+  assert.equal(api.languageChoiceCount(), 1);
+  assert.equal(c.extraLangs.length, 1);
+  api.setRenderFn(oldRender);
 });
 
 test('Tasha Canny language and tool alternatives count toward readiness and character sheets', () => {

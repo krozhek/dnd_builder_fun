@@ -1793,17 +1793,19 @@ function setDeftExplorerSkill(skill){
   updateTashaChoice('ranger',()=>{C.choices.deftExplorerSkill=skill;if(skill)C.expertise=(C.expertise||[]).filter(id=>id!==skill)});
 }
 function setDeftExplorerMode(mode){
-  if(!deftExplorerActive()||!['two_languages','language_tool'].includes(mode))return;
+  if(!deftExplorerActive())return;
+  mode=mode||'';
+  if(mode&&!['two_languages','language_tool'].includes(mode))return;
   updateTashaChoice('ranger',()=>{
-    const base=baseLanguageChoiceCount(),langs=C.extraLangs||[],count=mode==='two_languages'?2:1;
-    C.extraLangs=Array.from({length:base+count},(_,i)=>langs[i]||'');
-    C.choices.deftExplorerMode=mode;
-    if(mode==='two_languages')delete C.choices.deftExplorerTool;
+    const base=baseLanguageChoiceCount(),langs=C.extraLangs||[],count=mode==='two_languages'?2:mode==='language_tool'?1:0;
+    C.extraLangs=mode?Array.from({length:base+count},(_,i)=>langs[i]||''):langs.slice(0,base);
+    if(mode)C.choices.deftExplorerMode=mode;else delete C.choices.deftExplorerMode;
+    if(mode!=='language_tool')delete C.choices.deftExplorerTool;
   });
 }
 function setDeftExplorerTool(tool){
   if(!deftExplorerActive()||C.choices.deftExplorerMode!=='language_tool'||tool&&!TOOL_PROFICIENCIES.includes(tool)||tool&&tool!==C.choices.deftExplorerTool&&toolProficiencies().includes(tool))return;
-  updateTashaChoice('ranger',()=>{C.choices.deftExplorerTool=tool});
+  updateTashaChoice('ranger',()=>{if(tool)C.choices.deftExplorerTool=tool;else delete C.choices.deftExplorerTool});
 }
 // классовые умения, доступные на уровне
 function availableFeats(){
