@@ -5,7 +5,7 @@ function setField(k,v){C[k]=v;persist()}
 function setText(k,v){C[k]=v;persist()} // без ререндера
 function setNested(k,sub,v){C[k][sub]=v;persist()}
 function setChoice(k,v){C.choices[k]=v;persist();render()}
-function toggleTheme(){THEME=THEME==='dark'?'light':'dark';localStorage.setItem(LS_THEME,THEME);applyTheme()}
+function toggleTheme(){THEME=THEME==='dark'?'light':'dark';writeStorage(LS_THEME,THEME);applyTheme()}
 function applyTheme(){document.documentElement.dataset.theme=THEME;const b=$('#themeBtn');if(b)b.textContent=THEME==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема'}
 
 function render(){
@@ -162,7 +162,7 @@ function importJson(inp){
         if(!confirm(`Заменить текущую библиотеку резервной копией (${data.characters.length} персонажей)?`)){inp.value='';return}
         const previous=LIB;
         LIB=data.characters.map(migrate);
-        if(!saveLib()){LIB=previous;return}
+        if(!saveLib(true)){LIB=previous;return}
         C=null;TAB='home';render();
         alert(`Восстановлено персонажей: ${LIB.length}`);
       }else{
@@ -1050,7 +1050,7 @@ function renderSheet2014(){
 }
 function setSheetVersion(version){
   SHEET_VERSION=version==='2024'?'2024':'2014';
-  try{localStorage.setItem(LS_SHEET,SHEET_VERSION)}catch(e){console.error('Не удалось сохранить вариант листа',e)}
+  writeStorage(LS_SHEET,SHEET_VERSION);
   render();
 }
 
@@ -1105,6 +1105,6 @@ function renderSheet2024(){
 }
 // ================= Инициализация =================
 loadLib();
-const _curId=localStorage.getItem(LS_CUR);
-if(_curId&&LIB.find(c=>c.id===_curId)){C=migrate(JSON.parse(JSON.stringify(LIB.find(c=>c.id===_curId))));TAB='main'}
+const {value:_curId,error:_curError}=readStorage(LS_CUR);
+if(!_curError&&_curId&&LIB.find(c=>c.id===_curId)){C=migrate(JSON.parse(JSON.stringify(LIB.find(c=>c.id===_curId))));TAB='main'}
 render();

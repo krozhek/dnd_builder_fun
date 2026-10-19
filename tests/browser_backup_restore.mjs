@@ -157,7 +157,24 @@ try {
   if (!safeActions) throw new Error('Character card actions contain unsafe event attributes or imported markup');
   const opened = await evaluate(`(()=>{document.querySelector('[data-character-action="open"]').click();return C.name})()`);
   if (opened !== 'Backup E2E') throw new Error('Delegated character action did not open the selected character');
-  console.log('Browser E2E passed: persistence, valid imports, canceled/restored backups, malicious backup rejection, and delegated character actions.');
+
+  const corruptLibrary = '{damaged-local-library';
+  await evaluate(`localStorage.setItem('dnd5e2014_chars_v1',${JSON.stringify(corruptLibrary)})`);
+  const recoveredLoad = waitFor('Page.loadEventFired');
+  await send('Page.reload', { ignoreCache: true });
+  await recoveredLoad;
+  const protectedState = await evaluate(`(()=>({corrupt:STORAGE_CORRUPT,library:LIB.length,raw:localStorage.getItem('dnd5e2014_chars_v1')}))()`);
+  if (!protectedState.corrupt || protectedState.library !== 0 || protectedState.raw !== corruptLibrary) throw new Error('Corrupt library was not preserved behind the safe fallback');
+  await evaluate("createChar();C.name='Unsaved after corruption';persist();goHome()");
+  const stillProtected = await evaluate(`localStorage.getItem('dnd5e2014_chars_v1')`);
+  if (stillProtected !== corruptLibrary) throw new Error('A normal edit overwrote the corrupt library');
+  const recoveryDialogWait = waitFor('Page.javascriptDialogOpening');
+  await submitFile(backupPath);
+  const recoveryDialog = await recoveryDialogWait;
+  if (recoveryDialog.type !== 'confirm') throw new Error('Restoring over a corrupt library did not require confirmation');
+  const recovered = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return !STORAGE_CORRUPT&&data.length===1&&data[0].name==='Backup E2E'})()`);
+  if (!recovered) throw new Error('Confirmed backup did not recover the corrupt library');
+  console.log('Browser E2E passed: persistence, imports, XSS rejection, corrupt-storage preservation, and confirmed recovery.');
 } finally {
   if (ws) ws.close();
   chrome.kill('SIGTERM');

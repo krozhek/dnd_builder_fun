@@ -21,29 +21,43 @@ function newChar(){
   };
 }
 
-let LIB=[], C=null, TAB='home', THEME=localStorage.getItem(LS_THEME)||'dark', SHEET_VERSION=localStorage.getItem(LS_SHEET)==='2024'?'2024':'2014', STORAGE_WARNING_SHOWN=false;
-
+let STORAGE_WARNING_SHOWN=false, STORAGE_CORRUPT=false;
+function readStorage(key){try{return {value:localStorage.getItem(key)}}catch(error){console.error(`Не удалось прочитать ${key}`,error);return {error}}}
+function writeStorage(key,value){try{localStorage.setItem(key,value);return true}catch(error){console.error(`Не удалось записать ${key}`,error);return false}}
+const storedTheme=readStorage(LS_THEME).value, storedSheet=readStorage(LS_SHEET).value;
+let LIB=[], C=null, TAB='home', THEME=storedTheme==='light'?'light':'dark', SHEET_VERSION=storedSheet==='2024'?'2024':'2014';
 function loadLib(){
-  try{LIB=JSON.parse(localStorage.getItem(LS_KEY)||'[]')}catch(e){LIB=[]}
-  if(!Array.isArray(LIB))LIB=[];
+  const {value,error}=readStorage(LS_KEY);
+  if(error){LIB=[];STORAGE_CORRUPT=true;warnStorage();return}
+  if(value==null){LIB=[];return}
+  try{
+    const saved=JSON.parse(value);
+    const ids=Array.isArray(saved)?saved.map(c=>c?.id).filter(Boolean):[];
+    if(!Array.isArray(saved)||!saved.every(validCharacter)||new Set(ids).size!==ids.length)throw new Error('Некорректная библиотека персонажей');
+    LIB=saved.map(migrate);
+  }catch(error){LIB=[];STORAGE_CORRUPT=true;console.error('Не удалось восстановить библиотеку персонажей',error);warnStorage()}
 }
 function warnStorage(){
   if(STORAGE_WARNING_SHOWN)return;
   STORAGE_WARNING_SHOWN=true;
-  alert('Не удалось сохранить данные персонажей в браузере. Скачайте резервную копию и проверьте свободное место в хранилище.');
+  alert(STORAGE_CORRUPT
+    ?'Библиотека персонажей повреждена или недоступна. Исходные данные оставлены без изменений; новые изменения не сохраняются. Восстановите библиотеку из резервной копии.'
+    :'Не удалось сохранить данные персонажей в браузере. Скачайте резервную копию и проверьте свободное место в хранилище.');
 }
-function saveLib(){
-  try{localStorage.setItem(LS_KEY,JSON.stringify(LIB));STORAGE_WARNING_SHOWN=false;return true}
-  catch(e){console.error('Не удалось сохранить библиотеку персонажей',e);warnStorage();return false}
+function saveLib(replaceCorrupt=false){
+  if(STORAGE_CORRUPT&&!replaceCorrupt){warnStorage();return false}
+  if(!writeStorage(LS_KEY,JSON.stringify(LIB))){if(replaceCorrupt)STORAGE_WARNING_SHOWN=false;warnStorage();return false}
+  STORAGE_CORRUPT=false;STORAGE_WARNING_SHOWN=false;return true;
 }
 function persist(){
   if(!C)return;
+  if(STORAGE_CORRUPT){warnStorage();return}
   C.updated=Date.now();
   const i=LIB.findIndex(c=>c.id===C.id);
   const snap=JSON.parse(JSON.stringify(C));
   if(i>=0)LIB[i]=snap;else LIB.push(snap);
   if(!saveLib())return;
-  try{localStorage.setItem(LS_CUR,C.id)}catch(e){console.error('Не удалось сохранить текущего персонажа',e);warnStorage()}
+  if(!writeStorage(LS_CUR,C.id))warnStorage();
 }
 function openChar(id){
   const f=LIB.find(c=>c.id===id);

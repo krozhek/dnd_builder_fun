@@ -12,18 +12,25 @@ const initAt = script.indexOf('// ================= Инициализация =
 assert.notEqual(initAt, -1, 'initialization marker exists');
 
 const dom = { rows: [], levels: [], empty: { hidden: true }, modal: { style: {} } };
+const storageData = new Map();
+let storageReadError = false, storageWriteError = false;
+const localStorage = {
+  getItem(key) { if (storageReadError) throw new Error('storage blocked'); return storageData.get(key) ?? null; },
+  setItem(key, value) { if (storageWriteError) throw new Error('storage blocked'); storageData.set(key, String(value)); },
+};
 const context = vm.createContext({
-  localStorage: { getItem: () => null, setItem: () => {} },
+  localStorage,
   document: {
     querySelector: selector => selector === '#spellNoResults' ? dom.empty : selector === '#modal' ? dom.modal : null,
     querySelectorAll: selector => selector === '.spell-row' ? dom.rows : selector === '.spell-lvl' ? dom.levels : [],
   },
-  console,
+  console: { error() {} },
   alert: () => {},
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
+  newChar, migrate, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter, loadLib, saveLib,
+  get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
   setSpellQuery,
@@ -167,6 +174,38 @@ test('import validation rejects malformed character data and migration fills leg
   assert.ok(Array.isArray(legacy.extraLangs));
   assert.ok(legacy.racialSpells && typeof legacy.racialSpells === 'object');
   assert.equal(api.validCharacter(legacy), true);
+});
+
+test('corrupt local libraries remain untouched until explicit backup replacement', () => {
+  const key = 'dnd5e2014_chars_v1';
+  for (const raw of ['{broken', JSON.stringify([{ name: 'Broken', classes: [] }])]) {
+    storageData.set(key, raw);
+    api.loadLib();
+    assert.equal(api.library.length, 0);
+    assert.equal(api.storageCorrupt, true);
+    assert.equal(api.saveLib(), false);
+    assert.equal(storageData.get(key), raw);
+    api.setLibrary([api.newChar()]);
+    assert.equal(api.saveLib(true), true);
+    assert.equal(api.storageCorrupt, false);
+    assert.equal(JSON.parse(storageData.get(key)).length, 1);
+  }
+});
+
+test('localStorage access failures are caught without throwing or overwriting data', () => {
+  const key = 'dnd5e2014_chars_v1';
+  const raw = storageData.get(key);
+  storageReadError = true;
+  api.loadLib();
+  assert.equal(api.storageCorrupt, true);
+  storageReadError = false;
+  api.setLibrary([api.newChar()]);
+  storageWriteError = true;
+  assert.equal(api.saveLib(true), false);
+  assert.equal(storageData.get(key), raw);
+  storageWriteError = false;
+  assert.equal(api.saveLib(true), true);
+  assert.equal(api.storageCorrupt, false);
 });
 
 test('untrusted import identifiers and languages cannot become executable markup', () => {
