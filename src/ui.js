@@ -172,6 +172,29 @@ function validToolChoices(ch){
   }
   return true;
 }
+function validAsiChoices(ch){
+  const asi=ch.asi||{},need=ch.classes.reduce((total,c)=>total+CLASSES[c.cls].asiLvls.filter(level=>level<=c.lvl).length,0),abilities=new Set(ABILS.map(([id])=>id));
+  return Object.entries(asi).length<=need&&Object.entries(asi).every(([key,value])=>{
+    const index=/^asi(\d+)$/.exec(key);
+    if(!index||key!==`asi${+index[1]}`||+index[1]>=need)return false;
+    if(Array.isArray(value))return (value.length===0||value.length===2)&&value.every(id=>abilities.has(id));
+    if(!isRecord(value))return false;
+    if(value.type==='asi')return Array.isArray(value.vals)&&(value.vals.length===0||value.vals.length===2)&&value.vals.every(id=>abilities.has(id));
+    if(value.type==='feat'){
+      const feat=FEATS.find(([id])=>id===value.id);
+      return typeof value.id==='string'&&(value.id===''||!!feat)&&(!value.bonus||!!feat?.[3]?.includes(value.bonus))&&(!value.bonus||typeof value.bonus==='string');
+    }
+    return false;
+  });
+}
+function validMulticlassCharacter(ch){
+  if(ch.classes.length<2)return true;
+  const previous=C;
+  try{
+    C=ch;
+    return ch.classes.every((c,index)=>index===0||!multiclassRequirementError(c.cls,index));
+  }finally{C=previous}
+}
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
 function validCharacter(ch){
   if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
@@ -190,6 +213,7 @@ function validCharacter(ch){
   if(ch.arcanum&&Object.values(ch.arcanum).some(id=>!SPELL_IDS.has(id)))return false;
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
   if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
+  if(!validAsiChoices(ch)||!validMulticlassCharacter(ch))return false;
   if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||(ch.choices.tashaFeatures!=null&&!stringArrayMap(ch.choices.tashaFeatures))||(ch.choices.classTools!=null&&!stringArrayMap(ch.choices.classTools))||(ch.choices.backgroundTools!=null&&!stringArray(ch.choices.backgroundTools))||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))||!validToolChoices(ch)))return false;
   if(ch.choices&&ch.choices.fightingStyles!=null&&(!isRecord(ch.choices.fightingStyles)||Object.entries(ch.choices.fightingStyles).some(([key,value])=>{
     const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];

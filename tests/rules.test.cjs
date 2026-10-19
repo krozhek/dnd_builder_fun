@@ -183,6 +183,8 @@ test('multiclass and background tool proficiencies resolve real choices', () => 
   c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'bard', lvl: 1, sub: 'lore' }];
   c.choices.backgroundTools = ['Игровой набор (кости)'];
   c.choices.classTools = { bard: ['Лютня'] };
+  c.abilityMethod = 'manual';
+  c.bases.manual.cha = 12;
   api.setChar(c);
   assert.deepEqual(Array.from(api.toolProficiencies()), ['Наземный транспорт', 'Игровой набор (кости)', 'Лютня']);
   assert.doesNotMatch(api.renderClass(), /3 музыкальных инструмента/);
@@ -534,6 +536,15 @@ test('import validation rejects malformed character data and migration fills leg
   }
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], game: { slotsUsed: [] } }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], inventory: [{ type: 'weapon', id: 'sword', qty: 'many' }] }), false);
+  assert.equal(api.validCharacter({ ...c, asi: { asi0: { type: 'feat', id: 'lucky', bonus: 'str' } } }), false);
+  assert.equal(api.validCharacter({ ...c, asi: { asi0: { type: 'asi', vals: ['str', 'str'] } } }), false);
+  const fighterWithAsi = { ...c, classes: [{ cls: 'fighter', lvl: 4, sub: 'champion' }], asi: { asi0: { type: 'asi', vals: ['str', 'str'] } } };
+  assert.equal(api.validCharacter(fighterWithAsi), true);
+  assert.equal(api.validCharacter({ ...fighterWithAsi, asi: { ...fighterWithAsi.asi, asi1: { type: 'asi', vals: ['dex', 'dex'] } } }), false);
+  assert.equal(api.validCharacter({ ...fighterWithAsi, asi: { asi99: { type: 'asi', vals: ['str', 'str'] } } }), false);
+  const multiclass = { ...c, abilityMethod: 'manual', bases: { ...c.bases, manual: { str: 13, dex: 13, con: 10, int: 13, wis: 13, cha: 10 } }, classes: [{ cls: 'wizard', lvl: 1, sub: 'evocation' }, { cls: 'fighter', lvl: 1, sub: 'champion' }] };
+  assert.equal(api.validCharacter(multiclass), true);
+  assert.equal(api.validCharacter({ ...multiclass, bases: { ...multiclass.bases, manual: { ...multiclass.bases.manual, int: 11 } } }), false);
   assert.equal(api.validCharacter(null), false);
 
   const legacy = api.migrate({ name: 'Старый герой', classes: [{ cls: 'fighter', lvl: 3 }], race: null, bg: null, choices: null, game: null, injected: '<svg onload=alert(1)>' });
