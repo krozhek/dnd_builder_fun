@@ -196,8 +196,47 @@ function validMulticlassCharacter(ch){
     return ch.classes.every((c,index)=>index===0||!multiclassRequirementError(c.cls,index));
   }finally{C=previous}
 }
+function pointBuySpent(values){return ABILS.reduce((sum,[id])=>sum+(POINT_COST[values[id]??8]??0),0)}
+function validAbilityBases(ch){
+  if(!ch.bases)return true;
+  const method=ch.abilityMethod||'standard',values=ch.bases[method]||{},abilities=new Set(ABILS.map(([id])=>id));
+  if(Object.keys(values).some(id=>!abilities.has(id)))return false;
+  const scores=ABILS.map(([id],index)=>values[id]??(method==='standard'?STD_SET[index]:method==='point'?8:10));
+  if(scores.some(score=>!Number.isInteger(score)))return false;
+  if(method==='standard')return scores.every(score=>STD_SET.includes(score))&&new Set(scores).size===STD_SET.length;
+  if(method==='point')return scores.every(score=>Object.hasOwn(POINT_COST,score))&&pointBuySpent(Object.fromEntries(ABILS.map(([id],index)=>[id,scores[index]])))<=27;
+  return scores.every(score=>score>=3&&score<=18);
+}
+function validRacialAbilityChoices(ch){
+  const abilities=new Set(ABILS.map(([id])=>id)),race=RACES[ch.race]||RACES.human,flexible=ch.raceAsiPicks||[],halfElf=ch.halfElfPicks||[];
+  if(race.flexibleAsi){
+    const mode=ch.raceAsiMode||'two',limit=mode==='three'?3:2;
+    if(!['two','three'].includes(mode)||flexible.length>limit||flexible.some(id=>id!==''&&!abilities.has(id))||new Set(flexible.filter(Boolean)).size!==flexible.filter(Boolean).length)return false;
+  }else if(flexible.some(Boolean))return false;
+  if(race.asiChoice){
+    if(halfElf.length>race.asiChoice.count||halfElf.some(id=>!abilities.has(id)||race.asiChoice.exclude.includes(id))||new Set(halfElf).size!==halfElf.length)return false;
+  }else if(halfElf.length)return false;
+  return true;
+}
+function validSkillChoices(ch){
+  const previous=C;
+  try{
+    C=ch;
+    const validIds=new Set(SKILLS.map(([id])=>id)),map=ch.classSkills||{},racePicks=ch.raceSkills||[],racial=raceOf(),prof=new Set([...bgSkills(),...(racial.skillProf||[])]);
+    if(Object.values(map).some(picks=>new Set(picks).size!==picks.length||picks.some(id=>!validIds.has(id))))return false;
+    if(racePicks.length>(racial.skillChoice||0)||new Set(racePicks).size!==racePicks.length||racePicks.some(id=>!validIds.has(id)||prof.has(id)))return false;
+    racePicks.forEach(id=>prof.add(id));
+    for(const [index,c] of ch.classes.entries()){
+      const picks=map[c.cls]||[],allowed=CLASSES[c.cls].skillList,count=classSkillChoiceCount(index,c.cls);
+      if(picks.length>count||picks.some(id=>!allowed.includes(id)||prof.has(id)))return false;
+      picks.forEach(id=>prof.add(id));
+    }
+    const deftSkill=(ch.choices||{}).deftExplorerSkill,expertise=ch.expertise||[],expertiseLimit=expertiseAvailable()-(deftExplorerActive()?1:0);
+    return (!deftSkill||validIds.has(deftSkill)&&prof.has(deftSkill))&&expertise.length<=expertiseLimit&&new Set(expertise).size===expertise.length&&expertise.every(id=>validIds.has(id)&&prof.has(id)&&id!==deftSkill);
+  }finally{C=previous}
+}
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
-function validCharacter(ch){
+function validCharacter(ch,enforceRules=true){
   if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
   if(ch.id!=null&&ch.id!==''&&(typeof ch.id!=='string'||!CHARACTER_ID_RE.test(ch.id)))return false;
   if(ch.schemaVersion!=null&&(!Number.isInteger(ch.schemaVersion)||ch.schemaVersion<1||ch.schemaVersion>CHARACTER_SCHEMA))return false;
@@ -214,7 +253,7 @@ function validCharacter(ch){
   if(ch.arcanum&&Object.values(ch.arcanum).some(id=>!SPELL_IDS.has(id)))return false;
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
   if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
-  if(!validAsiChoices(ch)||!validMulticlassCharacter(ch))return false;
+  if(enforceRules&&(!validAbilityBases(ch)||!validRacialAbilityChoices(ch)||!validAsiChoices(ch)||!validMulticlassCharacter(ch)))return false;
   if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||(ch.choices.tashaFeatures!=null&&!stringArrayMap(ch.choices.tashaFeatures))||(ch.choices.classTools!=null&&!stringArrayMap(ch.choices.classTools))||(ch.choices.backgroundTools!=null&&!stringArray(ch.choices.backgroundTools))||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))||!validToolChoices(ch)))return false;
   if(ch.choices&&ch.choices.fightingStyles!=null&&(!isRecord(ch.choices.fightingStyles)||Object.entries(ch.choices.fightingStyles).some(([key,value])=>{
     const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
@@ -224,6 +263,7 @@ function validCharacter(ch){
   if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)))return false;
   if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
   if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean')||(i.wielded!=null&&typeof i.wielded!=='boolean')||(i.grip!=null&&!['one-handed','two-handed'].includes(i.grip))||(i.type==='weapon'&&i.wielded&&i.qty>1))))return false;
+  if(enforceRules&&!validSkillChoices(ch))return false;
   return true;
 }
 function importJson(inp){
@@ -393,11 +433,11 @@ function renderAbil(){
     methodHtml=`<p class="hint">Распределите значения 15, 14, 13, 12, 10, 8 — каждое один раз.</p><div class="grid six">${ABILS.map(([a,n])=>{
       return `<label>${n}<select onchange="setStd('${a}',+this.value)">${STD_SET.map(v=>`<option value="${v}"${B[a]===v?' selected':''}>${v}</option>`).join('')}</select></label>`}).join('')}</div>`;
   }else if(method==='point'){
-    const spent=ABILS.reduce((s,[a])=>s+(POINT_COST[B[a]]||0),0);
+    const spent=pointBuySpent(B);
     methodHtml=`<p class="hint">27 очков. Стоимость: 9→1, 10→2, 11→3, 12→4, 13→5, 14→7, 15→9. Осталось: <b class="${27-spent<0?'bad':''}">${27-spent}</b></p>
     <div class="grid six">${ABILS.map(([a,n])=>{
-      const v=B[a]??8;
-      return `<div class="abil-box"><div class="abil-name">${n}</div><div class="stepper"><button class="btn sm" onclick="stepPoint('${a}',-1)">−</button><b>${v}</b><button class="btn sm" onclick="stepPoint('${a}',1)">＋</button></div><div class="muted small">цена ${POINT_COST[v]??'—'}</div></div>`}).join('')}</div>`;
+      const v=B[a]??8,upSpent=spent-(POINT_COST[v]??0)+(POINT_COST[v+1]??0);
+      return `<div class="abil-box"><div class="abil-name">${n}</div><div class="stepper"><button class="btn sm"${v<=8?' disabled':''} onclick="stepPoint('${a}',-1)">−</button><b>${v}</b><button class="btn sm"${v>=15||upSpent>27?' disabled':''} onclick="stepPoint('${a}',1)">＋</button></div><div class="muted small">цена ${POINT_COST[v]??'—'}</div></div>`}).join('')}</div>`;
   }else{
     methodHtml=`<p class="hint">Введите значения от 3 до 18 (например, результат бросков 4к6).</p><div class="grid six">${ABILS.map(([a,n])=>{
       const v=B[a]??10;
@@ -435,17 +475,21 @@ function setStd(a,v){
   B[a]=v;persist();render();
 }
 function stepPoint(a,d){
-  const B=C.bases.point;
-  const v=(B[a]??8)+d;
-  if(v<8||v>15)return;
+  const B=C.bases.point,v=(B[a]??8)+d;
+  if(!ABILS.some(([id])=>id===a)||v<8||v>15||d>0&&pointBuySpent(B)-(POINT_COST[B[a]??8]??0)+(POINT_COST[v]??0)>27)return;
   B[a]=v;persist();render();
 }
 function setManual(a,v){C.bases.manual[a]=Math.max(3,Math.min(18,+v||10));persist();render()}
-function setRaceAsiMode(v){C.raceAsiMode=v;C.raceAsiPicks=[];persist();render()}
-function setRaceAsi(i,v){C.raceAsiPicks=C.raceAsiPicks||[];C.raceAsiPicks[i]=v;persist();render()}
+function setRaceAsiMode(v){if(!raceOf().flexibleAsi||!['two','three'].includes(v))return;C.raceAsiMode=v;C.raceAsiPicks=[];persist();render()}
+function setRaceAsi(i,v){
+  const count=C.raceAsiMode==='three'?3:2;
+  if(!raceOf().flexibleAsi||!Number.isInteger(i)||i<0||i>=count||v&&(!ABILS.some(([id])=>id===v)||(C.raceAsiPicks||[]).some((id,index)=>index!==i&&id===v)))return;
+  C.raceAsiPicks=C.raceAsiPicks||[];C.raceAsiPicks[i]=v;persist();render();
+}
 function toggleHalfElf(a,on){
   C.halfElfPicks=C.halfElfPicks||[];
-  if(on){if(C.halfElfPicks.length>=2){alert('Можно выбрать только две');render();return}C.halfElfPicks.push(a)}
+  const choice=raceOf().asiChoice;
+  if(on){if(!choice||!ABILS.some(([id])=>id===a)||choice.exclude.includes(a)||C.halfElfPicks.includes(a)||C.halfElfPicks.length>=choice.count){alert('Недопустимый бонус характеристики.');render();return}C.halfElfPicks.push(a)}
   else C.halfElfPicks=C.halfElfPicks.filter(x=>x!==a);
   persist();render();
 }
@@ -481,13 +525,14 @@ function setAsi(i,vals){
 
 // ---------- Навыки ----------
 function renderSkills(){
-  const bg=bgSkills(), race=raceSkills();
+  const bg=bgSkills(), race=raceSkills(),invalidChoices=!validSkillChoices(C);
   const expertAv=expertiseAvailable(),expertSelected=expertiseSkills();
   return `<div class="page"><h1>Навыки</h1>
     <p class="hint">Отметьте владения от класса (и расы — для полуэльфа). Владение добавляет <b>бонус мастерства (${fmtMod(pb())})</b> к проверкам навыка, компетентность (◈) — удвоенный бонус. Итог отображается в таблице ниже, на листе и в быстрых проверках игрового режима.</p>
+    ${invalidChoices?'<div class="warn">В сохранённых данных есть недопустимые выборы навыков или компетентностей. Их можно сбросить и выбрать заново.</div><button class="btn danger" onclick="resetSkillChoices()">Сбросить выборы навыков</button>':''}
     <div class="card"><h3>Владения от предыстории и расы</h3>
-      <p>${[...bg.map(s=>SKILLS.find(x=>x[0]===s)[1]),...race.map(s=>SKILLS.find(x=>x[0]===s)[1])].join(', ')||'—'}</p>
-      ${raceOf().skillChoice?`<p class="hint">Полуэльф: выберите ${raceOf().skillChoice} навыка:</p><div class="row gap wrap">${SKILLS.map(([id,n])=>`<label class="chk"><input type="checkbox" ${(C.raceSkills||[]).includes(id)?'checked':''} onchange="toggleRaceSkill('${id}',this.checked)"> ${n}</label>`).join('')}</div>`:''}
+      <p>${[...bg.map(s=>SKILLS.find(x=>x[0]===s)?.[1]||esc(s)),...race.map(s=>SKILLS.find(x=>x[0]===s)?.[1]||esc(s))].join(', ')||'—'}</p>
+      ${raceOf().skillChoice?`<p class="hint">Полуэльф: выберите ${raceOf().skillChoice} навыка:</p><div class="row gap wrap">${SKILLS.map(([id,n])=>`<label class="chk"><input type="checkbox" ${(C.raceSkills||[]).includes(id)?'checked':''}${!(C.raceSkills||[]).includes(id)&&profSkills().includes(id)?' disabled':''} onchange="toggleRaceSkill('${id}',this.checked)"> ${n}</label>`).join('')}</div>`:''}
     </div>
     ${C.classes.map((c,i)=>{
       const cl=CLASSES[c.cls];
@@ -502,7 +547,7 @@ function renderSkills(){
       ${picks.length<skillCount?`<div class="warn small">выберите ещё ${skillCount-picks.length}</div>`:picks.length>skillCount?`<div class="warn small">уберите ${picks.length-skillCount} лишних навыка</div>`:''}</div>`}).join('')}
     ${expertAv>0?`<div class="card"><h3>Компетентность (удвоенный бонус мастерства)</h3>
       <p class="hint">Доступно: ${expertAv}, выбрано: ${expertSelected.length}</p>
-      <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${expertSelected.includes(s)?'checked':''}${deftExplorerSkill()===s?' disabled':''} onchange="toggleExpertise('${s}',${expertAv},this.checked)"> ${SKILLS.find(x=>x[0]===s)[1]}${deftExplorerSkill()===s?' (Искусный исследователь)':''}</label>`).join('')}</div></div>`:''}
+      <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${expertSelected.includes(s)?'checked':''}${deftExplorerSkill()===s?' disabled':''} onchange="toggleExpertise('${s}',${expertAv},this.checked)"> ${SKILLS.find(x=>x[0]===s)?.[1]||esc(s)}${deftExplorerSkill()===s?' (Искусный исследователь)':''}</label>`).join('')}</div></div>`:''}
     <div class="card"><h3>Итоговые модификаторы</h3>
     <table class="tbl"><tr><th>Навык</th><th>Хар-ка</th><th>Мод.</th></tr>
     ${SKILLS.map(([id,n,a])=>{const p=profSkills().includes(id),e=expertiseSkills().includes(id);
@@ -518,10 +563,14 @@ function expertiseAvailable(){
   if(deftExplorerActive())n++;
   return n;
 }
+function resetSkillChoices(){
+  if(!confirm('Сбросить выборы навыков и компетентностей? Вы сможете выбрать их заново.'))return;
+  C.classSkills={};C.raceSkills=[];C.expertise=[];delete C.choices.deftExplorerSkill;persist();render();
+}
 function toggleRaceSkill(id,on){
   C.raceSkills=C.raceSkills||[];
   const max=raceOf().skillChoice||0;
-  if(on){if(C.raceSkills.length>=max){alert('Максимум '+max);render();return}C.raceSkills.push(id)}
+  if(on){if(!SKILLS.some(s=>s[0]===id)||profSkills().includes(id)){alert('Навык уже выбран из другого источника.');render();return}if(C.raceSkills.length>=max){alert('Максимум '+max);render();return}C.raceSkills.push(id)}
   else C.raceSkills=C.raceSkills.filter(x=>x!==id);
   persist();render();
 }

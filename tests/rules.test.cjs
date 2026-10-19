@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -603,6 +603,57 @@ test('clicking a spell name opens its details without selecting it', () => {
   assert.match(bookPicker, /onclick="spellNameClick\(event,/);
 });
 
+test('ability methods enforce legal scores and the 27-point budget', () => {
+  const c = character();
+  const point = { str: 15, dex: 15, con: 15, int: 8, wis: 8, cha: 8 };
+  c.abilityMethod = 'point';
+  c.bases.point = point;
+  assert.equal(api.pointBuySpent(point), 27);
+  assert.equal(api.validCharacter(c), true);
+  assert.equal(api.validCharacter({ ...c, bases: { ...c.bases, point: { ...point, int: 9 } } }), false);
+  assert.equal(api.validCharacter({ ...c, bases: { ...c.bases, point: { ...point, str: 16 } } }), false);
+  assert.equal(api.validCharacter({ ...c, abilityMethod: 'standard', bases: { ...c.bases, standard: { str: 15, dex: 15, con: 13, int: 12, wis: 10, cha: 8 } } }), false);
+  assert.equal(api.validCharacter({ ...c, abilityMethod: 'manual', bases: { ...c.bases, manual: { ...c.bases.manual, str: 19 } } }), false);
+
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.stepPoint('int', 1);
+  assert.equal(c.bases.point.int, 8);
+  api.stepPoint('str', -1);
+  api.stepPoint('int', 1);
+  assert.equal(c.bases.point.int, 9);
+  assert.equal(api.pointBuySpent(c.bases.point), 26);
+  api.setRenderFn(oldRender);
+});
+
+test('import rejects invalid skill choices but storage can still open old drafts', () => {
+  const c = character();
+  c.classSkills.fighter = ['history', 'perception'];
+  assert.equal(api.validCharacter(c), true);
+  assert.equal(api.validCharacter({ ...c, classSkills: { fighter: ['history', 'history'] } }), false);
+  assert.equal(api.validCharacter({ ...c, classSkills: { fighter: ['arcana'] } }), false);
+  assert.equal(api.validCharacter({ ...c, expertise: ['arcana'] }), false);
+
+  const halfElf = { ...c, race: 'halfelf', raceSkills: ['nature', 'arcana'] };
+  assert.equal(api.validCharacter(halfElf), true);
+  assert.equal(api.validCharacter({ ...halfElf, raceSkills: ['nature', 'nature'] }), false);
+  assert.equal(api.validCharacter({ ...halfElf, raceSkills: ['athletics', 'nature'] }), false);
+
+  const oldDraft = api.newChar();
+  oldDraft.abilityMethod = 'point';
+  oldDraft.bases.point = { str: 15, dex: 15, con: 15, int: 15, wis: 15, cha: 15 };
+  oldDraft.classSkills = { fighter: ['unknown_skill'] };
+  storageData.set('dnd5e2014_chars_v1', JSON.stringify([oldDraft]));
+  api.loadLib();
+  assert.equal(api.storageCorrupt, false);
+  assert.equal(api.library.length, 1);
+  api.setChar(api.library[0]);
+  assert.match(api.renderSkills(), /Сбросить выборы навыков/);
+  api.setLibrary([]);
+  storageData.delete('dnd5e2014_chars_v1');
+});
+
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {
   const c = character();
   assert.equal(api.validCharacter(c), true);
@@ -861,6 +912,13 @@ test('AAG flexible ability increases apply +2/+1 or +1 to three abilities', () =
   assert.equal(asi.str, 1);
   assert.equal(asi.con, 1);
   assert.equal(asi.cha, 1);
+  assert.equal(api.validCharacter(c), true);
+  assert.equal(api.validCharacter({ ...c, raceAsiPicks: ['dex', 'dex', 'cha'] }), false);
+  assert.equal(api.validCharacter({ ...c, raceAsiMode: 'unknown' }), false);
+  const halfElf = { ...c, race: 'halfelf', raceAsiPicks: [], halfElfPicks: ['str', 'wis'] };
+  assert.equal(api.validCharacter(halfElf), true);
+  assert.equal(api.validCharacter({ ...halfElf, halfElfPicks: ['str', 'str'] }), false);
+  assert.equal(api.validCharacter({ ...halfElf, halfElfPicks: ['str', 'cha'] }), false);
 });
 
 test('AAG background feat appears on both character-sheet styles', () => {

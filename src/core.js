@@ -33,7 +33,7 @@ function loadLib(){
   try{
     const saved=JSON.parse(value);
     const ids=Array.isArray(saved)?saved.map(c=>c?.id).filter(Boolean):[];
-    if(!Array.isArray(saved)||!saved.every(validCharacter)||new Set(ids).size!==ids.length)throw new Error('Некорректная библиотека персонажей');
+    if(!Array.isArray(saved)||!saved.every(c=>validCharacter(c,false))||new Set(ids).size!==ids.length)throw new Error('Некорректная библиотека персонажей');
     LIB=saved.map(migrate);
   }catch(error){LIB=[];STORAGE_CORRUPT=true;console.error('Не удалось восстановить библиотеку персонажей',error);warnStorage()}
 }
@@ -552,6 +552,9 @@ function asiPending(){
 }
 function characterReadiness(){
   const issues=[],add=(tab,text,recommended=false)=>issues.push({tab,text,recommended}),r=raceOf(),sub=subraceOf();
+  if(!validAbilityBases(C))add('abil','Исправьте значения характеристик: соблюдайте правила выбранного метода (покупка очками — максимум 27).');
+  if(!validRacialAbilityChoices(C))add('abil','Исправьте недопустимые или повторяющиеся расовые бонусы характеристик.');
+  if(!validSkillChoices(C))add('skills','Исправьте недопустимые или повторяющиеся выборы навыков и компетентностей.');
   if(r.subs&&!C.subrace)add('main','Выберите подрасу.');
   if(r.asiChoice&&(C.halfElfPicks||[]).filter(Boolean).length<r.asiChoice.count)add('abil',`Выберите ещё ${r.asiChoice.count-(C.halfElfPicks||[]).filter(Boolean).length} бонуса характеристики от расы.`);
   if(r.flexibleAsi){const count=C.raceAsiMode==='three'?3:2,picks=(C.raceAsiPicks||[]).filter(Boolean);if(new Set(picks).size<count)add('abil',`Распределите расовые бонусы характеристик: выберите ${count} разные характеристики.`)}
