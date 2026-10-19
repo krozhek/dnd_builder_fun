@@ -117,7 +117,8 @@ function asiBonus(){
 }
 function abil(a){
   const base=(C.bases[C.abilityMethod]&&C.bases[C.abilityMethod][a]!=null)?C.bases[C.abilityMethod][a]:10;
-  return Math.max(1,base+racialAsi()[a]+asiBonus()[a]);
+  const primal=C.classes.some(c=>c.cls==='barbarian'&&c.lvl>=20)&&['str','con'].includes(a);
+  return Math.max(1,Math.min(primal?24:20,base+racialAsi()[a]+asiBonus()[a]+(primal?4:0)));
 }
 const am=a=>mod(abil(a));
 // владения навыками

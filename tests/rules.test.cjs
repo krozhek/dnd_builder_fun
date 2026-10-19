@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, speed, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -136,6 +136,31 @@ test('multiclass prerequisites check the new and existing classes', () => {
   api.addClass();
   assert.equal(c.classes.length, 1);
   assert.match(alerts.at(-1), /текущего класса «Воин»/);
+});
+
+test('ability scores cap at 20 and Primal Champion adds +4 to Strength and Constitution at barbarian 20', () => {
+  const c = character();
+  c.race = 'halforc';
+  c.bases.manual.str = 18;
+  c.bases.manual.con = 18;
+  c.classes = [{ cls: 'barbarian', lvl: 19, sub: 'berserk' }];
+  c.asi = { asi0: { type: 'asi', vals: ['str', 'str'] }, asi1: { type: 'asi', vals: ['con', 'con'] } };
+  api.setChar(c);
+  assert.equal(api.abil('str'), 20);
+  assert.equal(api.am('str'), 5);
+  assert.equal(api.abil('con'), 20);
+
+  c.classes[0].lvl = 20;
+  api.setChar(c);
+  assert.equal(api.abil('str'), 24);
+  assert.equal(api.abil('con'), 24);
+  assert.equal(api.am('str'), 7);
+  assert.equal(api.abil('dex'), 14);
+
+  c.classes[0].lvl = 19;
+  c.classes[0].cls = 'fighter';
+  api.setChar(c);
+  assert.equal(api.abil('str'), 20);
 });
 
 test('fighter hit points use maximum first hit die and average thereafter', () => {
