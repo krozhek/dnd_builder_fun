@@ -1840,13 +1840,15 @@ function weaponProf(weaponId){
   return raceWeaponProfile().includes(weaponId)||C.classes.some((c,i)=>weaponProfileProficient(classWeaponProfile(c,i),w)||weaponProfileProficient(SUBCLASSES[c.sub]?.weaponProficiencies,w));
 }
 function isMonkWeapon(w){return w[0]==='shortsword'||(w[7]==='simple'&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!w[5].includes('Тяжёлое'))}
+function monkMartialArtsActive(){
+  const monk=C.classes.find(c=>c.cls==='monk');
+  return !!monk&&!equippedArmor()&&!hasShield()&&C.inventory.filter(i=>i.type==='weapon'&&i.wielded).every(i=>{const weapon=WEAPONS.find(w=>w[0]===i.id);return weapon&&isMonkWeapon(weapon)});
+}
 function weaponAttack(w){
   const finesse=w[5].includes('Фехтовальное');
   const ranged=w[6]==='ranged';
   let ab=ranged?am('dex'):(finesse?Math.max(am('str'),am('dex')):am('str'));
-  // монах: монашеское оружие — Лов
-  const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
+  if(monkMartialArtsActive()&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
   let bonus=ab+(weaponProf(w[0])?pb():0);
   if(ranged&&hasFightingStyle('archery'))bonus+=2;
   return bonus;
@@ -1856,11 +1858,15 @@ function weaponDamage(w,item=null){
   const finesse=w[5].includes('Фехтовальное');
   const ranged=w[6]==='ranged';
   let ab=ranged?am('dex'):(finesse?Math.max(am('str'),am('dex')):am('str'));
-  const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
+  const martialArts=monkMartialArtsActive()&&isMonkWeapon(w);
+  if(martialArts)ab=Math.max(ab,am('dex'));
   let bonus=ab;
   const versatile=w[5].match(/Универсальное \(([^)]+)\)/);
   let dice=item?.grip==='two-handed'&&versatile?`${versatile[1]} ${w[3].replace(/^\S+\s*/, '')}`:w[3];
+  if(martialArts){
+    const die=TABLES.monk.ma[C.classes.find(c=>c.cls==='monk').lvl-1],currentDie=dice.split(' ')[0];
+    if(Number(die.split('к')[1])>Number(currentDie.split('к')[1]))dice=die+dice.slice(currentDie.length);
+  }
   if(hasFightingStyle('dueling')&&item?.wielded&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!(item.grip==='two-handed'&&versatile)&&wieldedWeaponCount()===1)bonus+=2;
   if(bonus!==0)return dice+' '+fmtMod(bonus);
   return dice;
@@ -2979,8 +2985,8 @@ function attacksHtml(){
     return `<tr><td>${w[1]}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td class="muted small">${w[5]}</td></tr>`;
   }).join('');
   if(monk){
-    const die=TABLES.monk.ma[monk.lvl-1];
-    rows+=`<tr><td>Безоружный удар</td><td>${fmtMod(Math.max(am('str'),am('dex'))+pb())}</td><td>${die} ${fmtMod(Math.max(am('str'),am('dex')))}</td><td class="muted small">монашеский</td></tr>`;
+    const martial=monkMartialArtsActive(),ability=martial?Math.max(am('str'),am('dex')):am('str'),damage=martial?`${TABLES.monk.ma[monk.lvl-1]} ${fmtMod(ability)}`:`1 ${fmtMod(ability)}`;
+    rows+=`<tr><td>Безоружный удар</td><td>${fmtMod(ability+pb())}</td><td>${damage}</td><td class="muted small">монашеский</td></tr>`;
   }
   if(!rows)return '<p class="muted">Нет оружия в инвентаре.</p>';
   return `<table class="tbl"><tr><th>Название</th><th>Бонус</th><th>Урон</th><th>Свойства</th></tr>${rows}</table>`;

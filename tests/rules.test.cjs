@@ -40,6 +40,7 @@ globalThis.api = {
   renderSpells, racialCantripChoices, racialSpellEntries,
   renderMain, renderHome, renderEquip, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
+  attacksHtml,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
   addClass, changeClass, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
@@ -225,6 +226,24 @@ test('monk weapons are melee only and allow shortswords', () => {
   assert.equal(api.weaponAttack(weapon('shortsword')), 6);
   assert.equal(api.weaponAttack(weapon('quarterstaff')), 6);
   assert.equal(api.weaponAttack(weapon('lightcrossbow')), 2);
+
+  c.classes[0].lvl = 11;
+  c.bases.manual.str = 10;
+  c.bases.manual.dex = 16;
+  c.inventory = [{ type: 'weapon', id: 'shortsword', qty: 1, wielded: true }];
+  api.setChar(c);
+  assert.equal(api.weaponAttack(weapon('shortsword')), 7);
+  assert.equal(api.weaponDamage(weapon('shortsword'), c.inventory[0]), '1к8 колющий +3');
+  assert.match(api.attacksHtml(), /Безоружный удар[\s\S]*1к8 \+3/);
+
+  c.inventory.push({ type: 'armor', id: 'leather', qty: 1, equipped: true });
+  api.setChar(c);
+  assert.equal(api.weaponAttack(weapon('shortsword')), 4); // без БИ — Сила
+  assert.equal(api.weaponDamage(weapon('shortsword'), c.inventory[0]), '1к6 колющий');
+  assert.match(api.attacksHtml(), /Безоружный удар[\s\S]*1 \+0/);
+  c.inventory = [{ type: 'weapon', id: 'greatsword', qty: 1, wielded: true }];
+  api.setChar(c);
+  assert.equal(api.weaponAttack(weapon('shortsword')), 4);
 });
 
 test('class skill choices use the starting or multiclass progression', () => {

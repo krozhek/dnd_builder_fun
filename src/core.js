@@ -419,13 +419,15 @@ function weaponProf(weaponId){
   return raceWeaponProfile().includes(weaponId)||C.classes.some((c,i)=>weaponProfileProficient(classWeaponProfile(c,i),w)||weaponProfileProficient(SUBCLASSES[c.sub]?.weaponProficiencies,w));
 }
 function isMonkWeapon(w){return w[0]==='shortsword'||(w[7]==='simple'&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!w[5].includes('Тяжёлое'))}
+function monkMartialArtsActive(){
+  const monk=C.classes.find(c=>c.cls==='monk');
+  return !!monk&&!equippedArmor()&&!hasShield()&&C.inventory.filter(i=>i.type==='weapon'&&i.wielded).every(i=>{const weapon=WEAPONS.find(w=>w[0]===i.id);return weapon&&isMonkWeapon(weapon)});
+}
 function weaponAttack(w){
   const finesse=w[5].includes('Фехтовальное');
   const ranged=w[6]==='ranged';
   let ab=ranged?am('dex'):(finesse?Math.max(am('str'),am('dex')):am('str'));
-  // монах: монашеское оружие — Лов
-  const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
+  if(monkMartialArtsActive()&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
   let bonus=ab+(weaponProf(w[0])?pb():0);
   if(ranged&&hasFightingStyle('archery'))bonus+=2;
   return bonus;
@@ -435,11 +437,15 @@ function weaponDamage(w,item=null){
   const finesse=w[5].includes('Фехтовальное');
   const ranged=w[6]==='ranged';
   let ab=ranged?am('dex'):(finesse?Math.max(am('str'),am('dex')):am('str'));
-  const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
+  const martialArts=monkMartialArtsActive()&&isMonkWeapon(w);
+  if(martialArts)ab=Math.max(ab,am('dex'));
   let bonus=ab;
   const versatile=w[5].match(/Универсальное \(([^)]+)\)/);
   let dice=item?.grip==='two-handed'&&versatile?`${versatile[1]} ${w[3].replace(/^\S+\s*/, '')}`:w[3];
+  if(martialArts){
+    const die=TABLES.monk.ma[C.classes.find(c=>c.cls==='monk').lvl-1],currentDie=dice.split(' ')[0];
+    if(Number(die.split('к')[1])>Number(currentDie.split('к')[1]))dice=die+dice.slice(currentDie.length);
+  }
   if(hasFightingStyle('dueling')&&item?.wielded&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!(item.grip==='two-handed'&&versatile)&&wieldedWeaponCount()===1)bonus+=2;
   if(bonus!==0)return dice+' '+fmtMod(bonus);
   return dice;

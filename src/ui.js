@@ -956,8 +956,8 @@ function attacksHtml(){
     return `<tr><td>${w[1]}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td class="muted small">${w[5]}</td></tr>`;
   }).join('');
   if(monk){
-    const die=TABLES.monk.ma[monk.lvl-1];
-    rows+=`<tr><td>Безоружный удар</td><td>${fmtMod(Math.max(am('str'),am('dex'))+pb())}</td><td>${die} ${fmtMod(Math.max(am('str'),am('dex')))}</td><td class="muted small">монашеский</td></tr>`;
+    const martial=monkMartialArtsActive(),ability=martial?Math.max(am('str'),am('dex')):am('str'),damage=martial?`${TABLES.monk.ma[monk.lvl-1]} ${fmtMod(ability)}`:`1 ${fmtMod(ability)}`;
+    rows+=`<tr><td>Безоружный удар</td><td>${fmtMod(ability+pb())}</td><td>${damage}</td><td class="muted small">монашеский</td></tr>`;
   }
   if(!rows)return '<p class="muted">Нет оружия в инвентаре.</p>';
   return `<table class="tbl"><tr><th>Название</th><th>Бонус</th><th>Урон</th><th>Свойства</th></tr>${rows}</table>`;
