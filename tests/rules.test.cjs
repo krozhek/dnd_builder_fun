@@ -36,7 +36,7 @@ globalThis.api = {
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
   setSpellQuery,
-  spellPicker, renderWizardSpells, spellNameClick, SPELLS,
+  spellPicker, renderWizardSpells, toggleSpell, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
   renderMain, renderHome, renderEquip, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
@@ -403,6 +403,34 @@ test('third-caster class levels expose their own cantrip and known spell progres
   api.setChar(c);
   assert.match(api.renderSpells(), /Заговоры — 0\/3/);
   assert.match(api.renderSpells(), /Известные заклинания — 0\/3/);
+});
+
+test('third casters enforce school exceptions and Arcane Trickster requires Mage Hand', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 3, sub: 'eldritchknight' }];
+  c.spellsKnown.fighter = ['shield', 'magic_missile', 'charm_person'];
+  api.setChar(c);
+  assert.equal(api.validCharacter(c), true); // one unrestricted spell at level 3
+  c.spellsKnown.fighter.push('disguise_self');
+  assert.equal(api.validCharacter(c), false);
+  assert.ok(api.characterReadiness().some(issue => issue.text.includes('разрешённой школы')));
+  assert.match(api.spellPicker('fighter', 1, ['shield', 'charm_person'], 3, 'spellsKnown'), /Нет свободного выбора для этой школы/);
+
+  c.spellsKnown.fighter = ['shield', 'charm_person'];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  alerts.length = 0;
+  api.toggleSpell('spellsKnown', 'fighter', 3, 'disguise_self', true);
+  assert.deepEqual(Array.from(c.spellsKnown.fighter), ['shield', 'charm_person']);
+  assert.match(alerts.at(-1), /нет свободного выбора/);
+  api.setRenderFn(oldRender);
+
+  c.classes = [{ cls: 'rogue', lvl: 3, sub: 'arcanetrickster' }];
+  c.spellsKnown = { rogue: ['shield', 'magic_missile', 'charm_person'] };
+  c.cantrips = { rogue: ['acid_splash', 'chill_touch', 'ray_of_frost'] };
+  api.setChar(c);
+  assert.ok(api.characterReadiness().some(issue => issue.text.includes('обязательный заговор «Волшебная рука»')));
 });
 
 test('speed includes monk, barbarian, and Deft Explorer bonuses with armor conditions', () => {

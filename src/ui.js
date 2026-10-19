@@ -149,6 +149,7 @@ function validSpellSelections(ch){
         const spell=SPELLS.find(s=>s.id===id);
         return !spell||!spellClassAllowed(c,id)||(kind==='cantrip'?spell.lvl!==0:spell.lvl<1||spell.lvl>classMaxSpellLevel(c))||(kind==='prepared'&&cls==='wizard'&&!(ch.spellbook||[]).includes(id));
       }))return false;
+      if(kind==='known'&&!thirdCasterSpellSelectionsValid(c,ids))return false;
     }
   }
   const wizard=classes.get('wizard');
@@ -741,9 +742,10 @@ function spellPicker(cls,lvl,sel,limit,store,bonusIds=[]){
   if(!list.length)return '';
   return `<details class="spell-lvl" data-key="${cls}-${lvl}"${lvl===0?' open':''}><summary>${LVL_NAMES[lvl]} <span class="muted">(${list.length})</span></summary>
   <div class="spell-grid">${list.map(s=>{
-    const checked=sel.includes(s.id), bonus=bonusIds.includes(s.id);
+    const checked=sel.includes(s.id),bonus=bonusIds.includes(s.id),caster=C.classes.find(c=>c.cls===cls);
+    const unavailable=store==='spellsKnown'&&!checked&&caster&&spellTypeOf(caster)==='third'&&!thirdCasterSpellSelectionsValid(caster,[...sel,s.id]);
     return `<div class="spell-row${checked?' picked':''}${bonus?' bonus':''}" data-search="${spellSearchData(s)}">
-      <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus?'disabled':''} onchange="toggleSpell('${store}','${cls}',${limit},'${s.id}',this.checked)">
+      <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus||unavailable?'disabled':''}${unavailable?' title="Нет свободного выбора для этой школы заклинаний"':''} onchange="toggleSpell('${store}','${cls}',${limit},'${s.id}',this.checked)">
       <span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
       <span class="muted small">${esc(s.school)}${s.ritual?' · ритуал':''}</span>
     </div>`}).join('')}</div></details>`;
@@ -751,7 +753,11 @@ function spellPicker(cls,lvl,sel,limit,store,bonusIds=[]){
 function toggleSpell(store,cls,limit,id,on){
   C[store][cls]=C[store][cls]||[];
   const arr=C[store][cls];
-  if(on){const freeIds=store==='spellsKnown'&&cls==='ranger'?new Set(primalAwarenessSpells().map(s=>s.id)):null,count=freeIds?arr.filter(x=>!freeIds.has(x)).length:arr.length;if(count>=limit){alert('Лимит: '+limit);render();return}arr.push(id)}
+  if(on){
+    const caster=C.classes.find(c=>c.cls===cls);
+    if(store==='spellsKnown'&&caster&&spellTypeOf(caster)==='third'&&!thirdCasterSpellSelectionsValid(caster,[...arr,id])){alert('Для этого заклинания нет свободного выбора вне ограниченных школ.');render();return}
+    const freeIds=store==='spellsKnown'&&cls==='ranger'?new Set(primalAwarenessSpells().map(s=>s.id)):null,count=freeIds?arr.filter(x=>!freeIds.has(x)).length:arr.length;if(count>=limit){alert('Лимит: '+limit);render();return}arr.push(id)
+  }
   else C[store][cls]=arr.filter(x=>x!==id);
   persist();render();
 }
