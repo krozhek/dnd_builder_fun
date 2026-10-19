@@ -131,6 +131,11 @@ test('clicking a spell name opens its details without selecting it', () => {
   assert.deepEqual(c.spellsKnown.wizard || [], []);
   assert.equal(dom.modal.style.display, 'block');
   assert.ok(dom.modal.innerHTML.includes(spell.ru));
+  const beastSenseEvent = { prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; } };
+  api.spellNameClick(beastSenseEvent, 'beast_sense');
+  assert.ok(dom.modal.innerHTML.includes('Чутьё зверя'));
+  assert.ok(dom.modal.innerHTML.includes('Касание'));
+  assert.deepEqual(c.spellsKnown.wizard || [], []);
 
   const bookPicker = api.renderWizardSpells(c, 1);
   assert.match(bookPicker, /onchange="toggleSpellbook\(/);
@@ -330,14 +335,19 @@ test('Primal Awareness grants additional spells by ranger level without using th
   api.setChar(c);
   const additional = api.primalAwarenessSpells();
   assert.deepEqual(Array.from(additional, s => s.id), ['speak_with_animals', 'beast_sense']);
-  assert.equal(additional[1].spell, null);
+  assert.equal(additional[1].spell.id, 'beast_sense');
+  assert.equal(additional[1].spell.src, 'PHB');
+  assert.equal(additional[1].spell.lvl, 2);
+  assert.equal(additional[1].spell.ritual, true);
+  assert.match(additional[1].spell.full, /согласного зверя/);
+  assert.deepEqual(Array.from(additional[1].spell.cls), ['druid', 'ranger']);
   assert.equal(api.knownLimit('ranger'), ranger3Limit + 1);
   c.spellsKnown.ranger = ['speak_with_animals'];
   api.setChar(c);
   const spellUi = api.renderSpells();
   assert.match(spellUi, /Известные заклинания — 0\/4/);
   assert.match(spellUi, /type="checkbox" checked disabled onchange="toggleSpell\('spellsKnown','ranger',4,'speak_with_animals',this.checked\)"/);
-  assert.match(spellUi, /описание отсутствует в библиотеке/);
+  assert.doesNotMatch(spellUi, /описание отсутствует в библиотеке/);
 
   c.classes = [{ cls: 'ranger', lvl: 17, sub: 'hunter' }];
   api.setChar(c);

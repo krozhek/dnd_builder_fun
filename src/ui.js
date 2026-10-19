@@ -561,7 +561,7 @@ function renderCasterBlock(c){
     const sel=C.spellsKnown[cls]||[];
     const limit=knownLimit(cls),additional=cls==='ranger'?primalAwarenessSpells():[],additionalIds=additional.map(s=>s.id);
     if(cls==='ranger'){
-      if(additional.length)head+=`<h4>Изначальная осведомлённость</h4><p class="hint">Эти заклинания известны дополнительно и не входят в лимит. Каждое можно один раз наложить без ячейки до долгого отдыха.</p><div class="spell-grid">${additional.map(({id,name,spellLevel,spell})=>`<div class="spell-row" data-search="${spell?spellSearchData(spell):esc(name.toLocaleLowerCase('ru'))}"><span class="spell-name"${spell?` onclick="spellNameClick(event,'${id}')"`:''}>${esc(name)}</span><span class="muted small">${spellLevel}-й круг${spell?'':' · описание отсутствует в библиотеке'}</span></div>`).join('')}</div>`;
+      if(additional.length)head+=`<h4>Изначальная осведомлённость</h4><p class="hint">Эти заклинания известны дополнительно и не входят в лимит. Каждое можно один раз наложить без ячейки до долгого отдыха.</p><div class="spell-grid">${additional.map(({id,spellLevel,spell})=>`<div class="spell-row" data-search="${spellSearchData(spell)}"><span class="spell-name" onclick="spellNameClick(event,'${id}')">${esc(spell.ru)}</span><span class="muted small">${spellLevel}-й круг</span></div>`).join('')}</div>`;
     }
     if(cls==='fighter'||cls==='rogue')head+=`<p class="hint">Заклинания из списка волшебника (Мистический рыцарь: преимущественно ограждение и воплощение; Мистический ловкач: очарование и иллюзия).</p>`;
     head+=`<h4>Известные заклинания — ${sel.filter(id=>!additionalIds.includes(id)).length}/${limit}</h4>`;
@@ -994,9 +994,8 @@ function renderSheet2014(){
   if(C.classes.some(c=>c.cls==='rogue'))langs.push('Воровской жаргон');
   const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();
   const racialSpellIds=new Set(racialSpells.map(x=>x.spell.id)),primalSpells=primalAwarenessSpells(),primalSpellIds=new Set(primalSpells.map(x=>x.id));
-  const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id),...primalSpells.filter(x=>x.spell).map(x=>x.id)])];
+  const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id),...primalSpells.map(x=>x.id)])];
   const spells=spellIds.map(id=>SPELLS.find(sp=>sp.id===id)).filter(Boolean);
-  primalSpells.filter(x=>!x.spell).forEach(x=>spells.push({id:x.id,ru:x.name,lvl:x.spellLevel,time:'—',range:'—',ritual:false}));
   const spellGroup=level=>`<section class="pdf-box p14-spellgroup" data-level="${level}"><div class="pdf-title" data-level="${level}">${level===0?'Заговоры':`${level}-й круг`}${level?` · ячеек ${slots[level-1]||0}`:''}</div>${spells.filter(sp=>sp.lvl===level).map(sp=>`<div class="p14-spellrow">${esc(sp.ru)}${racialSpellIds.has(sp.id)?' · дар расы':''}${primalSpellIds.has(sp.id)?' · Изначальная осведомлённость: 1/долгий отдых без ячейки':''}</div>`).join('')}${Array.from({length:level===0?14:12},()=>'<div class="p14-spellrow"></div>').join('')}</section>`;
   const personality=C.personality||{};
   return `<div class="pdf-sheet">
@@ -1056,9 +1055,8 @@ function renderSheet2024(){
   const weapons=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('')||'<tr><td colspan="4">—</td></tr>';
   const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();
   const racialSpellIds=new Set(racialSpells.map(x=>x.spell.id)),primalSpells=primalAwarenessSpells(),primalSpellIds=new Set(primalSpells.map(x=>x.id));
-  const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id),...primalSpells.filter(x=>x.spell).map(x=>x.id)])];
+  const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id),...primalSpells.map(x=>x.id)])];
   const spells=spellIds.map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean);
-  primalSpells.filter(x=>!x.spell).forEach(x=>spells.push({id:x.id,ru:x.name,lvl:x.spellLevel,time:'—',range:'—',ritual:false}));
   const spellPad=Array.from({length:Math.max(0,35-spells.length)},()=>'<div class="p24-spellrow"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>').join('');
   const personality=C.personality||{};
   return `<div class="pdf-sheet">

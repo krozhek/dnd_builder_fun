@@ -309,7 +309,7 @@ function selectedTashaFeatures(c){
 function primalAwarenessSpells(){
   const ranger=C.classes.find(c=>c.cls==='ranger');
   if(!ranger||!(C.choices.tashaFeatures?.ranger||[]).includes('primal_awareness'))return [];
-  return PRIMAL_AWARENESS_SPELLS.filter(([level])=>ranger.lvl>=level).map(([level,id,name,spellLevel])=>({level,id,name,spellLevel,spell:SPELLS.find(s=>s.id===id)||null}));
+  return PRIMAL_AWARENESS_SPELLS.filter(([level])=>ranger.lvl>=level).map(([level,id,spellLevel])=>{const spell=SPELLS.find(s=>s.id===id);return {level,id,name:spell.ru,spellLevel,spell}});
 }
 function chosenTashaFeatures(){const features=C.classes.flatMap(c=>selectedTashaFeatures(c).map(f=>({cls:c.cls,lvl:f[1],name:f[2]+' (Таша)',desc:f[3]})));if(C.choices.pactBoon==='talisman')features.push({cls:'warlock',lvl:3,name:'Талисман договора (Таша)',desc:'Носитель может добавить к4 к проверке характеристики; число применений = БМ за долгий отдых.'});return features}
 function updateTashaChoice(cls,update){
