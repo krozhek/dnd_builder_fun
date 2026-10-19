@@ -435,6 +435,8 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(api.validCharacter(c), true);
   assert.equal(api.validCharacter({ name: 'Future', schemaVersion: 99, classes: [{ cls: 'fighter', lvl: 1 }] }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'unknown', lvl: 1 }] }), false);
+  assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1, sub: 'life' }] }), false);
+  assert.equal(api.validCharacter({ name: 'Broken', race: 'human', subrace: 'high', classes: [{ cls: 'fighter', lvl: 1 }] }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], choices: [] }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], choices: { deftExplorerMode: 'unknown' } }), false);
   for (const key of ['__proto__', 'constructor', 'prototype']) {
@@ -484,6 +486,35 @@ test('import and readiness reject unknown or duplicate spell ids', () => {
   assert.ok(spellIssues.some(text => text.includes('неизвестные заклинания')));
   assert.ok(spellIssues.some(text => text.includes('заговоры (0/2)')));
   assert.ok(spellIssues.some(text => text.includes('известные заклинания (0/4)')));
+});
+
+test('spell import checks class lists and level access while readiness reports excess selections', () => {
+  const c = api.newChar();
+  c.classes = [{ cls: 'bard', lvl: 1, sub: 'lore' }];
+  const wizardSpell = api.SPELLS.find(s => s.lvl === 1 && s.cls.includes('wizard') && !s.cls.includes('bard'));
+  c.spellsKnown = { bard: [wizardSpell.id] };
+  assert.equal(api.validCharacter(c), false);
+
+  const higherLevelBardSpell = api.SPELLS.find(s => s.lvl === 2 && s.cls.includes('bard'));
+  c.spellsKnown = { bard: [higherLevelBardSpell.id] };
+  assert.equal(api.validCharacter(c), false);
+
+  const wizard = api.newChar();
+  wizard.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  wizard.spellsPrepared = { wizard: ['mage_armor'] };
+  assert.equal(api.validCharacter(wizard), false); // prepared wizard spells must be in the spellbook
+
+  const bard = api.newChar();
+  bard.classes = [{ cls: 'bard', lvl: 1, sub: 'lore' }];
+  bard.spellsKnown = { bard: api.SPELLS.filter(s => s.lvl === 1 && s.cls.includes('bard')).slice(0, 5).map(s => s.id) };
+  api.setChar(bard);
+  assert.ok(api.characterReadiness().some(i => i.text.includes('удалите лишние известные заклинания (5/4)')));
+
+  const cleric = api.newChar();
+  cleric.classes = [{ cls: 'cleric', lvl: 1, sub: 'life' }];
+  cleric.spellsPrepared = { cleric: api.SPELLS.filter(s => s.lvl === 1 && s.cls.includes('cleric')).slice(0, 2).map(s => s.id) };
+  api.setChar(cleric);
+  assert.ok(api.characterReadiness().some(i => i.text.includes('подготовлено слишком много заклинаний (2/1)')));
 });
 
 test('corrupt local libraries remain untouched until explicit backup replacement', () => {

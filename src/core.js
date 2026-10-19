@@ -248,12 +248,11 @@ function spellAttack(cls){return spellAttackForAbility(spellAbilityOf(cls))}
 function knownSpellSelection(ids){return [...new Set((Array.isArray(ids)?ids:[]).filter(id=>SPELL_IDS.has(id)))]}
 function knownLimit(cls){
   const c=C.classes.find(x=>x.cls===cls);if(!c)return 0;
-  const t=TABLES[cls];
-  if(t.known&&t.known.length)return t.known[c.lvl-1];
-  return 0;
+  return classKnownLimit(c);
 }
 function cantripLimit(cls){
   const c=C.classes.find(x=>x.cls===cls);if(!c)return 0;
+  if(spellTypeOf(c)==='third')return (cls==='fighter'?[0,0,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3]:[0,0,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4])[c.lvl-1];
   const t=TABLES[cls];
   return (t.cantrips||[])[c.lvl-1]||0;
 }
@@ -266,6 +265,25 @@ function prepLimit(cls){
 function spellTypeOf(c){
   if((c.cls==='fighter'&&c.sub==='eldritchknight')||(c.cls==='rogue'&&c.sub==='arcanetrickster'))return 'third';
   return CLASSES[c.cls].spell;
+}
+function classMaxSpellLevel(c){
+  const type=spellTypeOf(c);
+  if(type==='pact')return TABLES.warlock.pactLevel[c.lvl-1]||0;
+  if(!type)return 0;
+  const slots=(type==='third'?TABLES.wizard:TABLES[c.cls]).slots?.[c.lvl-1]||[];
+  let level=0;slots.forEach((count,index)=>{if(count>0)level=index+1});return level;
+}
+function classKnownLimit(c){
+  if(spellTypeOf(c)==='third')return [0,0,3,4,4,4,5,6,6,7,8,8,9,10,10,11,11,11,12,13][c.lvl-1]||0;
+  return (TABLES[c.cls].known||[])[c.lvl-1]||0;
+}
+function classCantripLimit(c){return cantripLimit(c.cls)}
+function spellClassAllowed(c,id){
+  const spell=SPELLS.find(s=>s.id===id);if(!spell)return false;
+  const listClass=c.cls==='fighter'||c.cls==='rogue'?'wizard':c.cls;
+  if(spell.cls.includes(listClass))return true;
+  const expanded=SUBCLASSES[c.sub]?.expSpells||{};
+  return Object.entries(expanded).some(([level,ids])=>+level<=classMaxSpellLevel(c)&&ids.includes(id));
 }
 function spellcasterClasses(){return C.classes.filter(c=>spellTypeOf(c))}
 function spellsForClass(cls,lvl){const l=(cls==='fighter'||cls==='rogue')?'wizard':cls;return SPELLS.filter(s=>s.lvl===lvl&&s.cls.includes(l))}
@@ -463,9 +481,10 @@ function characterReadiness(){
       if(c.lvl>=11){const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`)}
     }
     if(c.cls==='sorcerer'&&c.lvl>=3){const max=c.lvl>=17?4:c.lvl>=10?3:2;if((C.choices.metamagic||[]).length<max)add('cls',`Выберите приёмы Метамагии: ${(C.choices.metamagic||[]).length}/${max}.`)}
-    const cantrips=cantripLimit(c.cls),selectedCantrips=knownSpellSelection((C.cantrips||{})[c.cls]);if(cantrips>selectedCantrips.length)add('spells',`${cl.name}: выберите заговоры (${selectedCantrips.length}/${cantrips}).`);
-    const known=knownLimit(c.cls),knownSelected=knownSpellSelection((C.spellsKnown||{})[c.cls]);if(known>knownSelected.length)add('spells',`${cl.name}: выберите известные заклинания (${knownSelected.length}/${known}).`);
-    if(c.cls==='wizard'){const min=6+(c.lvl-1)*2;if(knownSpellSelection(C.spellbook).length<min)add('spells',`Книга волшебника: рекомендуется не менее ${min} заклинаний.`,true)}
+    const cantrips=cantripLimit(c.cls),selectedCantrips=knownSpellSelection((C.cantrips||{})[c.cls]);if(cantrips>selectedCantrips.length)add('spells',`${cl.name}: выберите заговоры (${selectedCantrips.length}/${cantrips}).`);if(selectedCantrips.length>cantrips)add('spells',`${cl.name}: удалите лишние заговоры (${selectedCantrips.length}/${cantrips}).`);if(selectedCantrips.some(id=>{const s=SPELLS.find(x=>x.id===id);return !spellClassAllowed(c,id)||s?.lvl!==0}))add('spells',`${cl.name}: есть заговоры не из доступного списка.`);
+    const known=knownLimit(c.cls),knownSelected=knownSpellSelection((C.spellsKnown||{})[c.cls]);if(known>knownSelected.length)add('spells',`${cl.name}: выберите известные заклинания (${knownSelected.length}/${known}).`);if(knownSelected.length>known)add('spells',`${cl.name}: удалите лишние известные заклинания (${knownSelected.length}/${known}).`);if(knownSelected.some(id=>{const s=SPELLS.find(x=>x.id===id);return !spellClassAllowed(c,id)||s?.lvl<1||s?.lvl>classMaxSpellLevel(c)}))add('spells',`${cl.name}: есть заклинания не из доступного списка или круга.`);
+    const prepared=knownSpellSelection((C.spellsPrepared||{})[c.cls]),preparedLimit=prepLimit(c.cls);if(prepared.length>preparedLimit)add('spells',`${cl.name}: подготовлено слишком много заклинаний (${prepared.length}/${preparedLimit}).`);if(prepared.some(id=>{const s=SPELLS.find(x=>x.id===id);return !spellClassAllowed(c,id)||s?.lvl<1||s?.lvl>classMaxSpellLevel(c)||(c.cls==='wizard'&&!(C.spellbook||[]).includes(id))}))add('spells',`${cl.name}: есть неподходящие подготовленные заклинания.`);
+    if(c.cls==='wizard'){const min=6+(c.lvl-1)*2;if(knownSpellSelection(C.spellbook).length<min)add('spells',`Книга волшебника: рекомендуется не менее ${min} заклинаний.`,true);if((C.spellbook||[]).some(id=>{const s=SPELLS.find(x=>x.id===id);return !s||s.lvl<1||s.lvl>classMaxSpellLevel(c)||!spellClassAllowed(c,id)}))add('spells','В книге есть заклинания не из списка волшебника или недоступного круга.');}
   }
   const expertiseMax=expertiseAvailable(),deftSkill=deftExplorerSkill(),manualExpertise=(C.expertise||[]).filter(id=>!deftSkill||id!==deftSkill).length,manualExpertiseMax=expertiseMax-(deftExplorerActive()?1:0);
   if(manualExpertise<manualExpertiseMax)add('skills',`Выберите ещё ${manualExpertiseMax-manualExpertise} компетентности.`);

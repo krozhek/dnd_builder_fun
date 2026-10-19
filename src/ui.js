@@ -129,20 +129,52 @@ function stringArray(value,allowBlank=false){return Array.isArray(value)&&value.
 function stringArrayMap(value){return value==null||isRecord(value)&&Object.values(value).every(v=>stringArray(v))}
 function validSpellArray(value){return stringArray(value)&&value.every(id=>SPELL_IDS.has(id))&&new Set(value).size===value.length}
 function validSpellArrayMap(value){return value==null||isRecord(value)&&Object.values(value).every(validSpellArray)}
+function validRacialSpellChoices(ch){
+  const choices={};
+  if(ch.race==='astralelf')choices.astralelf=['dancing_lights','light','sacred_flame'];
+  if(ch.race==='elf'&&ch.subrace==='high')choices.highelf=SPELLS.filter(s=>s.lvl===0&&s.cls.includes('wizard')).map(s=>s.id);
+  return !ch.racialSpells||Object.entries(ch.racialSpells).every(([key,value])=>{
+    if(key==='astralelfAbility')return ch.race==='astralelf'&&['int','wis','cha'].includes(value);
+    if(key==='highelfAbility')return ch.race==='elf'&&ch.subrace==='high'&&value==='int';
+    return Array.isArray(choices[key])&&choices[key].includes(value);
+  });
+}
+function validSpellSelections(ch){
+  const classes=new Map(ch.classes.map(c=>[c.cls,c]));
+  for(const [field,kind] of [['cantrips','cantrip'],['spellsKnown','known'],['spellsPrepared','prepared']]){
+    for(const [cls,ids] of Object.entries(ch[field]||{})){
+      const c=classes.get(cls);if(!c||!ids.length)continue;
+      if(!spellTypeOf(c)||kind==='prepared'&&!['cleric','druid','paladin','wizard'].includes(cls)||kind==='known'&&!classKnownLimit(c))return false;
+      if(ids.some(id=>{
+        const spell=SPELLS.find(s=>s.id===id);
+        return !spell||!spellClassAllowed(c,id)||(kind==='cantrip'?spell.lvl!==0:spell.lvl<1||spell.lvl>classMaxSpellLevel(c))||(kind==='prepared'&&cls==='wizard'&&!(ch.spellbook||[]).includes(id));
+      }))return false;
+    }
+  }
+  const wizard=classes.get('wizard');
+  if((ch.spellbook||[]).length&&wizard&&ch.spellbook.some(id=>{
+    const spell=SPELLS.find(s=>s.id===id);return !spell||spell.lvl<1||spell.lvl>classMaxSpellLevel(wizard)||!spellClassAllowed(wizard,id);
+  }))return false;
+  for(const [level,id] of Object.entries(ch.arcanum||{})){
+    const spell=SPELLS.find(s=>s.id===id),warlock=classes.get('warlock'),maxLevel=warlock?(warlock.lvl>=17?9:warlock.lvl>=15?8:warlock.lvl>=13?7:warlock.lvl>=11?6:0):0;
+    if(!warlock||!spell||+level!==spell.lvl||+level<6||+level>maxLevel||!spellClassAllowed(warlock,id))return false;
+  }
+  return validRacialSpellChoices(ch);
+}
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
 function validCharacter(ch){
   if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
   if(ch.id!=null&&ch.id!==''&&(typeof ch.id!=='string'||!CHARACTER_ID_RE.test(ch.id)))return false;
   if(ch.schemaVersion!=null&&(!Number.isInteger(ch.schemaVersion)||ch.schemaVersion<1||ch.schemaVersion>CHARACTER_SCHEMA))return false;
-  if(ch.classes.some(c=>!isRecord(c)||!CLASSES[c.cls]||!Number.isInteger(c.lvl)||c.lvl<1||c.lvl>20||(c.sub!=null&&typeof c.sub!=='string')))return false;
+  if(ch.classes.some(c=>!isRecord(c)||!CLASSES[c.cls]||!Number.isInteger(c.lvl)||c.lvl<1||c.lvl>20||(c.sub!=null&&(typeof c.sub!=='string'||c.sub!==''&&SUBCLASSES[c.sub]?.cls!==c.cls))))return false;
   if(ch.classes.reduce((sum,c)=>sum+c.lvl,0)>20||new Set(ch.classes.map(c=>c.cls)).size!==ch.classes.length)return false;
-  if(ch.race!=null&&!RACES[ch.race]||ch.bg!=null&&!BACKGROUNDS[ch.bg])return false;
+  if(ch.race!=null&&!RACES[ch.race]||ch.bg!=null&&!BACKGROUNDS[ch.bg]||ch.subrace!=null&&ch.subrace!==''&&!RACES[ch.race]?.subs?.[ch.subrace])return false;
   if(ch.abilityMethod!=null&&!['standard','point','manual'].includes(ch.abilityMethod))return false;
   if(ch.xp!=null&&(!Number.isFinite(ch.xp)||ch.xp<0)||ch.gold!=null&&(!Number.isFinite(ch.gold)||ch.gold<0))return false;
   for(const key of ['bases','asi','choices','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice','game','personality'])if(!optionalRecord(ch[key]))return false;
   for(const key of ['raceSkills','halfElfPicks','raceAsiPicks','expertise','languages','attunement'])if(ch[key]!=null&&!stringArray(ch[key]))return false;
   if(ch.extraLangs!=null&&(!stringArray(ch.extraLangs,true)||ch.extraLangs.length>LANGS.length||ch.extraLangs.some(value=>value&&(!LANGS.includes(value)||value.length>32))))return false;
-  if(!stringArrayMap(ch.classSkills)||!validSpellArrayMap(ch.cantrips)||!validSpellArrayMap(ch.spellsKnown)||!validSpellArrayMap(ch.spellsPrepared))return false;
+  if(!stringArrayMap(ch.classSkills)||!validSpellArrayMap(ch.cantrips)||!validSpellArrayMap(ch.spellsKnown)||!validSpellArrayMap(ch.spellsPrepared)||!validSpellSelections(ch))return false;
   if(ch.spellbook!=null&&!validSpellArray(ch.spellbook))return false;
   if(ch.arcanum&&Object.values(ch.arcanum).some(id=>!SPELL_IDS.has(id)))return false;
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
@@ -152,7 +184,7 @@ function validCharacter(ch){
     const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
     return !options||typeof value!=='string'||(value!==''&&!options.some(([id])=>id===value));
   })))return false;
-  if(ch.racialSpells&&Object.entries(ch.racialSpells).some(([key,value])=>key.endsWith('Ability')?!ABILS.some(([id])=>id===value):!SPELL_IDS.has(value)))return false;
+  if(ch.racialSpells&&!validRacialSpellChoices(ch))return false;
   if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)))return false;
   if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
   if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean')||(i.wielded!=null&&typeof i.wielded!=='boolean')||(i.grip!=null&&!['one-handed','two-handed'].includes(i.grip))||(i.type==='weapon'&&i.wielded&&i.qty>1))))return false;
@@ -580,7 +612,6 @@ function renderSpells(){
 
 function renderCasterBlock(c){
   const cls=c.cls, cl=CLASSES[cls], abilRu=ABIL_RU_FULL[spellAbilityOf(cls)];
-  const t=TABLES[cls];
   const maxLvl=maxSpellLvlFor(c);
   let head=`<div class="card"><h3>${cl.name} · базовая характеристика: ${abilRu} · КС ${spellSaveDc(cls)} · атака ${fmtMod(spellAttack(cls))}</h3>`;
   // ячейки
@@ -591,11 +622,8 @@ function renderCasterBlock(c){
     const slots=clsSlotsFor(c);
     if(slots)head+=`<p class="hint">Ячейки: ${slots.map((n,i)=>n?`${i+1} круг — ${n}`:null).filter(Boolean).join(', ')||'—'}${isMulticlassed()?' <span class="warn small">(мультикласс: общие ячейки)</span>':''}</p>`;
   }
-  // заговоры
-  if(t.cantrips&&t.cantrips[c.lvl-1]){
-    const sel=C.cantrips[cls]||[];
-    head+=`<h4>Заговоры — ${sel.length}/${t.cantrips[c.lvl-1]}</h4>${spellPicker(cls,0,sel,t.cantrips[c.lvl-1],'cantrips')}`;
-  }
+  const cantrips=cantripLimit(cls),selectedCantrips=C.cantrips[cls]||[];
+  if(cantrips)head+=`<h4>Заговоры — ${selectedCantrips.length}/${cantrips}</h4>${spellPicker(cls,0,selectedCantrips,cantrips,'cantrips')}`;
   // заклинания по типу класса
   if(cls==='wizard'){
     head+=renderWizardSpells(c,maxLvl);
@@ -625,13 +653,7 @@ function renderCasterBlock(c){
   return head+'</div>';
 }
 function isMulticlassed(){return spellcasterClasses().length>1}
-function maxSpellLvlFor(c){
-  const cls=c.cls, cl=CLASSES[cls];
-  if(spellTypeOf(c)==='pact')return pactSlots()?pactSlots().level:1;
-  const slots=TABLES[cls].slots[c.lvl-1];
-  let m=0;slots.forEach((n,i)=>{if(n>0)m=i+1});
-  return m;
-}
+function maxSpellLvlFor(c){return classMaxSpellLevel(c)}
 function clsSlotsFor(c){
   if(isMulticlassed())return spellSlots();
   return TABLES[c.cls].slots[c.lvl-1];
