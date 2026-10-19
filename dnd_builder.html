@@ -1549,7 +1549,15 @@ function saveMods(){
 }
 function passivePerception(){return 10+skillMod('perception')}
 function initiative(){return am('dex')}
-function speed(){const s=subraceOf();return (s&&s.speed)||raceOf().speed||30}
+function speed(){
+  const s=subraceOf();let value=(s&&s.speed)||raceOf().speed||30;
+  const monk=C.classes.find(c=>c.cls==='monk');
+  if(monk&&monk.lvl>=2&&!equippedArmor()&&!hasShield())value+=10+Math.floor((monk.lvl-2)/4)*5;
+  const barbarian=C.classes.find(c=>c.cls==='barbarian');
+  if(barbarian&&barbarian.lvl>=5){const armor=equippedArmor(),type=armor&&ARMORS.find(a=>a[0]===armor.id)?.[8];if(!armor||type!=='heavy')value+=10}
+  if(C.classes.some(c=>c.cls==='ranger'&&c.lvl>=6&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer')))value+=5;
+  return value;
+}
 
 // хиты
 function maxHp(){

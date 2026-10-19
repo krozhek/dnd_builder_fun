@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, speed, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -178,6 +178,39 @@ test('multiclass spell slots use the combined caster level table', () => {
     { cls: 'cleric', lvl: 2, sub: 'life' },
   ];
   assert.deepEqual(Array.from(api.spellSlots()).slice(0, 4), [4, 3, 2, 0]);
+});
+
+test('speed includes monk, barbarian, and Deft Explorer bonuses with armor conditions', () => {
+  const c = character();
+  c.classes = [{ cls: 'monk', lvl: 2, sub: 'openhand' }];
+  api.setChar(c);
+  assert.equal(api.speed(), 40);
+  c.classes[0].lvl = 6;
+  api.setChar(c);
+  assert.equal(api.speed(), 45);
+  c.inventory = [{ type: 'shield', id: 'shield', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.speed(), 30);
+  c.inventory = [{ type: 'armor', id: 'leather', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.speed(), 30);
+
+  c.classes = [{ cls: 'barbarian', lvl: 5, sub: 'berserk' }];
+  c.inventory = [];
+  api.setChar(c);
+  assert.equal(api.speed(), 40);
+  c.inventory = [{ type: 'armor', id: 'scalemail', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.speed(), 40);
+  c.inventory = [{ type: 'armor', id: 'chainmail', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.speed(), 30);
+
+  c.classes = [{ cls: 'ranger', lvl: 6, sub: 'hunter' }];
+  c.inventory = [];
+  c.choices.tashaFeatures = { ranger: ['deft_explorer'] };
+  api.setChar(c);
+  assert.equal(api.speed(), 35);
 });
 
 test('armor class includes Dexterity and an equipped shield', () => {
