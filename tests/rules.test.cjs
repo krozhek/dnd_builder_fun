@@ -222,6 +222,28 @@ test('armor class includes Dexterity and an equipped shield', () => {
   assert.equal(api.armorClass(), 16); // 12 + 2 Dex + 2 shield
 });
 
+test('monk Unarmored Defense stops applying with armor or a shield', () => {
+  const c = character();
+  c.classes = [{ cls: 'monk', lvl: 1, sub: 'openhand' }];
+  c.bases.manual.dex = 14;
+  c.bases.manual.wis = 16;
+  c.inventory = [];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 15);
+  c.inventory = [{ type: 'shield', id: 'shield', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 14);
+  c.inventory = [{ type: 'armor', id: 'leather', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 13);
+
+  c.classes = [{ cls: 'barbarian', lvl: 1, sub: 'berserk' }];
+  c.bases.manual.con = 14;
+  c.inventory = [{ type: 'shield', id: 'shield', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 16);
+});
+
 test('spell search filters rows and hides empty spell levels', () => {
   const spell = search => ({ dataset: { search }, hidden: false });
   const acid = spell('брызги кислоты acid splash воплощение');

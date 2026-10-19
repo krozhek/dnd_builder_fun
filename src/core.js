@@ -273,7 +273,7 @@ function armorClass(){
     }else ac=10+am('dex');
   }else{
     ac=10+am('dex');
-    if(monk)ac=Math.max(ac,10+am('dex')+am('wis'));
+    if(monk&&!hasShield())ac=Math.max(ac,10+am('dex')+am('wis'));
     if(barb)ac=Math.max(ac,10+am('dex')+am('con')+(hasShield()?2:0));
     if(sorc)ac=Math.max(ac,13+am('dex'));
   }
