@@ -289,23 +289,23 @@ function armorClass(){
   if((C.choices.fightingStyle==='defense'||C.choices.fightingStyle2==='defense')&&arm)ac+=1;
   return ac;
 }
+function weaponProfileProficient(profile,w){return !!profile&&(profile[w[7]]===true||profile.extra?.includes(w[0]))}
 function weaponProf(weaponId){
   const w=WEAPONS.find(x=>x[0]===weaponId);if(!w)return false;
-  const cat=w[7];
-  return C.classes.some(c=>{
-    const cl=CLASSES[c.cls];
-    if(cat==='simple')return true; // все классы SRD владеют простым
-    // воинское: воин, паладин, следопыт, варвар
-    return ['fighter','paladin','ranger','barbarian'].includes(c.cls);
+  return C.classes.some((c,i)=>{
+    const proficiencies=CLASS_WEAPON_PROFICIENCIES[c.cls];
+    const classProfile=proficiencies&&(i===0?proficiencies.starting:proficiencies.multiclass);
+    return weaponProfileProficient(classProfile,w)||weaponProfileProficient(SUBCLASSES[c.sub]?.weaponProficiencies,w);
   });
 }
+function isMonkWeapon(w){return w[0]==='shortsword'||(w[7]==='simple'&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!w[5].includes('Тяжёлое'))}
 function weaponAttack(w){
   const finesse=w[5].includes('Фехтовальное');
   const ranged=w[6]==='ranged';
   let ab=ranged?am('dex'):(finesse?Math.max(am('str'),am('dex')):am('str'));
   // монах: монашеское оружие — Лов
   const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&w[7]==='simple'&&!w[5].includes('Двуручное')&&!w[5].includes('Тяжёлое'))ab=Math.max(ab,am('dex'));
+  if(monk&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
   let bonus=ab+(weaponProf(w[0])?pb():0);
   if(ranged&&(C.choices.fightingStyle==='archery'||C.choices.fightingStyle2==='archery'))bonus+=2;
   return bonus;
@@ -315,7 +315,7 @@ function weaponDamage(w){
   const ranged=w[6]==='ranged';
   let ab=ranged?am('dex'):(finesse?Math.max(am('str'),am('dex')):am('str'));
   const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&w[7]==='simple'&&!w[5].includes('Двуручное')&&!w[5].includes('Тяжёлое'))ab=Math.max(ab,am('dex'));
+  if(monk&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
   let bonus=ab,dice=w[3];
   if(C.choices.fightingStyle==='dueling'||C.choices.fightingStyle2==='dueling'){if(!w[5].includes('Двуручное')&&w[6]==='melee')bonus+=2}
   if(bonus!==0)return dice+' '+fmtMod(bonus);

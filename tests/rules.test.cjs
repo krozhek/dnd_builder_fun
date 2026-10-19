@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, WEAPONS, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -66,6 +66,41 @@ test('proficiency bonus and modifiers follow total character level', () => {
   assert.equal(api.am('dex'), 2); // Human +1: 15 Dexterity
   c.classes[0].lvl = 5;
   assert.equal(api.pb(), 3);
+});
+
+test('weapon proficiencies follow class and multiclass tables', () => {
+  const c = character();
+  c.classes = [{ cls: 'bard', lvl: 1, sub: 'lore' }];
+  api.setChar(c);
+  assert.equal(api.weaponProf('rapier'), true);
+  assert.equal(api.weaponProf('greatsword'), false);
+  c.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  api.setChar(c);
+  assert.equal(api.weaponProf('dagger'), true);
+  assert.equal(api.weaponProf('mace'), false);
+  c.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }, { cls: 'bard', lvl: 1, sub: 'lore' }];
+  api.setChar(c);
+  assert.equal(api.weaponProf('rapier'), false);
+  c.classes = [{ cls: 'cleric', lvl: 1, sub: 'tempest' }];
+  api.setChar(c);
+  assert.equal(api.weaponProf('rapier'), true);
+  c.classes = [{ cls: 'druid', lvl: 1, sub: 'land' }];
+  api.setChar(c);
+  assert.equal(api.weaponProf('scimitar'), true);
+  assert.equal(api.weaponProf('lightcrossbow'), false);
+});
+
+test('monk weapons are melee only and allow shortswords', () => {
+  const c = character();
+  c.classes = [{ cls: 'monk', lvl: 1, sub: 'openhand' }];
+  c.bases.manual.str = 18;
+  c.bases.manual.dex = 10;
+  api.setChar(c);
+  const weapon = id => api.WEAPONS.find(w => w[0] === id);
+  assert.equal(api.weaponProf('shortsword'), true);
+  assert.equal(api.weaponAttack(weapon('shortsword')), 6);
+  assert.equal(api.weaponAttack(weapon('quarterstaff')), 6);
+  assert.equal(api.weaponAttack(weapon('lightcrossbow')), 2);
 });
 
 test('class skill choices use the starting or multiclass progression', () => {

@@ -273,6 +273,21 @@ const MULTICLASS_PREREQUISITES={
  ranger:[{dex:13},{wis:13}],rogue:[{dex:13}],sorcerer:[{cha:13}],warlock:[{cha:13}],wizard:[{int:13}]
 };
 
+const CLASS_WEAPON_PROFICIENCIES={
+ barbarian:{starting:{simple:true,martial:true},multiclass:{simple:true,martial:true}},
+ bard:{starting:{simple:true,extra:['handcrossbow','longsword','rapier','shortsword']},multiclass:{}},
+ cleric:{starting:{simple:true},multiclass:{}},
+ druid:{starting:{extra:['club','dagger','dart','javelin','mace','quarterstaff','scimitar','sickle','sling','spear']},multiclass:{}},
+ fighter:{starting:{simple:true,martial:true},multiclass:{simple:true,martial:true}},
+ monk:{starting:{simple:true,extra:['shortsword']},multiclass:{simple:true,extra:['shortsword']}},
+ paladin:{starting:{simple:true,martial:true},multiclass:{simple:true,martial:true}},
+ ranger:{starting:{simple:true,martial:true},multiclass:{simple:true,martial:true}},
+ rogue:{starting:{simple:true,extra:['handcrossbow','longsword','rapier','shortsword']},multiclass:{}},
+ sorcerer:{starting:{extra:['dagger','dart','sling','quarterstaff','lightcrossbow']},multiclass:{}},
+ warlock:{starting:{simple:true},multiclass:{simple:true}},
+ wizard:{starting:{extra:['dagger','dart','sling','quarterstaff','lightcrossbow']},multiclass:{}}
+};
+
 const SUBCLASSES={
  berserk:{name:'Путь берсерка',cls:'barbarian',feats:[
    [3,'Неистовство','Ярость как неистовство: бонусная рукопашная атака каждый ход; после конца — 1 степень истощения.'],
@@ -793,7 +808,7 @@ const PHB_SUBCLASSES={
    [8,'Божественный удар','1/ход: +1к8 урона (холод/огонь/электр.) оружием (+2к8 на 14 ур.).'],
    [17,'Повелитель природы','Очарованные звери/растения выполняют ваши команды.']],
   domainSpells:{1:['animal_friendship','speak_with_animals'],3:['barkskin','spike_growth'],5:['plant_growth','wind_wall'],7:['dominate_beast','grasping_vine'],9:['insect_plague','tree_stride']}},
- tempest:{name:'Домен Бури',cls:'cleric',src:'PHB',feats:[
+ tempest:{name:'Домен Бури',cls:'cleric',src:'PHB',weaponProficiencies:{martial:true},feats:[
    [1,'Бонусные владения','Воинское оружие и тяжёлые доспехи.'],
    [1,'Гнев бури','Реакцией на удар в 5 фт: 2к8 электр./звуком (спас. Лов), БМ раз/отдых.'],
    [2,'Канал: Разрушительный гнев','Максимальный урон вместо броска при уроне электр./звуком.'],
@@ -808,7 +823,7 @@ const PHB_SUBCLASSES={
    [8,'Божественный удар','1/ход: +1к8 ядом оружием (+2к8 на 14 ур.).'],
    [17,'Улучшенный дубликат','До 4 двойников; перемещение между ними.']],
   domainSpells:{1:['charm_person','disguise_self'],3:['mirror_image','pass_without_trace'],5:['blink','dispel_magic'],7:['dimension_door','polymorph'],9:['dominate_person','modify_memory']}},
- war:{name:'Домен Войны',cls:'cleric',src:'PHB',feats:[
+ war:{name:'Домен Войны',cls:'cleric',src:'PHB',weaponProficiencies:{martial:true},feats:[
    [1,'Бонусные владения','Воинское оружие и тяжёлые доспехи.'],
    [1,'Священный воин','При атаке: +10 к броску (Мдр раз/отдых).'],
    [2,'Канал: Направляемый удар','+10 к броску атаки после броска.'],
