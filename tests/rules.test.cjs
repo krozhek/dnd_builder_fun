@@ -29,7 +29,7 @@ globalThis.api = {
   setSpellQuery,
   spellPicker, renderWizardSpells, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
-  renderMain, renderAbil, renderClass, renderSheet,
+  renderMain, renderHome, renderEquip, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet,
   renderSheet2014,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount,
@@ -149,19 +149,45 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'unknown', lvl: 1 }] }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], choices: [] }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], choices: { deftExplorerMode: 'unknown' } }), false);
+  for (const key of ['__proto__', 'constructor', 'prototype']) {
+    const unsafe = JSON.parse(`{"name":"Broken","classes":[{"cls":"fighter","lvl":1}],"choices":{"${key}":[]}}`);
+    assert.equal(api.validCharacter(unsafe), false);
+  }
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], game: { slotsUsed: [] } }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], inventory: [{ type: 'weapon', id: 'sword', qty: 'many' }] }), false);
   assert.equal(api.validCharacter(null), false);
 
-  const legacy = api.migrate({ name: 'Старый герой', classes: [{ cls: 'fighter', lvl: 3 }], race: null, bg: null, choices: null, game: null });
+  const legacy = api.migrate({ name: 'Старый герой', classes: [{ cls: 'fighter', lvl: 3 }], race: null, bg: null, choices: null, game: null, injected: '<svg onload=alert(1)>' });
   assert.ok(legacy.id);
   assert.equal(legacy.race, 'human');
   assert.equal(legacy.bg, 'soldier');
   assert.equal(legacy.abilityMethod, 'standard');
   assert.equal(legacy.schemaVersion, 2);
+  assert.equal(Object.hasOwn(legacy, 'injected'), false);
   assert.ok(Array.isArray(legacy.extraLangs));
   assert.ok(legacy.racialSpells && typeof legacy.racialSpells === 'object');
   assert.equal(api.validCharacter(legacy), true);
+});
+
+test('untrusted import identifiers and languages cannot become executable markup', () => {
+  const c = character();
+  c.id = "');window.__xssFired=true;//";
+  assert.equal(api.validCharacter(c), false);
+  c.id = 'safe-id';
+  c.extraLangs = ['<img src=x onerror="window.__xssFired=true">'];
+  assert.equal(api.validCharacter(c), false);
+  api.setChar(c);
+  const main = api.renderMain();
+  assert.doesNotMatch(main, /<img src=x/);
+  assert.match(main, /&lt;img src=x onerror=/);
+  c.inventory = [{ type: 'instrument', id: '<img src=x onerror="window.__xssFired=true">', qty: 1 }];
+  const equipment = api.renderEquip();
+  assert.doesNotMatch(equipment, /<img src=x/);
+  assert.match(equipment, /&lt;img src=x onerror=/);
+  api.setLib([c]);
+  const home = api.renderHome();
+  assert.match(home, /data-character-action="open" data-character-id="safe-id"/);
+  assert.doesNotMatch(home, /data-character-action="(?:open|duplicate|delete)"[^>]*onclick=/);
 });
 
 test('sheet selector keeps 2014 as default and offers 2024', () => {

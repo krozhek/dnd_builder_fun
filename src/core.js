@@ -54,7 +54,7 @@ function openChar(id){
 }
 function migrate(ch){
   const d=newChar();
-  const m={...d,...ch};
+  const m={...d,...Object.fromEntries(Object.entries(ch).filter(([key])=>Object.hasOwn(d,key)))};
   m.bases={...d.bases,...(ch.bases||{})};
   ['standard','point','manual'].forEach(k=>{
     m.bases[k]={...(k==='standard'?(()=>{const s={};ABILS.forEach(([a],i)=>s[a]=STD_SET[i]);return s})():k==='point'?(()=>{const s={};ABILS.forEach(([a])=>s[a]=8);return s})():(()=>{const s={};ABILS.forEach(([a])=>s[a]=10);return s})()), ...(ch.bases&&ch.bases[k]&&!Array.isArray(ch.bases[k])?ch.bases[k]:{})};

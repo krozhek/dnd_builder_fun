@@ -11,6 +11,14 @@ function applyTheme(){document.documentElement.dataset.theme=THEME;const b=$('#t
 function render(){
   applyTheme();
   const app=$('#app');
+  if(!app.dataset.characterActions){
+    app.addEventListener('click',event=>{
+      const button=event.target.closest('[data-character-action]');if(!button)return;
+      const {characterAction:action,characterId:id}=button.dataset;
+      if(action==='open')openChar(id);else if(action==='duplicate')dupChar(id);else if(action==='delete')delChar(id);
+    });
+    app.dataset.characterActions='bound';
+  }
   if(!C){TAB='home'}
   let h=`<header class="topbar">
     <div class="brand" onclick="goHome()">⚔️ <b>D&D 5e 2014</b> · Конструктор персонажей</div>
@@ -63,9 +71,9 @@ function renderHome(){
       <div class="muted">${esc(race)} · ${esc(cls)}</div>
       <div class="muted small">изменён: ${new Date(c.updated||c.created).toLocaleString('ru')}</div>
       <div class="row gap wrap">
-        <button class="btn" onclick="openChar('${c.id}')">Открыть</button>
-        <button class="btn ghost" onclick="dupChar('${c.id}')">Дублировать</button>
-        <button class="btn danger ghost" onclick="delChar('${c.id}')">Удалить</button>
+        <button class="btn" data-character-action="open" data-character-id="${esc(c.id)}">Открыть</button>
+        <button class="btn ghost" data-character-action="duplicate" data-character-id="${esc(c.id)}">Дублировать</button>
+        <button class="btn danger ghost" data-character-action="delete" data-character-id="${esc(c.id)}">Удалить</button>
       </div>
     </div>`}).join('');
   return `<div class="page">
@@ -107,11 +115,22 @@ function exportLibrary(){
   a.click();URL.revokeObjectURL(a.href);
 }
 function isRecord(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
+function hasUnsafeKeys(value){
+  const pending=[value];
+  while(pending.length){
+    const item=pending.pop();
+    if(Array.isArray(item)){for(const value of item)pending.push(value);continue}
+    if(isRecord(item))for(const [key,child] of Object.entries(item)){if(['__proto__','constructor','prototype'].includes(key))return true;pending.push(child)}
+  }
+  return false;
+}
 function optionalRecord(value){return value==null||isRecord(value)}
 function stringArray(value,allowBlank=false){return Array.isArray(value)&&value.every(x=>typeof x==='string'||(allowBlank&&(x===null||x==='')))}
 function stringArrayMap(value){return value==null||isRecord(value)&&Object.values(value).every(v=>stringArray(v))}
+const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
 function validCharacter(ch){
-  if(!isRecord(ch)||typeof ch.name!=='string'||!Array.isArray(ch.classes)||!ch.classes.length)return false;
+  if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
+  if(ch.id!=null&&ch.id!==''&&(typeof ch.id!=='string'||!CHARACTER_ID_RE.test(ch.id)))return false;
   if(ch.schemaVersion!=null&&(!Number.isInteger(ch.schemaVersion)||ch.schemaVersion<1||ch.schemaVersion>CHARACTER_SCHEMA))return false;
   if(ch.classes.some(c=>!isRecord(c)||!CLASSES[c.cls]||!Number.isInteger(c.lvl)||c.lvl<1||c.lvl>20||(c.sub!=null&&typeof c.sub!=='string')))return false;
   if(ch.classes.reduce((sum,c)=>sum+c.lvl,0)>20||new Set(ch.classes.map(c=>c.cls)).size!==ch.classes.length)return false;
@@ -120,7 +139,7 @@ function validCharacter(ch){
   if(ch.xp!=null&&(!Number.isFinite(ch.xp)||ch.xp<0)||ch.gold!=null&&(!Number.isFinite(ch.gold)||ch.gold<0))return false;
   for(const key of ['bases','asi','choices','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice','game','personality'])if(!optionalRecord(ch[key]))return false;
   for(const key of ['raceSkills','halfElfPicks','raceAsiPicks','expertise','languages','attunement'])if(ch[key]!=null&&!stringArray(ch[key]))return false;
-  if(ch.extraLangs!=null&&!stringArray(ch.extraLangs,true))return false;
+  if(ch.extraLangs!=null&&(!stringArray(ch.extraLangs,true)||ch.extraLangs.length>LANGS.length||ch.extraLangs.some(value=>value&&(!LANGS.includes(value)||value.length>32))))return false;
   if(!stringArrayMap(ch.classSkills)||!stringArrayMap(ch.cantrips)||!stringArrayMap(ch.spellsKnown)||!stringArrayMap(ch.spellsPrepared))return false;
   if(ch.spellbook!=null&&!stringArray(ch.spellbook))return false;
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
@@ -209,7 +228,7 @@ function renderMain(){
       <div class="card">
         <h3>Расовые черты${r.src?' ('+r.src+')':''}</h3>
         <ul class="traits">${r.traits.map(t=>`<li>${esc(t)}</li>`).join('')}${s?s.traits.map(t=>`<li>${esc(t)}</li>`).join(''):''}</ul>
-        <div class="muted small">Скорость: ${speed()} фт · Языки: ${[...r.langs,...(C.extraLangs||[]).filter(Boolean)].join(', ')||'—'}</div>
+        <div class="muted small">Скорость: ${speed()} фт · Языки: ${[...r.langs,...(C.extraLangs||[]).filter(Boolean)].map(esc).join(', ')||'—'}</div>
         <div class="grid two">${languageChoiceFields()}</div>
         ${r.asiChoice?`<div class="hint">Полуэльф: +1 к двум характеристикам (кроме Хар) — выберите на вкладке «Характеристики»</div>`:''}
       </div>
@@ -691,7 +710,7 @@ function renderEquip(){
       </div>
       <div class="card"><h3>Инвентарь <span class="muted small">КД: ${armorClass()}${hasShield()?' (щит надет)':''}</span></h3>
         ${inv.length?`<table class="tbl"><tr><th>Предмет</th><th>Кол-во</th><th></th></tr>
-        ${inv.map((it,i)=>`<tr><td>${itemName(it)}</td><td>${it.qty||1}</td>
+        ${inv.map((it,i)=>`<tr><td>${esc(itemName(it))}</td><td>${it.qty||1}</td>
           <td class="nowrap">
           ${it.type==='armor'||it.type==='shield'?`<button class="btn sm${it.equipped?' primary':''}" onclick="toggleEquipItem(${i})">${it.equipped?'надето':'надеть'}</button>`:''}
           <button class="btn sm ghost" onclick="sellItem(${i})">продать</button>
