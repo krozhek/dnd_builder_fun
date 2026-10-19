@@ -267,6 +267,12 @@ const CLASSES={
   sub:'evocation'}
 };
 
+const MULTICLASS_PREREQUISITES={
+ barbarian:[{str:13}],bard:[{cha:13}],cleric:[{wis:13}],druid:[{wis:13}],
+ fighter:[{any:{str:13,dex:13}}],monk:[{dex:13},{wis:13}],paladin:[{str:13},{cha:13}],
+ ranger:[{dex:13},{wis:13}],rogue:[{dex:13}],sorcerer:[{cha:13}],warlock:[{cha:13}],wizard:[{int:13}]
+};
+
 const SUBCLASSES={
  berserk:{name:'Путь берсерка',cls:'barbarian',feats:[
    [3,'Неистовство','Ярость как неистовство: бонусная рукопашная атака каждый ход; после конца — 1 степень истощения.'],

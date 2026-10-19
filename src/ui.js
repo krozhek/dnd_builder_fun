@@ -252,10 +252,20 @@ function updTabChar(){const el=$('.tab-char');if(el)el.innerHTML=`${esc(C.name)}
 function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
 function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
 function changeBackground(v){C.bg=v;C.extraLangs=[];persist();render()}
-function changeClass(i,v){C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';persist();render()}
+function changeClass(i,v){
+  if(C.classes.some((c,j)=>j!==i&&c.cls===v)){alert('Этот класс уже добавлен.');render();return}
+  const error=C.classes.length>1?multiclassRequirementError(v,i):'';
+  if(error){alert(error);render();return}
+  C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';persist();render()
+}
 function changeLvl(i,v){C.classes[i].lvl=+v;persist();render()}
 function changeSub(i,v){C.classes[i].sub=v;persist();render()}
-function addClass(){const used=C.classes.map(c=>c.cls);const free=Object.keys(CLASSES).find(k=>!used.includes(k))||'fighter';C.classes.push({cls:free,lvl:1,sub:CLASSES[free].sub||''});persist();render()}
+function addClass(){
+  const used=C.classes.map(c=>c.cls),available=Object.keys(CLASSES).filter(k=>!used.includes(k));
+  const free=available.find(k=>!multiclassRequirementError(k));
+  if(!free){alert(available.length?multiclassRequirementError(available[0]):'Все классы уже добавлены.');return}
+  C.classes.push({cls:free,lvl:1,sub:CLASSES[free].sub||''});persist();render()
+}
 function removeClass(i){C.classes.splice(i,1);persist();render()}
 function subclassOpts(c){
   return Object.entries(SUBCLASSES).filter(([,s])=>s.cls===c.cls)

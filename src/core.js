@@ -129,6 +129,14 @@ function raceSkills(){
 }
 function classSkills(){let o=[];C.classes.forEach(c=>{o=o.concat(C.classSkills[c.cls]||[])});return [...new Set(o)]}
 function classSkillChoiceCount(index,cls){const cl=CLASSES[cls];return index===0?cl.skillCount:(cl.multiclassSkillCount||0)}
+function multiclassRequirementError(cls,skipIndex=-1){
+  const existing=C.classes.filter((_,i)=>i!==skipIndex);
+  const meets=id=>(MULTICLASS_PREREQUISITES[id]||[]).every(req=>req.any?Object.entries(req.any).some(([a,n])=>abil(a)>=n):Object.entries(req).every(([a,n])=>abil(a)>=n));
+  const unmet=existing.find(c=>!meets(c.cls));
+  if(unmet)return `Не выполнены требования мультиклассирования для текущего класса «${CLASSES[unmet.cls].name}».`;
+  if(existing.length&&!meets(cls))return `Для добавления класса «${CLASSES[cls].name}» не выполнены требования к характеристикам.`;
+  return '';
+}
 function profSkills(){return [...new Set([...bgSkills(),...raceSkills(),...classSkills()])]}
 function deftExplorerActive(){return C.classes.some(c=>c.cls==='ranger'&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer'))}
 function deftExplorerSkill(){const skill=C.choices.deftExplorerSkill;return deftExplorerActive()&&profSkills().includes(skill)?skill:''}

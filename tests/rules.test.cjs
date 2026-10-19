@@ -13,6 +13,7 @@ assert.notEqual(initAt, -1, 'initialization marker exists');
 
 const dom = { rows: [], levels: [], empty: { hidden: true }, modal: { style: {} } };
 const storageData = new Map();
+const alerts = [];
 let storageReadError = false, storageWriteError = false;
 const localStorage = {
   getItem(key) { if (storageReadError) throw new Error('storage blocked'); return storageData.get(key) ?? null; },
@@ -25,7 +26,8 @@ const context = vm.createContext({
     querySelectorAll: selector => selector === '.spell-row' ? dom.rows : selector === '.spell-lvl' ? dom.levels : [],
   },
   console: { error() {} },
-  alert: () => {},
+  alerts,
+  alert: message => alerts.push(message),
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
@@ -39,7 +41,8 @@ globalThis.api = {
   renderMain, renderHome, renderEquip, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
   renderSheet2024,
-  RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount,
+  RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
+  addClass, changeClass, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -87,6 +90,52 @@ test('class skill choices use the starting or multiclass progression', () => {
   c.classSkills.bard.push('nature');
   api.setChar(c);
   assert.ok(api.characterReadiness().some(i => i.tab === 'skills' && i.text.includes('Бард: уберите лишние навыки')));
+});
+
+test('multiclass prerequisites check the new and existing classes', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  c.bases.manual = { str: 12, dex: 10, con: 10, int: 10, wis: 10, cha: 11 };
+  api.setChar(c);
+  assert.match(api.multiclassRequirementError('bard'), /добавления класса «Бард»/);
+  c.bases.manual.cha = 12;
+  api.setChar(c);
+  assert.equal(api.multiclassRequirementError('bard'), '');
+
+  c.bases.manual.str = 11;
+  c.bases.manual.dex = 11;
+  api.setChar(c);
+  assert.match(api.multiclassRequirementError('bard'), /текущего класса «Воин»/);
+
+  c.bases.manual.str = 14;
+  c.bases.manual.dex = 12;
+  c.bases.manual.wis = 11;
+  api.setChar(c);
+  assert.match(api.multiclassRequirementError('monk'), /класса «Монах»/);
+  c.bases.manual.wis = 12;
+  api.setChar(c);
+  assert.equal(api.multiclassRequirementError('monk'), '');
+
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  c.classes.push({ cls: 'wizard', lvl: 1, sub: 'evocation' });
+  c.bases.manual.int = 13;
+  c.bases.manual.cha = 11;
+  api.setChar(c);
+  alerts.length = 0;
+  api.changeClass(1, 'bard');
+  assert.equal(c.classes[1].cls, 'wizard');
+  assert.match(alerts.at(-1), /добавления класса «Бард»/);
+  api.setRenderFn(oldRender);
+
+  c.classes.splice(1);
+  c.bases.manual.str = 8;
+  c.bases.manual.dex = 8;
+  api.setChar(c);
+  alerts.length = 0;
+  api.addClass();
+  assert.equal(c.classes.length, 1);
+  assert.match(alerts.at(-1), /текущего класса «Воин»/);
 });
 
 test('fighter hit points use maximum first hit die and average thereafter', () => {
