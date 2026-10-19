@@ -123,6 +123,8 @@ function asiBonus(){
   }
   return out;
 }
+function hasFeat(id){return BACKGROUNDS[C.bg]?.feat===id||Object.values(C.asi||{}).some(a=>a?.type==='feat'&&a.id===id)}
+function featBonusAbility(id){return Object.values(C.asi||{}).find(a=>a?.type==='feat'&&a.id===id)?.bonus||''}
 function abil(a){
   const base=(C.bases[C.abilityMethod]&&C.bases[C.abilityMethod][a]!=null)?C.bases[C.abilityMethod][a]:10;
   const primal=C.classes.some(c=>c.cls==='barbarian'&&c.lvl>=20)&&['str','con'].includes(a);
@@ -250,23 +252,25 @@ function skillMod(sk){
   return m;
 }
 function saveMods(){
-  const clsProf=[...new Set(C.classes.map(c=>CLASSES[c.cls].saves).flat())];
+  const clsProf=[...new Set(C.classes.map(c=>CLASSES[c.cls].saves).flat())],resilient=featBonusAbility('resilient');
   const out={};
   ABILS.forEach(([a])=>{
-    let m=am(a)+(clsProf.includes(a)?pb():0);
+    let m=am(a)+(clsProf.includes(a)||resilient===a?pb():0);
     // паладин: аура защиты 6+
     const p=C.classes.find(c=>c.cls==='paladin');
     if(p&&p.lvl>=6)m+=Math.max(1,am('cha'));
-    out[a]={mod:m,prof:clsProf.includes(a)};
+    out[a]={mod:m,prof:clsProf.includes(a)||resilient===a};
   });
   return out;
 }
-function passivePerception(){return 10+skillMod('perception')}
+function passivePerception(){return 10+skillMod('perception')+(hasFeat('observant')?5:0)}
+function passiveInvestigation(){return 10+skillMod('investigation')+(hasFeat('observant')?5:0)}
 function initiative(){
   let bonus=am('dex');
   // Разные классовые особенности складываются и округляют половину БМ по своим правилам.
   if(C.classes.some(c=>c.cls==='bard'&&c.lvl>=2))bonus+=Math.floor(pb()/2);
   if(C.classes.some(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=7))bonus+=Math.ceil(pb()/2);
+  if(hasFeat('alert'))bonus+=5;
   return bonus;
 }
 function speed(){
@@ -276,6 +280,7 @@ function speed(){
   const barbarian=C.classes.find(c=>c.cls==='barbarian');
   if(barbarian&&barbarian.lvl>=5){const armor=equippedArmor(),type=armor&&ARMORS.find(a=>a[0]===armor.id)?.[8];if(!armor||type!=='heavy')value+=10}
   if(C.classes.some(c=>c.cls==='ranger'&&c.lvl>=6&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer')))value+=5;
+  if(hasFeat('mobile'))value+=10;
   return value;
 }
 
@@ -291,6 +296,7 @@ function maxHp(){
   const r=raceOf(),s=subraceOf();
   if(C.race==='dwarf'&&C.subrace==='hill')hp+=totalLvl(); // дварфская выносливость
   if(C.classes.find(c=>c.cls==='sorcerer'&&c.sub==='draconic'))hp+=C.classes.find(c=>c.cls==='sorcerer').lvl;
+  if(hasFeat('tough'))hp+=2*totalLvl();
   return Math.max(1,hp);
 }
 function hitDiceStr(){const m={};C.classes.forEach(c=>{const d='к'+CLASSES[c.cls].hd;m[d]=(m[d]||0)+c.lvl});return Object.entries(m).map(([d,n])=>n+d).join(' + ')}
@@ -389,6 +395,7 @@ function activeFightingStyleKeys(){
 function hasFightingStyle(id){return activeFightingStyleKeys().some(key=>(C.choices.fightingStyles||{})[key]===id)}
 function equippedArmor(){return C.inventory.find(i=>i.type==='armor'&&i.equipped)}
 function hasShield(){return C.inventory.some(i=>i.type==='shield'&&i.equipped)}
+function dualWielding(){const weapons=C.inventory.filter(i=>i.type==='weapon'&&i.wielded).map(i=>WEAPONS.find(w=>w[0]===i.id));return weapons.length===2&&weapons.every(w=>w?.[6]==='melee')}
 function armorClass(){
   const arm=equippedArmor();
   let ac;
@@ -411,6 +418,7 @@ function armorClass(){
   if(hasShield()&&!(C.classes.find(c=>c.cls==='barbarian')&&!arm))ac+=2;
   // стиль Защита
   if(hasFightingStyle('defense')&&arm)ac+=1;
+  if(hasFeat('dual_wielder')&&dualWielding())ac+=1;
   return ac;
 }
 function weaponProfileProficient(profile,w){return !!profile&&(profile[w[7]]===true||profile.extra?.includes(w[0]))}

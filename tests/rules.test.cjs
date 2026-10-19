@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -374,6 +374,41 @@ test('fighter hit points use maximum first hit die and average thereafter', () =
   const c = character();
   c.classes = [{ cls: 'fighter', lvl: 3, sub: 'champion' }];
   assert.equal(api.maxHp(), 22); // 10 + 6 + 6; Constitution 11 gives +0
+});
+
+test('ASI feats update their corresponding calculated stats', () => {
+  const withFeat = (id, bonus) => {
+    const c = character();
+    c.classes = [{ cls: 'fighter', lvl: 4, sub: 'champion' }];
+    c.asi = { asi0: { type: 'feat', id, bonus } };
+    api.setChar(c);
+    return c;
+  };
+
+  withFeat('alert');
+  assert.equal(api.initiative(), 7);
+  withFeat('tough');
+  assert.equal(api.maxHp(), 36);
+  withFeat('observant');
+  assert.equal(api.passivePerception(), 15);
+  assert.equal(api.passiveInvestigation(), 18);
+  assert.ok(api.renderAbil().includes('Пассивное Расследование: <b>18</b>'));
+  withFeat('resilient', 'wis');
+  assert.equal(api.saveMods().wis.mod, 3);
+  assert.equal(api.saveMods().wis.prof, true);
+  withFeat('mobile');
+  assert.equal(api.speed(), 40);
+
+  const dualWielder = withFeat('dual_wielder');
+  dualWielder.inventory = [
+    { type: 'weapon', id: 'shortsword', qty: 1, wielded: true },
+    { type: 'weapon', id: 'dagger', qty: 1, wielded: true },
+  ];
+  api.setChar(dualWielder);
+  assert.equal(api.armorClass(), 13);
+  dualWielder.inventory.pop();
+  api.setChar(dualWielder);
+  assert.equal(api.armorClass(), 12);
 });
 
 test('expertise adds proficiency bonus twice to a proficient skill', () => {
