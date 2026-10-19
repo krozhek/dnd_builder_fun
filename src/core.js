@@ -222,6 +222,7 @@ function spellSaveDcForAbility(ability){return 8+pb()+am(ability)}
 function spellAttackForAbility(ability){return pb()+am(ability)}
 function spellSaveDc(cls){return spellSaveDcForAbility(spellAbilityOf(cls))}
 function spellAttack(cls){return spellAttackForAbility(spellAbilityOf(cls))}
+function knownSpellSelection(ids){return [...new Set((Array.isArray(ids)?ids:[]).filter(id=>SPELL_IDS.has(id)))]}
 function knownLimit(cls){
   const c=C.classes.find(x=>x.cls===cls);if(!c)return 0;
   const t=TABLES[cls];
@@ -404,7 +405,10 @@ function characterReadiness(){
   const langs=C.extraLangs||[],langCount=languageChoiceCount(),chosenLangs=langs.slice(0,langCount).filter(Boolean);
   if(chosenLangs.length<langCount)add('main',`Выберите ещё ${langCount-chosenLangs.length} язык(а).`);
   if(new Set(chosenLangs).size<chosenLangs.length)add('main','Уберите повторяющиеся языки.');
-  for(const choice of racialCantripChoices())if(!(C.racialSpells||{})[choice.key])add('spells',`Выберите расовый заговор: ${choice.name}.`);
+  for(const choice of racialCantripChoices())if(!choice.spells.some(s=>s.id===(C.racialSpells||{})[choice.key]))add('spells',`Выберите расовый заговор: ${choice.name}.`);
+  const storedSpellIds=[...Object.values(C.cantrips||{}).flat(),...Object.values(C.spellsKnown||{}).flat(),...Object.values(C.spellsPrepared||{}).flat(),...(C.spellbook||[]),...Object.values(C.arcanum||{}),...Object.entries(C.racialSpells||{}).filter(([key])=>!key.endsWith('Ability')).map(([,id])=>id)];
+  const unknownSpellCount=storedSpellIds.filter(id=>!SPELL_IDS.has(id)).length;
+  if(unknownSpellCount)add('spells',`Удалите неизвестные заклинания (${unknownSpellCount}).`);
   for(const [classIndex,c] of C.classes.entries()){
     const cl=CLASSES[c.cls],picks=(C.classSkills||{})[c.cls]||[],skillCount=classSkillChoiceCount(classIndex,c.cls);
     const otherPicks=C.classes.filter((_,i)=>i!==classIndex).flatMap(x=>(C.classSkills||{})[x.cls]||[]);
@@ -425,9 +429,9 @@ function characterReadiness(){
       if(c.lvl>=11){const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`)}
     }
     if(c.cls==='sorcerer'&&c.lvl>=3){const max=c.lvl>=17?4:c.lvl>=10?3:2;if((C.choices.metamagic||[]).length<max)add('cls',`Выберите приёмы Метамагии: ${(C.choices.metamagic||[]).length}/${max}.`)}
-    const cantrips=cantripLimit(c.cls),selectedCantrips=(C.cantrips||{})[c.cls]||[];if(cantrips>selectedCantrips.length)add('spells',`${cl.name}: выберите заговоры (${selectedCantrips.length}/${cantrips}).`);
-    const known=knownLimit(c.cls),knownSelected=(C.spellsKnown||{})[c.cls]||[];if(known>knownSelected.length)add('spells',`${cl.name}: выберите известные заклинания (${knownSelected.length}/${known}).`);
-    if(c.cls==='wizard'){const min=6+(c.lvl-1)*2;if((C.spellbook||[]).length<min)add('spells',`Книга волшебника: рекомендуется не менее ${min} заклинаний.`,true)}
+    const cantrips=cantripLimit(c.cls),selectedCantrips=knownSpellSelection((C.cantrips||{})[c.cls]);if(cantrips>selectedCantrips.length)add('spells',`${cl.name}: выберите заговоры (${selectedCantrips.length}/${cantrips}).`);
+    const known=knownLimit(c.cls),knownSelected=knownSpellSelection((C.spellsKnown||{})[c.cls]);if(known>knownSelected.length)add('spells',`${cl.name}: выберите известные заклинания (${knownSelected.length}/${known}).`);
+    if(c.cls==='wizard'){const min=6+(c.lvl-1)*2;if(knownSpellSelection(C.spellbook).length<min)add('spells',`Книга волшебника: рекомендуется не менее ${min} заклинаний.`,true)}
   }
   const expertiseMax=expertiseAvailable(),deftSkill=deftExplorerSkill(),manualExpertise=(C.expertise||[]).filter(id=>!deftSkill||id!==deftSkill).length,manualExpertiseMax=expertiseMax-(deftExplorerActive()?1:0);
   if(manualExpertise<manualExpertiseMax)add('skills',`Выберите ещё ${manualExpertiseMax-manualExpertise} компетентности.`);

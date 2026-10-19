@@ -127,6 +127,8 @@ function hasUnsafeKeys(value){
 function optionalRecord(value){return value==null||isRecord(value)}
 function stringArray(value,allowBlank=false){return Array.isArray(value)&&value.every(x=>typeof x==='string'||(allowBlank&&(x===null||x==='')))}
 function stringArrayMap(value){return value==null||isRecord(value)&&Object.values(value).every(v=>stringArray(v))}
+function validSpellArray(value){return stringArray(value)&&value.every(id=>SPELL_IDS.has(id))&&new Set(value).size===value.length}
+function validSpellArrayMap(value){return value==null||isRecord(value)&&Object.values(value).every(validSpellArray)}
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
 function validCharacter(ch){
   if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
@@ -140,12 +142,13 @@ function validCharacter(ch){
   for(const key of ['bases','asi','choices','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice','game','personality'])if(!optionalRecord(ch[key]))return false;
   for(const key of ['raceSkills','halfElfPicks','raceAsiPicks','expertise','languages','attunement'])if(ch[key]!=null&&!stringArray(ch[key]))return false;
   if(ch.extraLangs!=null&&(!stringArray(ch.extraLangs,true)||ch.extraLangs.length>LANGS.length||ch.extraLangs.some(value=>value&&(!LANGS.includes(value)||value.length>32))))return false;
-  if(!stringArrayMap(ch.classSkills)||!stringArrayMap(ch.cantrips)||!stringArrayMap(ch.spellsKnown)||!stringArrayMap(ch.spellsPrepared))return false;
-  if(ch.spellbook!=null&&!stringArray(ch.spellbook))return false;
+  if(!stringArrayMap(ch.classSkills)||!validSpellArrayMap(ch.cantrips)||!validSpellArrayMap(ch.spellsKnown)||!validSpellArrayMap(ch.spellsPrepared))return false;
+  if(ch.spellbook!=null&&!validSpellArray(ch.spellbook))return false;
+  if(ch.arcanum&&Object.values(ch.arcanum).some(id=>!SPELL_IDS.has(id)))return false;
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
   if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
   if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||!stringArrayMap(ch.choices.tashaFeatures)||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))))return false;
-  if(ch.racialSpells&&Object.values(ch.racialSpells).some(v=>typeof v!=='string'))return false;
+  if(ch.racialSpells&&Object.entries(ch.racialSpells).some(([key,value])=>key.endsWith('Ability')?!ABILS.some(([id])=>id===value):!SPELL_IDS.has(value)))return false;
   if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)))return false;
   if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
   if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean'))))return false;

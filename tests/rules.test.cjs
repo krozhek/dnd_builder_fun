@@ -268,6 +268,31 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(api.validCharacter(legacy), true);
 });
 
+test('import and readiness reject unknown or duplicate spell ids', () => {
+  const c = character();
+  const validSpellId = api.SPELLS[0].id;
+  assert.equal(api.validCharacter(c), true);
+  for (const changed of [
+    { ...c, cantrips: { bard: ['unknown_spell'] } },
+    { ...c, spellsKnown: { bard: ['unknown_spell'] } },
+    { ...c, spellsPrepared: { wizard: ['unknown_spell'] } },
+    { ...c, spellbook: ['unknown_spell'] },
+    { ...c, arcanum: { 6: 'unknown_spell' } },
+    { ...c, racialSpells: { elf: 'unknown_spell' } },
+    { ...c, spellbook: [validSpellId, validSpellId] },
+  ]) assert.equal(api.validCharacter(changed), false);
+
+  c.classes = [{ cls: 'bard', lvl: 1, sub: 'lore' }];
+  c.classSkills.bard = ['arcana', 'history', 'insight'];
+  c.cantrips.bard = ['unknown_1', 'unknown_2'];
+  c.spellsKnown.bard = ['unknown_1', 'unknown_2', 'unknown_3', 'unknown_4'];
+  api.setChar(c);
+  const spellIssues = api.characterReadiness().filter(i => i.tab === 'spells').map(i => i.text);
+  assert.ok(spellIssues.some(text => text.includes('неизвестные заклинания')));
+  assert.ok(spellIssues.some(text => text.includes('заговоры (0/2)')));
+  assert.ok(spellIssues.some(text => text.includes('известные заклинания (0/4)')));
+});
+
 test('corrupt local libraries remain untouched until explicit backup replacement', () => {
   const key = 'dnd5e2014_chars_v1';
   for (const raw of ['{broken', JSON.stringify([{ name: 'Broken', classes: [] }])]) {
