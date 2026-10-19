@@ -391,6 +391,18 @@ test('multiclass spell slots use the combined caster level table', () => {
   assert.deepEqual(Array.from(api.spellSlots()).slice(0, 4), [4, 3, 2, 0]);
 });
 
+test('third-caster class levels expose their own cantrip and known spell progression', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 3, sub: 'eldritchknight' }];
+  api.setChar(c);
+  assert.match(api.renderSpells(), /Заговоры — 0\/2/);
+  assert.match(api.renderSpells(), /Известные заклинания — 0\/3/);
+  c.classes = [{ cls: 'rogue', lvl: 3, sub: 'arcanetrickster' }];
+  api.setChar(c);
+  assert.match(api.renderSpells(), /Заговоры — 0\/3/);
+  assert.match(api.renderSpells(), /Известные заклинания — 0\/3/);
+});
+
 test('speed includes monk, barbarian, and Deft Explorer bonuses with armor conditions', () => {
   const c = character();
   c.classes = [{ cls: 'monk', lvl: 2, sub: 'openhand' }];
@@ -580,6 +592,11 @@ test('spell import checks class lists and level access while readiness reports e
   wizard.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
   wizard.spellsPrepared = { wizard: ['mage_armor'] };
   assert.equal(api.validCharacter(wizard), false); // prepared wizard spells must be in the spellbook
+
+  const warlock = api.newChar();
+  warlock.classes = [{ cls: 'warlock', lvl: 11, sub: 'fiend' }];
+  warlock.arcanum = { 6: api.SPELLS.find(s => s.lvl === 6 && s.cls.includes('warlock')).id };
+  assert.equal(api.validCharacter(warlock), true);
 
   const bard = api.newChar();
   bard.classes = [{ cls: 'bard', lvl: 1, sub: 'lore' }];

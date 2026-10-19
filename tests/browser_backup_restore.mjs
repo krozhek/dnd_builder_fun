@@ -16,6 +16,7 @@ const backupPath = path.join(profile, 'backup.json');
 const singlePath = path.join(profile, 'single-character.json');
 const maliciousIdPath = path.join(profile, 'malicious-id-backup.json');
 const maliciousLanguagePath = path.join(profile, 'malicious-language-backup.json');
+const invalidSpellPath = path.join(profile, 'invalid-spell-character.json');
 const chrome = spawn(chromePath, ['--headless=new', '--no-first-run', '--no-default-browser-check', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore' });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 let ws;
@@ -101,6 +102,7 @@ try {
   fs.writeFileSync(singlePath, JSON.stringify(single));
   fs.writeFileSync(maliciousIdPath, JSON.stringify({ ...backup, characters: [{ ...backup.characters[0], id: "');window.xssProbe();//" }] }));
   fs.writeFileSync(maliciousLanguagePath, JSON.stringify({ ...backup, characters: [{ ...backup.characters[0], extraLangs: ['<img src=x onerror="window.xssProbe()">'] }] }));
+  fs.writeFileSync(invalidSpellPath, JSON.stringify({ ...backup.characters[0], id: 'invalid-spell-e2e', classes: [{ cls: 'bard', lvl: 1, sub: 'lore' }], cantrips: {}, spellsKnown: { bard: ['mage_armor'] }, spellsPrepared: {}, spellbook: [] }));
 
   await evaluate("createChar();C.name='Should Be Replaced';persist();goHome()");
   const findImportInput = async () => {
@@ -153,10 +155,35 @@ try {
     const unchanged = await evaluate(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return !window.__xssFired&&data.length===2&&data.some(c=>c.name==='Single Import E2E')})()`);
     if (!inputReset || !unchanged) throw new Error('Malicious import executed or changed the character library');
   }
+  const invalidSpellDialogWait = waitFor('Page.javascriptDialogOpening');
+  await submitFile(invalidSpellPath);
+  const invalidSpellDialog = await invalidSpellDialogWait;
+  if (invalidSpellDialog.type !== 'alert' || !invalidSpellDialog.message.includes('корректного персонажа')) throw new Error('Class-incompatible spell selection was not rejected on import');
+  const invalidSpellUnchanged = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return data.length===2&&data.every(c=>c.id!=='invalid-spell-e2e')})()`);
+  if (!invalidSpellUnchanged) throw new Error('Invalid spell import changed the character library');
+
   const safeActions = await evaluate(`(()=>{const buttons=[...document.querySelectorAll('[data-character-action]')];return buttons.length===6&&buttons.every(button=>!button.hasAttribute('onclick'))&&!document.querySelector('.char-card [onerror],.char-card [onload],.char-card script')})()`);
   if (!safeActions) throw new Error('Character card actions contain unsafe event attributes or imported markup');
   const opened = await evaluate(`(()=>{document.querySelector('[data-character-action="open"]').click();return C.name})()`);
   if (opened !== 'Backup E2E') throw new Error('Delegated character action did not open the selected character');
+
+  const rulesSmoke = await evaluate(`(()=>{
+    const currentId=C.id,c=newChar();c.id=currentId;c.name='Rules E2E';c.race='elf';c.subrace='high';c.bg='soldier';c.classes=[{cls:'wizard',lvl:1,sub:'evocation'},{cls:'bard',lvl:1,sub:'lore'}];
+    c.abilityMethod='manual';c.bases.manual={str:10,dex:14,con:10,int:13,wis:10,cha:13};c.classSkills={wizard:['arcana','history'],bard:['persuasion']};
+    c.choices.backgroundTools=[];c.choices.classTools={};
+    c.inventory=[{type:'armor',id:'chainmail',qty:1,equipped:true},{type:'shield',id:'shield',qty:1,equipped:true},{type:'weapon',id:'longbow',qty:1,wielded:true}];
+    C=c;TAB='main';render();
+    let toolPicker=document.querySelector('#main select[multiple]');
+    toolPicker.querySelector('option[value="Лютня"]').selected=true;toolPicker.dispatchEvent(new Event('change',{bubbles:true}));
+    const bgPicker=[...document.querySelectorAll('#main select')].find(select=>[...select.options].some(option=>option.value==='Игровой набор (кости)'));
+    bgPicker.value='Игровой набор (кости)';bgPicker.dispatchEvent(new Event('change',{bubbles:true}));
+    const main=document.querySelector('#main').innerText;toolPicker=document.querySelector('#main select[multiple]');
+    const profs=weaponProf('longbow')&&!weaponProf('rapier')&&toolProficiencies().includes('Лютня')&&toolProficiencies().includes('Игровой набор (кости)');
+    TAB='equip';render();const equip=document.querySelector('#main').innerText;
+    TAB='cls';render();const cls=document.querySelector('#main').innerText;
+    return {profs,toolPicker:!!toolPicker,backgroundChoice:main.includes('Игровой набор (1 на выбор)'),armorWarning:equip.includes('нельзя накладывать заклинания'),multiclassArmor:cls.includes('Доспехи: лёгкие')};
+  })()`);
+  if (!rulesSmoke.profs || !rulesSmoke.toolPicker || !rulesSmoke.backgroundChoice || !rulesSmoke.armorWarning || !rulesSmoke.multiclassArmor) throw new Error(`Proficiency UI smoke test failed: ${JSON.stringify(rulesSmoke)}`);
 
   const corruptLibrary = '{damaged-local-library';
   await evaluate(`localStorage.setItem('dnd5e2014_chars_v1',${JSON.stringify(corruptLibrary)})`);
@@ -174,7 +201,7 @@ try {
   if (recoveryDialog.type !== 'confirm') throw new Error('Restoring over a corrupt library did not require confirmation');
   const recovered = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return !STORAGE_CORRUPT&&data.length===1&&data[0].name==='Backup E2E'})()`);
   if (!recovered) throw new Error('Confirmed backup did not recover the corrupt library');
-  console.log('Browser E2E passed: persistence, imports, XSS rejection, corrupt-storage preservation, and confirmed recovery.');
+  console.log('Browser E2E passed: persistence, semantic import rejection, proficiency UI, XSS protection, and corrupt-storage recovery.');
 } finally {
   if (ws) ws.close();
   chrome.kill('SIGTERM');
