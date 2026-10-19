@@ -148,6 +148,10 @@ function validCharacter(ch){
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
   if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
   if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||!stringArrayMap(ch.choices.tashaFeatures)||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))))return false;
+  if(ch.choices&&ch.choices.fightingStyles!=null&&(!isRecord(ch.choices.fightingStyles)||Object.entries(ch.choices.fightingStyles).some(([key,value])=>{
+    const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
+    return !options||typeof value!=='string'||(value!==''&&!options.some(([id])=>id===value));
+  })))return false;
   if(ch.racialSpells&&Object.entries(ch.racialSpells).some(([key,value])=>key.endsWith('Ability')?!ABILS.some(([id])=>id===value):!SPELL_IDS.has(value)))return false;
   if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)))return false;
   if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
@@ -442,17 +446,29 @@ function toggleExpertise(id,max,on){
   persist();render();
 }
 // ================= Вкладка Класс =================
+function availableFightingStyles(key,options){
+  const styles=C.choices.fightingStyles||{},used=new Set(activeFightingStyleKeys().filter(other=>other!==key).map(other=>styles[other]).filter(Boolean));
+  return options.filter(([id])=>id===styles[key]||!used.has(id));
+}
+function setFightingStyle(key,value){
+  const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
+  if(!options||!activeFightingStyleKeys().includes(key)||value&&!options.some(([id])=>id===value))return;
+  C.choices.fightingStyles=C.choices.fightingStyles||{};
+  if(value&&activeFightingStyleKeys().some(other=>other!==key&&C.choices.fightingStyles[other]===value)){alert('Боевой стиль уже выбран.');render();return}
+  if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];
+  persist();render();
+}
 function renderClass(){
   return `<div class="page"><h1>Класс и умения</h1>
   ${C.classes.map((c,i)=>{
     const cl=CLASSES[c.cls], sub=SUBCLASSES[c.sub];
-    const styleAv=FIGHTING_STYLES[c.cls];
+    const styleAv=FIGHTING_STYLES[c.cls],styleLevel=c.cls==='fighter'?1:2,styles=C.choices.fightingStyles||{};
     const replaced=selectedTashaFeatures(c).flatMap(f=>f[4]||[]);
     return `<div class="card">
       <h3>${cl.name} ${c.lvl}${sub?' · '+sub.name:''}</h3>
       <p class="muted small">Кость хитов: к${cl.hd} · Спасброски: ${cl.saves.map(a=>ABIL_RU_FULL[a]).join(', ')} · Доспехи: ${cl.armor} · Оружие: ${cl.weapons} · Инструменты: ${cl.tools}</p>
-      ${styleAv&&c.lvl>=1?`<label>Боевой стиль<span class="tip-i" data-tip="Особенность боевых классов: бонус к атаке, защите или урону при определённом стиле боя. Влияет на расчёт КД (Защита), бросков атаки (Стрельба) и урона (Дуэлянт) на листе.">ⓘ</span><select onchange="setChoice('fightingStyle',this.value)"><option value="">—</option>${styleAv.map(([id,d])=>`<option value="${id}"${C.choices.fightingStyle===id?' selected':''}>${d}</option>`).join('')}</select></label>`:''}
-      ${c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=10?`<label>Второй боевой стиль (Чемпион 10)<select onchange="setChoice('fightingStyle2',this.value)"><option value="">—</option>${styleAv.filter(([id])=>id!==C.choices.fightingStyle).map(([id,d])=>`<option value="${id}"${C.choices.fightingStyle2===id?' selected':''}>${d}</option>`).join('')}</select></label>`:''}
+      ${styleAv&&c.lvl>=styleLevel?`<label>Боевой стиль<span class="tip-i" data-tip="Особенность боевых классов: бонус к атаке, защите или урону при определённом стиле боя. Влияет на расчёт КД (Защита), бросков атаки (Стрельба) и урона (Дуэлянт) на листе.">ⓘ</span><select onchange="setFightingStyle('${c.cls}',this.value)"><option value="">—</option>${availableFightingStyles(c.cls,styleAv).map(([id,d])=>`<option value="${id}"${styles[c.cls]===id?' selected':''}>${d}</option>`).join('')}</select></label>`:''}
+      ${c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=10?`<label>Второй боевой стиль (Чемпион 10)<select onchange="setFightingStyle('championExtra',this.value)"><option value="">—</option>${availableFightingStyles('championExtra',FIGHTING_STYLES.fighter).map(([id,d])=>`<option value="${id}"${styles.championExtra===id?' selected':''}>${d}</option>`).join('')}</select></label>`:''}
       ${c.cls==='ranger'?`
         <label>Избранный враг<span class="tip-i" data-tip="Тип существ, против которых следопыт особенно эффективен: преимущество при выслеживании и на проверки Мудрости (Выживание) по следу.">ⓘ</span><select onchange="setChoice('favoredEnemy',this.value)"><option value="">—</option>${FAVORED_ENEMIES.map(e=>`<option${C.choices.favoredEnemy===e?' selected':''}>${e}</option>`).join('')}</select></label>
         <label>Избранная местность<span class="tip-i" data-tip="Тип местности, где следопыт ориентируется лучше: двойной бонус мастерства к проверкам, связанным с местностью, и преимущества при путешествии.">ⓘ</span><select onchange="setChoice('favoredTerrain',this.value)"><option value="">—</option>${FAVORED_TERRAIN.map(e=>`<option${C.choices.favoredTerrain===e?' selected':''}>${e}</option>`).join('')}</select></label>`:''}

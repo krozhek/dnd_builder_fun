@@ -1,4 +1,4 @@
-const CHARACTER_SCHEMA=2;
+const CHARACTER_SCHEMA=3;
 function newChar(){
   const ab={};ABILS.forEach(([k])=>ab[k]=10);
   const ab8={};ABILS.forEach(([k])=>ab8[k]=8);
@@ -82,6 +82,14 @@ function migrate(ch){
   for(const key of ['asi','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice'])m[key]={...d[key],...(isRecord(ch[key])?ch[key]:{})};
   for(const key of ['halfElfPicks','raceSkills','raceAsiPicks','expertise','languages','extraLangs','spellbook','inventory','attunement'])m[key]=Array.isArray(ch[key])?ch[key]:d[key];
   if(!Array.isArray(m.classes)||!m.classes.length)m.classes=[{cls:'fighter',lvl:1,sub:'champion'}];
+  const styles={...(isRecord(m.choices.fightingStyles)?m.choices.fightingStyles:{})};
+  if(!Object.keys(styles).length&&m.choices.fightingStyle){
+    const source=m.classes.find(c=>FIGHTING_STYLES[c.cls]&&c.lvl>=(c.cls==='fighter'?1:2)&&FIGHTING_STYLES[c.cls].some(([id])=>id===m.choices.fightingStyle));
+    if(source)styles[source.cls]=m.choices.fightingStyle;
+  }
+  if(m.choices.fightingStyle2&&m.classes.some(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=10)&&m.choices.fightingStyle2!==styles.fighter)styles.championExtra=m.choices.fightingStyle2;
+  m.choices.fightingStyles=styles;
+  delete m.choices.fightingStyle;delete m.choices.fightingStyle2;
   if(typeof m.id!=='string'||!m.id)m.id=uid();
   m.schemaVersion=CHARACTER_SCHEMA;
   return m;
@@ -263,6 +271,12 @@ function spellcasterClasses(){return C.classes.filter(c=>spellTypeOf(c))}
 function spellsForClass(cls,lvl){const l=(cls==='fighter'||cls==='rogue')?'wizard':cls;return SPELLS.filter(s=>s.lvl===lvl&&s.cls.includes(l))}
 
 // КД
+function activeFightingStyleKeys(){
+  const keys=C.classes.filter(c=>FIGHTING_STYLES[c.cls]&&c.lvl>=(c.cls==='fighter'?1:2)).map(c=>c.cls);
+  if(C.classes.some(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=10))keys.push('championExtra');
+  return keys;
+}
+function hasFightingStyle(id){return activeFightingStyleKeys().some(key=>(C.choices.fightingStyles||{})[key]===id)}
 function equippedArmor(){return C.inventory.find(i=>i.type==='armor'&&i.equipped)}
 function hasShield(){return C.inventory.some(i=>i.type==='shield'&&i.equipped)}
 function armorClass(){
@@ -286,7 +300,7 @@ function armorClass(){
   }
   if(hasShield()&&!(C.classes.find(c=>c.cls==='barbarian')&&!arm))ac+=2;
   // стиль Защита
-  if((C.choices.fightingStyle==='defense'||C.choices.fightingStyle2==='defense')&&arm)ac+=1;
+  if(hasFightingStyle('defense')&&arm)ac+=1;
   return ac;
 }
 function weaponProfileProficient(profile,w){return !!profile&&(profile[w[7]]===true||profile.extra?.includes(w[0]))}
@@ -307,7 +321,7 @@ function weaponAttack(w){
   const monk=C.classes.find(c=>c.cls==='monk');
   if(monk&&isMonkWeapon(w))ab=Math.max(ab,am('dex'));
   let bonus=ab+(weaponProf(w[0])?pb():0);
-  if(ranged&&(C.choices.fightingStyle==='archery'||C.choices.fightingStyle2==='archery'))bonus+=2;
+  if(ranged&&hasFightingStyle('archery'))bonus+=2;
   return bonus;
 }
 function wieldedWeaponCount(){return C.inventory.filter(i=>i.type==='weapon'&&i.wielded).length}
@@ -320,7 +334,7 @@ function weaponDamage(w,item=null){
   let bonus=ab;
   const versatile=w[5].match(/Универсальное \(([^)]+)\)/);
   let dice=item?.grip==='two-handed'&&versatile?`${versatile[1]} ${w[3].replace(/^\S+\s*/, '')}`:w[3];
-  if((C.choices.fightingStyle==='dueling'||C.choices.fightingStyle2==='dueling')&&item?.wielded&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!(item.grip==='two-handed'&&versatile)&&wieldedWeaponCount()===1)bonus+=2;
+  if(hasFightingStyle('dueling')&&item?.wielded&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!(item.grip==='two-handed'&&versatile)&&wieldedWeaponCount()===1)bonus+=2;
   if(bonus!==0)return dice+' '+fmtMod(bonus);
   return dice;
 }
@@ -453,8 +467,8 @@ function characterReadiness(){
   }
   const expertiseMax=expertiseAvailable(),deftSkill=deftExplorerSkill(),manualExpertise=(C.expertise||[]).filter(id=>!deftSkill||id!==deftSkill).length,manualExpertiseMax=expertiseMax-(deftExplorerActive()?1:0);
   if(manualExpertise<manualExpertiseMax)add('skills',`Выберите ещё ${manualExpertiseMax-manualExpertise} компетентности.`);
-  const styleRequired=C.classes.some(c=>(c.cls==='fighter'&&c.lvl>=1)||(['paladin','ranger'].includes(c.cls)&&c.lvl>=2));
-  if(styleRequired&&!C.choices.fightingStyle)add('cls','Выберите боевой стиль.');
+  const styleChoices=C.choices.fightingStyles||{};
+  for(const key of activeFightingStyleKeys())if(!styleChoices[key])add('cls',key==='championExtra'?'Выберите второй боевой стиль (Чемпион 10).':`Выберите боевой стиль для класса «${CLASSES[key].name}».`);
   const {need}=asiPending();
   for(let i=0;i<need;i++){
     const a=(C.asi||{})['asi'+i];let complete=false;

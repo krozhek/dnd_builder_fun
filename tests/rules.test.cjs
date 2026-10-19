@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, WEAPONS, toggleWieldWeapon, setWeaponGrip, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, WEAPONS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -72,7 +72,7 @@ test('Dueling requires a single wielded one-handed weapon and grip affects versa
   const c = character();
   c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
   c.bases.manual.str = 18;
-  c.choices.fightingStyle = 'dueling';
+  c.choices.fightingStyles = { fighter: 'dueling' };
   c.inventory = [{ type: 'weapon', id: 'longsword', qty: 2, equipped: false }];
   api.setChar(c);
   const oldRender = api.renderFn;
@@ -93,6 +93,32 @@ test('Dueling requires a single wielded one-handed weapon and grip affects versa
   assert.equal(api.weaponDamage(longsword, c.inventory[0]), '1к8 рубящий +6');
   assert.match(api.renderEquip(), /Хват оружия/);
   assert.equal(api.validCharacter({ ...c, inventory: [{ type: 'weapon', id: 'longsword', qty: 2, wielded: true }] }), false);
+  api.setRenderFn(oldRender);
+});
+
+test('fighting styles are selected separately and readiness checks every source', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'paladin', lvl: 2, sub: 'devotion' }];
+  c.choices.fightingStyles = { fighter: 'archery', paladin: 'defense' };
+  api.setChar(c);
+  assert.equal(api.hasFightingStyle('archery'), true);
+  assert.equal(api.hasFightingStyle('defense'), true);
+  assert.equal(api.characterReadiness().some(i => i.tab === 'cls' && i.text.includes('боевой стиль')), false);
+  assert.match(api.renderClass(), /setFightingStyle\('fighter'/);
+  assert.match(api.renderClass(), /setFightingStyle\('paladin'/);
+
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  c.classes = [{ cls: 'fighter', lvl: 10, sub: 'champion' }];
+  c.choices.fightingStyles = { fighter: 'defense' };
+  api.setChar(c);
+  assert.ok(api.characterReadiness().some(i => i.text.includes('второй боевой стиль')));
+  api.setFightingStyle('championExtra', 'dueling');
+  assert.equal(api.characterReadiness().some(i => i.text.includes('боевой стиль')), false);
+  alerts.length = 0;
+  api.setFightingStyle('fighter', 'dueling');
+  assert.equal(c.choices.fightingStyles.fighter, 'defense');
+  assert.match(alerts.at(-1), /уже выбран/);
   api.setRenderFn(oldRender);
 });
 
@@ -424,11 +450,15 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(legacy.race, 'human');
   assert.equal(legacy.bg, 'soldier');
   assert.equal(legacy.abilityMethod, 'standard');
-  assert.equal(legacy.schemaVersion, 2);
+  assert.equal(legacy.schemaVersion, 3);
   assert.equal(Object.hasOwn(legacy, 'injected'), false);
   assert.ok(Array.isArray(legacy.extraLangs));
   assert.ok(legacy.racialSpells && typeof legacy.racialSpells === 'object');
   assert.equal(api.validCharacter(legacy), true);
+  const legacyStyles = api.migrate({ name: 'Старый воин', classes: [{ cls: 'fighter', lvl: 10, sub: 'champion' }], choices: { fightingStyle: 'defense', fightingStyle2: 'dueling' } });
+  assert.equal(legacyStyles.choices.fightingStyles.fighter, 'defense');
+  assert.equal(legacyStyles.choices.fightingStyles.championExtra, 'dueling');
+  assert.equal(Object.hasOwn(legacyStyles.choices, 'fightingStyle'), false);
 });
 
 test('import and readiness reject unknown or duplicate spell ids', () => {
