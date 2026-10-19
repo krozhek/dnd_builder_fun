@@ -25,6 +25,7 @@ vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, migrate, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
+  primalAwarenessSpells, knownLimit,
   setSpellQuery,
   spellPicker, renderWizardSpells, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
@@ -312,6 +313,47 @@ test('Deft Explorer grants expertise to a selected proficient skill', () => {
   assert.match(api.renderClass(), /Навык для компетентности/);
   assert.match(api.renderClass(), /value="survival" selected/);
   assert.match(api.renderSkills(), /Искусный исследователь/);
+});
+
+test('Primal Awareness grants additional spells by ranger level without using the known-spell limit', () => {
+  const c = character();
+  c.classes = [{ cls: 'ranger', lvl: 3, sub: 'hunter' }];
+  c.choices.tashaFeatures = { ranger: ['primal_awareness'] };
+  api.setChar(c);
+  assert.deepEqual(Array.from(api.primalAwarenessSpells(), s => s.id), ['speak_with_animals']);
+  const ranger3Limit = api.knownLimit('ranger');
+
+  c.classes = [{ cls: 'ranger', lvl: 3, sub: 'hunter' }, { cls: 'wizard', lvl: 5, sub: 'evocation' }];
+  api.setChar(c);
+  assert.deepEqual(Array.from(api.primalAwarenessSpells(), s => s.id), ['speak_with_animals']);
+  c.classes[0].lvl = 5;
+  api.setChar(c);
+  const additional = api.primalAwarenessSpells();
+  assert.deepEqual(Array.from(additional, s => s.id), ['speak_with_animals', 'beast_sense']);
+  assert.equal(additional[1].spell, null);
+  assert.equal(api.knownLimit('ranger'), ranger3Limit + 1);
+  c.spellsKnown.ranger = ['speak_with_animals'];
+  api.setChar(c);
+  const spellUi = api.renderSpells();
+  assert.match(spellUi, /Известные заклинания — 0\/4/);
+  assert.match(spellUi, /type="checkbox" checked disabled onchange="toggleSpell\('spellsKnown','ranger',4,'speak_with_animals',this.checked\)"/);
+  assert.match(spellUi, /описание отсутствует в библиотеке/);
+
+  c.classes = [{ cls: 'ranger', lvl: 17, sub: 'hunter' }];
+  api.setChar(c);
+  assert.equal(api.primalAwarenessSpells().length, 5);
+  const knownLimitWithFeature = api.knownLimit('ranger');
+  c.choices.tashaFeatures.ranger = [];
+  api.setChar(c);
+  assert.equal(api.knownLimit('ranger'), knownLimitWithFeature);
+  assert.equal(api.primalAwarenessSpells().length, 0);
+
+  c.choices.tashaFeatures.ranger = ['primal_awareness'];
+  api.setChar(c);
+  for (const name of ['Разговор с животными', 'Чутьё зверя', 'Разговор с растениями', 'Поиск существа', 'Общение с природой']) {
+    assert.ok(api.renderSheet2014().includes(name), `2014 sheet includes ${name}`);
+    assert.ok(api.renderSheet2024().includes(name), `2024 sheet includes ${name}`);
+  }
 });
 
 test('Tasha Canny language and tool alternatives count toward readiness and character sheets', () => {

@@ -306,6 +306,11 @@ function selectedTashaFeatures(c){
   const ids=(C.choices.tashaFeatures||{})[c.cls]||[];
   return (TASHA_FEATURES[c.cls]||[]).filter(f=>ids.includes(f[0])&&f[1]<=c.lvl);
 }
+function primalAwarenessSpells(){
+  const ranger=C.classes.find(c=>c.cls==='ranger');
+  if(!ranger||!(C.choices.tashaFeatures?.ranger||[]).includes('primal_awareness'))return [];
+  return PRIMAL_AWARENESS_SPELLS.filter(([level])=>ranger.lvl>=level).map(([level,id,name,spellLevel])=>({level,id,name,spellLevel,spell:SPELLS.find(s=>s.id===id)||null}));
+}
 function chosenTashaFeatures(){const features=C.classes.flatMap(c=>selectedTashaFeatures(c).map(f=>({cls:c.cls,lvl:f[1],name:f[2]+' (Таша)',desc:f[3]})));if(C.choices.pactBoon==='talisman')features.push({cls:'warlock',lvl:3,name:'Талисман договора (Таша)',desc:'Носитель может добавить к4 к проверке характеристики; число применений = БМ за долгий отдых.'});return features}
 function updateTashaChoice(cls,update){
   const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
