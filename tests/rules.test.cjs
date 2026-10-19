@@ -31,7 +31,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, WEAPONS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -142,6 +142,73 @@ test('weapon proficiencies follow class and multiclass tables', () => {
   api.setChar(c);
   assert.equal(api.weaponProf('scimitar'), true);
   assert.equal(api.weaponProf('lightcrossbow'), false);
+});
+
+test('armor and weapon proficiencies include multiclass, subclass, and racial rules', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.armorProficient('plate'), true);
+  c.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }, { cls: 'fighter', lvl: 1, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.armorProficient('chainshirt'), true);
+  assert.equal(api.armorProficient('plate'), false);
+  assert.equal(api.armorProficient('shield'), true);
+
+  c.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }, { cls: 'cleric', lvl: 1, sub: 'tempest' }];
+  api.setChar(c);
+  assert.equal(api.armorProficient('plate'), true);
+  assert.equal(api.weaponProf('greatsword'), true);
+
+  c.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  c.race = 'dwarf'; c.subrace = 'mountain';
+  api.setChar(c);
+  assert.equal(api.armorProficient('chainshirt'), true);
+  assert.equal(api.armorProficient('plate'), false);
+  assert.equal(api.weaponProf('battleaxe'), true);
+  assert.equal(api.weaponProf('lighthammer'), true);
+
+  c.race = 'elf'; c.subrace = 'high';
+  api.setChar(c);
+  assert.equal(api.weaponProf('longbow'), true);
+  assert.equal(api.weaponProf('rapier'), false);
+  c.subrace = 'drow'; api.setChar(c);
+  assert.equal(api.weaponProf('rapier'), true);
+});
+
+test('multiclass and background tool proficiencies resolve real choices', () => {
+  const c = character();
+  c.bg = 'soldier';
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'bard', lvl: 1, sub: 'lore' }];
+  c.choices.backgroundTools = ['Игровой набор (кости)'];
+  c.choices.classTools = { bard: ['Лютня'] };
+  api.setChar(c);
+  assert.deepEqual(Array.from(api.toolProficiencies()), ['Наземный транспорт', 'Игровой набор (кости)', 'Лютня']);
+  assert.doesNotMatch(api.renderClass(), /3 музыкальных инструмента/);
+  assert.equal(api.validCharacter(c), true);
+
+  c.classes = [{ cls: 'bard', lvl: 1, sub: 'lore' }];
+  c.bg = 'charlatan';
+  c.choices.backgroundTools = [];
+  c.choices.classTools = { bard: ['Лютня', 'Флейта', 'Волынка'] };
+  api.setChar(c);
+  assert.ok(api.toolProficiencies().includes('Лютня'));
+  assert.ok(api.toolProficiencies().includes('Набор для грима'));
+  assert.doesNotMatch(api.renderMain(), /Бард:.*3 музыкальных инструмента/);
+  assert.equal(api.characterReadiness().some(i => i.text.includes('Бард: выберите инструменты')), false);
+  assert.equal(api.validCharacter({ ...c, choices: { ...c.choices, classTools: { bard: ['Космический транспорт'] } } }), false);
+});
+
+test('nonproficient armor and shields keep AC but report their rules penalties', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  c.inventory = [{ type: 'armor', id: 'plate', qty: 1, equipped: true }, { type: 'shield', id: 'shield', qty: 1, equipped: true }];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 20);
+  const issues = api.characterReadiness().map(i => i.text);
+  assert.ok(issues.some(text => text.includes('Нет владения доспехом')));
+  assert.ok(issues.some(text => text.includes('Нет владения щитами')));
+  assert.match(api.renderEquip(), /нельзя накладывать заклинания/);
 });
 
 test('monk weapons are melee only and allow shortswords', () => {

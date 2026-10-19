@@ -10,8 +10,16 @@ const SKILLS=[ // [id, название, характеристика]
  ['deception','Обман','cha'],['intimidation','Запугивание','cha'],['performance','Выступление','cha'],['persuasion','Убеждение','cha']
 ];
 const LANGS=['Общий','Дварфийский','Эльфийский','Великаний','Гномий','Гоблинский','Полуросликов','Орочий','Бездны','Небесный','Драконий','Глубинный','Инфернальный','Первичный','Сильван','Подземный'];
-const TOOL_PROFICIENCIES=['Инструменты алхимика','Инструменты пивовара','Инструменты каллиграфа','Инструменты плотника','Инструменты картографа','Инструменты сапожника','Кухонная утварь','Инструменты стеклодува','Инструменты ювелира','Инструменты кожевника','Инструменты каменщика','Инструменты художника','Инструменты гончара','Инструменты кузнеца','Инструменты жестянщика','Инструменты ткача','Инструменты резчика по дереву','Набор для грима','Набор для подделки','Набор травника','Инструменты навигатора','Набор отравителя','Воровские инструменты','Игровой набор (кости)','Игровой набор (шахматы драконов)','Игровой набор (карты)','Игровой набор (Трёхдраконье анте)','Волынка','Барабан','Дульцимер','Флейта','Лютня','Лира','Рог','Свирель','Шалмей','Скрипка','Наземный транспорт','Водный транспорт'];
+const TOOL_PROFICIENCIES=['Инструменты алхимика','Инструменты пивовара','Инструменты каллиграфа','Инструменты плотника','Инструменты картографа','Инструменты сапожника','Кухонная утварь','Инструменты стеклодува','Инструменты ювелира','Инструменты кожевника','Инструменты каменщика','Инструменты художника','Инструменты гончара','Инструменты кузнеца','Инструменты жестянщика','Инструменты ткача','Инструменты резчика по дереву','Набор для грима','Набор для подделки','Набор травника','Инструменты навигатора','Набор отравителя','Воровские инструменты','Игровой набор (кости)','Игровой набор (шахматы драконов)','Игровой набор (карты)','Игровой набор (Трёхдраконье анте)','Волынка','Барабан','Дульцимер','Флейта','Лютня','Лира','Рог','Свирель','Шалмей','Скрипка','Наземный транспорт','Водный транспорт','Космический транспорт'];
 const ALIGN=['Законопослушный добрый','Нейтральный добрый','Хаотично добрый','Законопослушный нейтральный','Истинно нейтральный','Хаотично нейтральный','Законопослушный злой','Нейтральный злой','Хаотично злой'];
+
+const MUSICAL_INSTRUMENTS=['Волынка','Барабан','Дульцимер','Флейта','Лютня','Лира','Рог','Свирель','Шалмей','Скрипка'];
+const TOOL_CHOICE_OPTIONS={
+ instrument:MUSICAL_INSTRUMENTS,
+ artisan:TOOL_PROFICIENCIES.slice(0,17),
+ gaming:TOOL_PROFICIENCIES.filter(t=>t.startsWith('Игровой набор')),
+ artisanOrInstrument:[...TOOL_PROFICIENCIES.slice(0,17),...MUSICAL_INSTRUMENTS]
+};
 
 const RACES={
  dwarf:{name:'Дварф',speed:25,size:'Средний',langs:['Общий','Дварфийский'],asi:{con:2},darkvision:60,
@@ -286,6 +294,23 @@ const CLASS_WEAPON_PROFICIENCIES={
  sorcerer:{starting:{extra:['dagger','dart','sling','quarterstaff','lightcrossbow']},multiclass:{}},
  warlock:{starting:{simple:true},multiclass:{simple:true}},
  wizard:{starting:{extra:['dagger','dart','sling','quarterstaff','lightcrossbow']},multiclass:{}}
+};
+const CLASS_ARMOR_PROFICIENCIES={
+ barbarian:{starting:['light','medium','shield'],multiclass:['shield']},bard:{starting:['light'],multiclass:['light']},
+ cleric:{starting:['light','medium','shield'],multiclass:['light','medium','shield']},druid:{starting:['light','medium','shield'],multiclass:['light','medium','shield']},
+ fighter:{starting:['light','medium','heavy','shield'],multiclass:['light','medium','shield']},monk:{starting:[],multiclass:[]},
+ paladin:{starting:['light','medium','heavy','shield'],multiclass:['light','medium','shield']},ranger:{starting:['light','medium','shield'],multiclass:['light','medium','shield']},
+ rogue:{starting:['light'],multiclass:['light']},sorcerer:{starting:[],multiclass:[]},warlock:{starting:['light'],multiclass:['light']},wizard:{starting:[],multiclass:[]}
+};
+const CLASS_TOOL_PROFICIENCIES={
+ bard:{starting:{choice:'instrument',count:3},multiclass:{choice:'instrument',count:1}},
+ druid:{starting:{fixed:['Набор травника']}},monk:{starting:{choice:'artisanOrInstrument',count:1}},
+ rogue:{starting:{fixed:['Воровские инструменты']},multiclass:{fixed:['Воровские инструменты']}}
+};
+const RACE_ARMOR_PROFICIENCIES={dwarf:{mountain:['light','medium']}};
+const RACE_WEAPON_PROFICIENCIES={
+ dwarf:['battleaxe','handaxe','lighthammer','warhammer'],
+ elf:{high:['longsword','shortsword','longbow','shortbow'],wood:['longsword','shortsword','longbow','shortbow'],drow:['rapier','shortsword','handcrossbow']}
 };
 
 const SUBCLASSES={

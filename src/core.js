@@ -150,7 +150,93 @@ function profSkills(){return [...new Set([...bgSkills(),...raceSkills(),...class
 function deftExplorerActive(){return C.classes.some(c=>c.cls==='ranger'&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer'))}
 function deftExplorerSkill(){const skill=C.choices.deftExplorerSkill;return deftExplorerActive()&&profSkills().includes(skill)?skill:''}
 function expertiseSkills(){const selected=[...(C.expertise||[])],tasha=deftExplorerSkill();if(tasha&&profSkills().includes(tasha))selected.push(tasha);return [...new Set(selected)]}
-function toolProficiencies(){const tools=[...(BACKGROUNDS[C.bg]?.tools||[])];C.classes.forEach(c=>{const value=CLASSES[c.cls].tools;if(value&&value!=='—')tools.push(...value.split(', '))});if(deftExplorerActive()&&TOOL_PROFICIENCIES.includes(C.choices.deftExplorerTool)&&C.choices.deftExplorerMode==='language_tool')tools.push(C.choices.deftExplorerTool);return [...new Set(tools)]}
+function raceWeaponProfile(){
+  const profile=RACE_WEAPON_PROFICIENCIES[C.race];
+  return Array.isArray(profile)?profile:profile?.[C.subrace]||[];
+}
+function classWeaponProfile(c,index){
+  const profiles=CLASS_WEAPON_PROFICIENCIES[c.cls];
+  return profiles&&(index===0?profiles.starting:profiles.multiclass)||{};
+}
+function classWeaponProficiencies(c,index){
+  const profile=classWeaponProfile(c,index),subclass=SUBCLASSES[c.sub]?.weaponProficiencies,names=[];
+  if(profile.simple||subclass?.simple)names.push('Простое оружие');if(profile.martial||subclass?.martial)names.push('Воинское оружие');
+  for(const id of new Set([...(profile.extra||[]),...(subclass?.extra||[])])){const weapon=WEAPONS.find(w=>w[0]===id);if(weapon)names.push(weapon[1])}
+  return names;
+}
+function classArmorProficiencies(c,index){
+  const profs=new Set(CLASS_ARMOR_PROFICIENCIES[c.cls]?.[index===0?'starting':'multiclass']||[]);
+  if(c.cls==='cleric'&&c.lvl>=CLASSES.cleric.subLvl&&['life','nature','tempest','war'].includes(c.sub))profs.add('heavy');
+  return profs;
+}
+function armorProficiencies(){
+  const profs=new Set();
+  C.classes.forEach((c,index)=>classArmorProficiencies(c,index).forEach(p=>profs.add(p)));
+  (RACE_ARMOR_PROFICIENCIES[C.race]?.[C.subrace]||[]).forEach(p=>profs.add(p));
+  const featIds=Object.values(C.asi||{}).filter(a=>a?.type==='feat').map(a=>a.id);
+  if(featIds.includes('lightly_armored'))profs.add('light');
+  if(featIds.includes('moderately_armored'))['light','medium','shield'].forEach(p=>profs.add(p));
+  if(featIds.includes('heavily_armored'))profs.add('heavy');
+  return profs;
+}
+function classArmorProficiencyText(c,index){
+  const names=[['light','лёгкие'],['medium','средние'],['heavy','тяжёлые'],['shield','щиты']].filter(([id])=>classArmorProficiencies(c,index).has(id)).map(([,name])=>name);
+  return names.join(', ')||'—';
+}
+function armorProficient(armorId){
+  const armor=ARMORS.find(a=>a[0]===armorId);if(!armor)return false;
+  return armorProficiencies().has(armor[8]);
+}
+function armorProficiencyText(){
+  const profs=armorProficiencies(),names=[['light','Лёгкие'],['medium','Средние'],['heavy','Тяжёлые'],['shield','Щиты']].filter(([id])=>profs.has(id)).map(([,name])=>name);
+  return names.join(', ')||'—';
+}
+function classToolProficiencyText(c,index){
+  const spec=CLASS_TOOL_PROFICIENCIES[c.cls]?.[index===0?'starting':'multiclass']||{},groups=classToolChoiceGroups(c,index),selected=(C.choices.classTools||{})[c.cls]||[],names=[...(spec.fixed||[])];
+  let offset=0;for(const group of groups){const picks=selected.slice(offset,offset+group.count).filter(value=>group.options.includes(value));names.push(...picks);if(picks.length<group.count)names.push(`${group.count-picks.length} на выбор`);offset+=group.count}
+  return names.join(', ')||'—';
+}
+function weaponProficiencyText(){
+  const profiles=C.classes.map((c,i)=>({...classWeaponProfile(c,i),...SUBCLASSES[c.sub]?.weaponProficiencies})),names=[];
+  if(profiles.some(p=>p.simple))names.push('Простое оружие');if(profiles.some(p=>p.martial))names.push('Воинское оружие');
+  const extra=new Set([...profiles.flatMap(p=>p.extra||[]),...raceWeaponProfile()]);
+  for(const id of extra){const weapon=WEAPONS.find(w=>w[0]===id);if(weapon)names.push(weapon[1])}
+  return names.join(', ')||'—';
+}
+function backgroundToolChoiceGroups(bgId=C.bg){
+  const fixed=[],choices=[];
+  for(const value of BACKGROUNDS[bgId]?.tools||[]){
+    if(TOOL_PROFICIENCIES.includes(value)){fixed.push(value);continue}
+    if(value==='Транспорт (наземный)'){fixed.push('Наземный транспорт');continue}
+    if(value==='Транспорт (водный)'){fixed.push('Водный транспорт');continue}
+    if(value==='Транспорт (космический)'){fixed.push('Космический транспорт');continue}
+    let options=[];
+    if(value.includes('Игровой набор'))options=TOOL_CHOICE_OPTIONS.gaming;
+    else if(value.includes('Музыкальный инструмент'))options=TOOL_CHOICE_OPTIONS.instrument;
+    else if(value.includes('Ремесленные инструменты')&&value.includes('музыкальный инструмент'))options=TOOL_CHOICE_OPTIONS.artisanOrInstrument;
+    else if(value.includes('Ремесленные инструменты'))options=TOOL_CHOICE_OPTIONS.artisan;
+    if(options.length)choices.push({label:value,options,count:1});
+  }
+  return {fixed,choices};
+}
+function classToolChoiceGroups(c,index){
+  const spec=CLASS_TOOL_PROFICIENCIES[c.cls]?.[index===0?'starting':'multiclass']||{},groups=[];
+  if(spec.choice)groups.push({label:spec.count===1?'Инструмент на выбор':`Музыкальные инструменты (${spec.count} на выбор)`,options:TOOL_CHOICE_OPTIONS[spec.choice],count:spec.count});
+  if(c.cls==='fighter'&&c.sub==='battlemaster'&&c.lvl>=3)groups.push({label:'Инструменты ученика войны (1 на выбор)',options:TOOL_CHOICE_OPTIONS.artisan,count:1});
+  return groups;
+}
+function toolProficiencies(){
+  const {fixed:backgroundTools,choices:backgroundChoices}=backgroundToolChoiceGroups();
+  const tools=[...backgroundTools,...(C.choices.backgroundTools||[]).flatMap((value,i)=>backgroundChoices[i]?.options.includes(value)?[value]:[])];
+  C.classes.forEach((c,index)=>{
+    const spec=CLASS_TOOL_PROFICIENCIES[c.cls]?.[index===0?'starting':'multiclass']||{};
+    tools.push(...(spec.fixed||[]));
+    const groups=classToolChoiceGroups(c,index),selected=(C.choices.classTools||{})[c.cls]||[];
+    groups.forEach((group,i)=>tools.push(...selected.slice(i*group.count,(i+1)*group.count).filter(value=>group.options.includes(value))));
+  });
+  if(deftExplorerActive()&&TOOL_PROFICIENCIES.includes(C.choices.deftExplorerTool)&&C.choices.deftExplorerMode==='language_tool')tools.push(C.choices.deftExplorerTool);
+  return [...new Set(tools)];
+}
 function skillMod(sk){
   const [id,,ab]=SKILLS.find(s=>s[0]===sk);
   let m=am(ab);
@@ -324,11 +410,7 @@ function armorClass(){
 function weaponProfileProficient(profile,w){return !!profile&&(profile[w[7]]===true||profile.extra?.includes(w[0]))}
 function weaponProf(weaponId){
   const w=WEAPONS.find(x=>x[0]===weaponId);if(!w)return false;
-  return C.classes.some((c,i)=>{
-    const proficiencies=CLASS_WEAPON_PROFICIENCIES[c.cls];
-    const classProfile=proficiencies&&(i===0?proficiencies.starting:proficiencies.multiclass);
-    return weaponProfileProficient(classProfile,w)||weaponProfileProficient(SUBCLASSES[c.sub]?.weaponProficiencies,w);
-  });
+  return raceWeaponProfile().includes(weaponId)||C.classes.some((c,i)=>weaponProfileProficient(classWeaponProfile(c,i),w)||weaponProfileProficient(SUBCLASSES[c.sub]?.weaponProficiencies,w));
 }
 function isMonkWeapon(w){return w[0]==='shortsword'||(w[7]==='simple'&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!w[5].includes('Тяжёлое'))}
 function weaponAttack(w){
@@ -457,6 +539,10 @@ function characterReadiness(){
   const langs=C.extraLangs||[],langCount=languageChoiceCount(),chosenLangs=langs.slice(0,langCount).filter(Boolean);
   if(chosenLangs.length<langCount)add('main',`Выберите ещё ${langCount-chosenLangs.length} язык(а).`);
   if(new Set(chosenLangs).size<chosenLangs.length)add('main','Уберите повторяющиеся языки.');
+  const bgToolGroups=backgroundToolChoiceGroups().choices,bgToolPicks=C.choices.backgroundTools||[];
+  if(bgToolPicks.length<bgToolGroups.length||bgToolGroups.some((group,index)=>!group.options.includes(bgToolPicks[index])))add('main','Выберите инструменты, предоставляемые предысторией.');
+  const wornArmor=equippedArmor();if(wornArmor&&!armorProficient(wornArmor.id))add('equip',`Нет владения доспехом «${itemName(wornArmor)}»: помеха к проверкам и спасброскам Силы/Ловкости, атакам с этими характеристиками и нельзя накладывать заклинания.`);
+  if(hasShield()&&!armorProficient('shield'))add('equip','Нет владения щитами: помеха к проверкам и спасброскам Силы/Ловкости, атакам с этими характеристиками и нельзя накладывать заклинания.');
   for(const choice of racialCantripChoices())if(!choice.spells.some(s=>s.id===(C.racialSpells||{})[choice.key]))add('spells',`Выберите расовый заговор: ${choice.name}.`);
   const storedSpellIds=[...Object.values(C.cantrips||{}).flat(),...Object.values(C.spellsKnown||{}).flat(),...Object.values(C.spellsPrepared||{}).flat(),...(C.spellbook||[]),...Object.values(C.arcanum||{}),...Object.entries(C.racialSpells||{}).filter(([key])=>!key.endsWith('Ability')).map(([,id])=>id)];
   const unknownSpellCount=storedSpellIds.filter(id=>!SPELL_IDS.has(id)).length;
@@ -469,6 +555,9 @@ function characterReadiness(){
       const message=picks.length>skillCount?`уберите лишние навыки (выбрано ${picks.length}, максимум ${skillCount})`:picks.length<skillCount?`выберите ещё ${skillCount-picks.length} навыка`:'уберите повторяющиеся или недопустимые навыки';
       add('skills',`${cl.name}: ${message}.`);
     }
+    const toolGroups=classToolChoiceGroups(c,classIndex),toolPicks=(C.choices.classTools||{})[c.cls]||[],toolCount=toolGroups.reduce((n,g)=>n+g.count,0);
+    let toolOffset=0,validToolPicks=true;for(const group of toolGroups){const picksInGroup=toolPicks.slice(toolOffset,toolOffset+group.count);if(picksInGroup.length!==group.count||picksInGroup.some(tool=>!group.options.includes(tool)))validToolPicks=false;toolOffset+=group.count}
+    if(toolPicks.length!==toolCount||!validToolPicks)add('main',`${cl.name}: выберите инструменты (${toolPicks.length}/${toolCount}).`);
     if(cl.sub&&c.lvl>=cl.subLvl&&!c.sub)add('main',`Выберите подкласс для класса «${cl.name}».`);
     const subcl=SUBCLASSES[c.sub];
     if(subcl?.choices)for(const [lvl,block] of Object.entries(subcl.choices))if(c.lvl>=+lvl&&!C.choices[`hunter_${lvl}`])add('cls',`Выберите умение «${block.name}» (${lvl} ур.).`);

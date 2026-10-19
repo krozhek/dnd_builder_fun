@@ -161,6 +161,17 @@ function validSpellSelections(ch){
   }
   return validRacialSpellChoices(ch);
 }
+function validToolChoices(ch){
+  const choices=ch.choices||{},background=backgroundToolChoiceGroups(ch.bg),backgroundPicks=choices.backgroundTools||[];
+  if(backgroundPicks.length>background.choices.length||backgroundPicks.some((value,index)=>value&&!background.choices[index]?.options.includes(value)))return false;
+  for(const [index,c] of ch.classes.entries()){
+    const groups=classToolChoiceGroups(c,index),selected=(choices.classTools||{})[c.cls]||[],count=groups.reduce((n,g)=>n+g.count,0);
+    if(selected.length>count||new Set(selected).size!==selected.length)return false;
+    let offset=0;
+    for(const group of groups){if(selected.slice(offset,offset+group.count).some(value=>!group.options.includes(value)))return false;offset+=group.count}
+  }
+  return true;
+}
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
 function validCharacter(ch){
   if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
@@ -179,7 +190,7 @@ function validCharacter(ch){
   if(ch.arcanum&&Object.values(ch.arcanum).some(id=>!SPELL_IDS.has(id)))return false;
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
   if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
-  if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||!stringArrayMap(ch.choices.tashaFeatures)||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))))return false;
+  if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||(ch.choices.tashaFeatures!=null&&!stringArrayMap(ch.choices.tashaFeatures))||(ch.choices.classTools!=null&&!stringArrayMap(ch.choices.classTools))||(ch.choices.backgroundTools!=null&&!stringArray(ch.choices.backgroundTools))||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))||!validToolChoices(ch)))return false;
   if(ch.choices&&ch.choices.fightingStyles!=null&&(!isRecord(ch.choices.fightingStyles)||Object.entries(ch.choices.fightingStyles).some(([key,value])=>{
     const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
     return !options||typeof value!=='string'||(value!==''&&!options.some(([id])=>id===value));
@@ -229,6 +240,25 @@ function languageChoiceFields(){
     return `<label>${label}<select onchange="setExtraLang(${i},this.value)"><option value="">— выберите —</option>${LANGS.filter(l=>!used.includes(l)||l===selected).map(l=>`<option${selected===l?' selected':''}>${l}</option>`).join('')}</select></label>`;
   }).join('');
 }
+function backgroundToolChoiceFields(){
+  const groups=backgroundToolChoiceGroups(),selected=C.choices.backgroundTools||[];
+  return groups.choices.map((group,index)=>`<label>${group.label}<select onchange="setBackgroundToolChoices(${index},this)"><option value="">— выберите —</option>${group.options.map(tool=>`<option value="${esc(tool)}"${selected[index]===tool?' selected':''}>${esc(tool)}</option>`).join('')}</select></label>`).join('');
+}
+function classToolChoiceFields(c,index){
+  return classToolChoiceGroups(c,index).map(group=>{
+    const selected=(C.choices.classTools||{})[c.cls]||[],count=classToolChoiceGroups(c,index).reduce((n,g)=>n+g.count,0);
+    return `<label>${group.label}<select multiple size="${Math.min(4,group.options.length)}" onchange="setClassToolChoices('${c.cls}',this)">${group.options.map(tool=>`<option value="${esc(tool)}"${selected.includes(tool)?' selected':''}>${esc(tool)}</option>`).join('')}</select><span class="muted small">Выбрано ${selected.length}/${count}</span></label>`;
+  }).join('');
+}
+function setBackgroundToolChoices(index,select){
+  const groups=backgroundToolChoiceGroups().choices;
+  C.choices.backgroundTools=C.choices.backgroundTools||[];
+  C.choices.backgroundTools[index]=groups[index]?.options.includes(select.value)?select.value:'';persist();render();
+}
+function setClassToolChoices(cls,select){
+  const index=C.classes.findIndex(c=>c.cls===cls),groups=index<0?[]:classToolChoiceGroups(C.classes[index],index),max=groups.reduce((n,g)=>n+g.count,0);
+  C.choices.classTools=C.choices.classTools||{};C.choices.classTools[cls]=[...select.selectedOptions].map(option=>option.value).slice(0,max);persist();render();
+}
 function renderMain(){
   const r=raceOf(), s=subraceOf();
   const raceOpts=Object.entries(RACES).map(([id,x])=>`<option value="${id}"${C.race===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
@@ -244,6 +274,7 @@ function renderMain(){
         ${C.classes.length>1?`<button class="btn danger ghost" onclick="removeClass(${i})">✕</button>`:''}
       </div>
       ${c.lvl<CLASSES[c.cls].subLvl?`<div class="warn small">Подкласс открывается на ${CLASSES[c.cls].subLvl} уровне</div>`:''}
+      ${classToolChoiceFields(c,i)}
     </div>`).join('');
   return `<div class="page"><h1>Основное</h1>
     ${renderReadiness()}
@@ -257,6 +288,7 @@ function renderMain(){
         </div>
         ${C.race==='dragonborn'?`<label>Прародитель-дракон<select onchange="setField('dragonColor',this.value);render()">${DRAGONS.map((d,i)=>`<option value="${['black','blue','brass','bronze','copper','gold','green','red','silver','white'][i]}"${C.dragonColor===['black','blue','brass','bronze','copper','gold','green','red','silver','white'][i]?' selected':''}>${d[0][0].toUpperCase()+d[0].slice(1)} (${d[1]}, ${d[2]})</option>`).join('')}</select>`:''}
         <label>Предыстория<select onchange="changeBackground(this.value)">${bgOpts}</select></label>
+        ${backgroundToolChoiceFields()}
         <div class="bg-desc" onclick="openBgModal('${C.bg}')">📖 ${esc(bg.name)}${bg.src?' ('+bg.src+')':''} — нажмите для описания</div>
         <div class="grid two">
           <label>Мировоззрение<select onchange="setField('align',this.value)">${ALIGN.map(a=>`<option${C.align===a?' selected':''}>${a}</option>`).join('')}</select></label>
@@ -290,12 +322,15 @@ function renderMain(){
 function updTabChar(){const el=$('.tab-char');if(el)el.innerHTML=`${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}`}
 function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
 function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
-function changeBackground(v){C.bg=v;C.extraLangs=[];persist();render()}
+function changeBackground(v){C.bg=v;C.choices.backgroundTools=[];C.extraLangs=[];persist();render()}
 function changeClass(i,v){
   if(C.classes.some((c,j)=>j!==i&&c.cls===v)){alert('Этот класс уже добавлен.');render();return}
   const error=C.classes.length>1?multiclassRequirementError(v,i):'';
   if(error){alert(error);render();return}
-  C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';persist();render()
+  const previous=C.classes[i].cls;
+  C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';
+  if(previous!==v)delete C.choices.classTools?.[previous];
+  persist();render()
 }
 function changeLvl(i,v){C.classes[i].lvl=+v;persist();render()}
 function changeSub(i,v){C.classes[i].sub=v;persist();render()}
@@ -305,7 +340,7 @@ function addClass(){
   if(!free){alert(available.length?multiclassRequirementError(available[0]):'Все классы уже добавлены.');return}
   C.classes.push({cls:free,lvl:1,sub:CLASSES[free].sub||''});persist();render()
 }
-function removeClass(i){C.classes.splice(i,1);persist();render()}
+function removeClass(i){delete C.choices.classTools?.[C.classes[i].cls];C.classes.splice(i,1);persist();render()}
 function subclassOpts(c){
   return Object.entries(SUBCLASSES).filter(([,s])=>s.cls===c.cls)
     .map(([id,s])=>`<option value="${id}"${c.sub===id?' selected':''}>${s.name}${s.src?' ('+s.src+')':''}</option>`).join('');
@@ -498,7 +533,7 @@ function renderClass(){
     const replaced=selectedTashaFeatures(c).flatMap(f=>f[4]||[]);
     return `<div class="card">
       <h3>${cl.name} ${c.lvl}${sub?' · '+sub.name:''}</h3>
-      <p class="muted small">Кость хитов: к${cl.hd} · Спасброски: ${cl.saves.map(a=>ABIL_RU_FULL[a]).join(', ')} · Доспехи: ${cl.armor} · Оружие: ${cl.weapons} · Инструменты: ${cl.tools}</p>
+      <p class="muted small">Кость хитов: к${cl.hd} · Спасброски: ${cl.saves.map(a=>ABIL_RU_FULL[a]).join(', ')} · Доспехи: ${classArmorProficiencyText(c,i)} · Оружие: ${classWeaponProficiencies(c,i).join(', ')||'—'} · Инструменты: ${classToolProficiencyText(c,i)}</p>
       ${styleAv&&c.lvl>=styleLevel?`<label>Боевой стиль<span class="tip-i" data-tip="Особенность боевых классов: бонус к атаке, защите или урону при определённом стиле боя. Влияет на расчёт КД (Защита), бросков атаки (Стрельба) и урона (Дуэлянт) на листе.">ⓘ</span><select onchange="setFightingStyle('${c.cls}',this.value)"><option value="">—</option>${availableFightingStyles(c.cls,styleAv).map(([id,d])=>`<option value="${id}"${styles[c.cls]===id?' selected':''}>${d}</option>`).join('')}</select></label>`:''}
       ${c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=10?`<label>Второй боевой стиль (Чемпион 10)<select onchange="setFightingStyle('championExtra',this.value)"><option value="">—</option>${availableFightingStyles('championExtra',FIGHTING_STYLES.fighter).map(([id,d])=>`<option value="${id}"${styles.championExtra===id?' selected':''}>${d}</option>`).join('')}</select></label>`:''}
       ${c.cls==='ranger'?`
@@ -739,6 +774,12 @@ function openSpellModal(id){
 }
 
 // ================= Вкладка Снаряжение =================
+function armorProficiencyWarnings(){
+  const armor=equippedArmor(),warnings=[];
+  if(armor&&!armorProficient(armor.id))warnings.push(`Нет владения доспехом «${esc(itemName(armor))}»: помеха к проверкам и спасброскам Силы/Ловкости, атакам с этими характеристиками и нельзя накладывать заклинания.`);
+  if(hasShield()&&!armorProficient('shield'))warnings.push('Нет владения щитами: помеха к проверкам и спасброскам Силы/Ловкости, атакам с этими характеристиками и нельзя накладывать заклинания.');
+  return warnings.map(message=>`<p class="warn small">${message}</p>`).join('');
+}
 function renderEquip(){
   const inv=C.inventory||[];
   return `<div class="page"><h1>Снаряжение</h1>
@@ -769,6 +810,7 @@ function renderEquip(){
           ${it.type==='weapon'?`<button class="btn sm${it.wielded?' primary':''}" onclick="toggleWieldWeapon(${i})">${it.wielded?'в руке':'взять в руку'}</button>${WEAPONS.find(w=>w[0]===it.id)?.[5].includes('Универсальное')?`<select aria-label="Хват оружия" onchange="setWeaponGrip(${i},this.value)"><option value="one-handed"${it.grip!=='two-handed'?' selected':''}>1 рука</option><option value="two-handed"${it.grip==='two-handed'?' selected':''}>2 руки</option></select>`:''}`:''}
           <button class="btn sm ghost" onclick="sellItem(${i})">продать</button>
           <button class="btn sm danger ghost" onclick="delItem(${i})">✕</button></td></tr>`).join('')}</table>`:'<p class="muted">Пусто.</p>'}
+        ${armorProficiencyWarnings()}
         <h4>Атаки</h4>${attacksHtml()}
       </div>
     </div>
@@ -1070,9 +1112,7 @@ function renderSheet2014(){
   const bgFeat=FEATS.find(f=>f[0]===BACKGROUNDS[C.bg]?.feat);if(bgFeat)feats.push({cls:'',lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]});
   feats.push(...chosenTashaFeatures());
   const weaponRows=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('');
-  const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
-  C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
-  if(deftExplorerActive()&&C.choices.deftExplorerMode==='language_tool'&&C.choices.deftExplorerTool)tools.add(C.choices.deftExplorerTool);
+  const tools=new Set(toolProficiencies());
   const langs=[...(r.langs||[])];
   for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');
   if(C.classes.some(c=>c.cls==='druid'))langs.push('Друидический');
@@ -1092,7 +1132,7 @@ function renderSheet2014(){
       </div></header>
       <div class="p14-body">
         <div class="p14-col"><div class="p14-leftsplit"><div class="p14-abilities">${abilityBlocks}</div><div class="p14-col p14-leftside"><div class="pdf-box p14-insp"><span class="pdf-cap">вдохновение</span><div>${game.insp?'●':'○'}</div></div><div class="pdf-box p14-pb"><strong>${fmtMod(pb())}</strong><span class="pdf-cap">бонус владения</span></div><div class="pdf-box p14-saves"><div class="pdf-title">спасброски</div><div class="p14-list">${saveRows}</div></div><div class="pdf-box p14-skills"><div class="pdf-title">навыки</div><div class="p14-list">${skillRows}</div></div></div></div>
-          <div class="pdf-box p14-passive"><strong>${passivePerception()}</strong><span>пассивная мудрость (восприятие)</span></div><div class="pdf-box" style="flex:1"><div class="pdf-title">прочие владения и языки</div><div class="pdf-small"><b>Доспехи:</b> ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}<br><b>Оружие:</b> ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}<br><b>Инструменты:</b> ${esc([...tools].join(', ')||'—')}<br><b>Языки:</b> ${esc([...new Set(langs)].join(', ')||'—')}</div></div></div>
+          <div class="pdf-box p14-passive"><strong>${passivePerception()}</strong><span>пассивная мудрость (восприятие)</span></div><div class="pdf-box" style="flex:1"><div class="pdf-title">прочие владения и языки</div><div class="pdf-small"><b>Доспехи:</b> ${armorProficiencyText()}<br><b>Оружие:</b> ${weaponProficiencyText()}<br><b>Инструменты:</b> ${esc([...tools].join(', ')||'—')}<br><b>Языки:</b> ${esc([...new Set(langs)].join(', ')||'—')}</div></div></div>
         <div class="p14-col"><div class="p14-status"><div class="pdf-box"><span class="pdf-cap">КЗ</span><strong>${armorClass()}</strong></div><div class="pdf-box"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div></div>
           <div class="pdf-box p14-hp"><div class="pdf-title">максимум хитов</div><div class="pdf-value">${maxHp()}</div><div class="pdf-small">Кость хитов: ${hitDiceStr()}</div></div>
           <div class="pdf-box p14-currenthp"><div class="pdf-title">текущие хиты</div><div class="pdf-row"><span>текущие</span><b>${game.hpCur!=null?game.hpCur:maxHp()}</b></div><div class="pdf-row"><span>временные</span><b>${game.hpTemp||0}</b></div><div class="pdf-lines" style="flex:1"></div></div>
@@ -1131,12 +1171,10 @@ function renderSheet2024(){
   const ability=(id,name)=>`<div class="pdf-box p24-ability"><div class="p24-ability-head"><strong>${name}</strong><span class="p24-mod">${fmtMod(am(id))}</span></div><div class="pdf-small">Значение ${abil(id)} · спасбросок ${fmtMod(saves[id].mod)}</div>${SKILLS.filter(x=>x[2]===id).map(([skillId,skillName])=>`<div class="p24-skill"><i class="p24-check${profSkills().includes(skillId)?' on':''}"></i><b>${fmtMod(skillMod(skillId))}</b><span>${skillName}</span></div>`).join('')}</div>`;
   const bgFeat=FEATS.find(f=>f[0]===BACKGROUNDS[C.bg]?.feat);
   const features=[...availableFeats(),...chosenTashaFeatures(),...(bgFeat?[{lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]}]:[])].map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>';
-  const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
-  C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
-  if(deftExplorerActive()&&C.choices.deftExplorerMode==='language_tool'&&C.choices.deftExplorerTool)tools.add(C.choices.deftExplorerTool);
+  const tools=new Set(toolProficiencies());
   const langs=[...(race.langs||[])];
   for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');
-  const profs=`Доспехи: ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}.<br>Оружие: ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}.<br>Инструменты: ${esc([...tools].join(', ')||'—')}<br>Языки: ${esc([...new Set(langs)].join(', ')||'—')}`;
+  const profs=`Доспехи: ${armorProficiencyText()}.<br>Оружие: ${weaponProficiencyText()}.<br>Инструменты: ${esc([...tools].join(', ')||'—')}<br>Языки: ${esc([...new Set(langs)].join(', ')||'—')}`;
   const weapons=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('')||'<tr><td colspan="4">—</td></tr>';
   const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();
   const racialSpellIds=new Set(racialSpells.map(x=>x.spell.id)),primalSpells=primalAwarenessSpells(),primalSpellIds=new Set(primalSpells.map(x=>x.id));
