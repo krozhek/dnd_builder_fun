@@ -125,7 +125,7 @@ function validCharacter(ch){
   if(ch.spellbook!=null&&!stringArray(ch.spellbook))return false;
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
   if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
-  if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||!stringArrayMap(ch.choices.tashaFeatures)))return false;
+  if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||!stringArrayMap(ch.choices.tashaFeatures)||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))))return false;
   if(ch.racialSpells&&Object.values(ch.racialSpells).some(v=>typeof v!=='string'))return false;
   if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)))return false;
   if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
@@ -161,13 +161,14 @@ function importJson(inp){
 }
 
 // ---------- Основное ----------
-function languageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
+function baseLanguageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
+function languageChoiceCount(){const mode=C.choices.deftExplorerMode;return baseLanguageChoiceCount()+(deftExplorerActive()?(mode==='two_languages'?2:mode==='language_tool'?1:0):0)}
 function setExtraLang(index,value){C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;persist();render()}
 function languageChoiceFields(){
-  const r=raceOf(),langs=C.extraLangs||[];
+  const r=raceOf(),langs=C.extraLangs||[],base=baseLanguageChoiceCount();
   return Array.from({length:languageChoiceCount()},(_,i)=>{
-    const selected=langs[i]||'',used=[...(r.langs||[]),...langs.filter((l,j)=>j!==i&&l)];
-    return `<label>Язык на выбор ${i+1}<select onchange="setExtraLang(${i},this.value)"><option value="">— выберите —</option>${LANGS.filter(l=>!used.includes(l)||l===selected).map(l=>`<option${selected===l?' selected':''}>${l}</option>`).join('')}</select></label>`;
+    const selected=langs[i]||'',used=[...(r.langs||[]),...langs.filter((l,j)=>j!==i&&l)],label=i>=base?`Язык «Искусного исследователя» ${i-base+1}`:`Язык на выбор ${i+1}`;
+    return `<label>${label}<select onchange="setExtraLang(${i},this.value)"><option value="">— выберите —</option>${LANGS.filter(l=>!used.includes(l)||l===selected).map(l=>`<option${selected===l?' selected':''}>${l}</option>`).join('')}</select></label>`;
   }).join('');
 }
 function renderMain(){
@@ -975,7 +976,7 @@ function renderSheet2014(){
   const clsText=C.classes.map(c=>CLASSES[c.cls].name).join(' / ');
   const abilityBlocks=ABILS.map(([id,name])=>`<div class="p14-ability"><span class="pdf-cap">${name}</span><div class="pdf-row"><strong class="mod">${fmtMod(am(id))}</strong><span class="score">${abil(id)}</span></div></div>`).join('');
   const saveRows=ABILS.map(([id,name])=>`<div class="p14-skill"><span>${saves[id].prof?'●':'○'}</span><b>${fmtMod(saves[id].mod)}</b><span>${name}</span></div>`).join('');
-  const skillRows=SKILLS.map(([id,name])=>`<div class="p14-skill"><span>${profSkills().includes(id)?((C.expertise||[]).includes(id)?'◈':'●'):'○'}</span><b>${fmtMod(skillMod(id))}</b><span>${name}</span></div>`).join('');
+  const skillRows=SKILLS.map(([id,name])=>`<div class="p14-skill"><span>${profSkills().includes(id)?(expertiseSkills().includes(id)?'◈':'●'):'○'}</span><b>${fmtMod(skillMod(id))}</b><span>${name}</span></div>`).join('');
   const feats=availableFeats();
   if(typeof FEATS!=='undefined')for(const key in (C.asi||[])){const a=C.asi[key];if(a&&a.type==='feat'&&a.id){const f=FEATS.find(x=>x[0]===a.id);if(f)feats.push({cls:'',lvl:99,name:f[1],desc:f[2]})}}
   const bgFeat=FEATS.find(f=>f[0]===BACKGROUNDS[C.bg]?.feat);if(bgFeat)feats.push({cls:'',lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]});
@@ -983,6 +984,7 @@ function renderSheet2014(){
   const weaponRows=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('');
   const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
   C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
+  if(deftExplorerActive()&&C.choices.deftExplorerMode==='language_tool'&&C.choices.deftExplorerTool)tools.add(C.choices.deftExplorerTool);
   const langs=[...(r.langs||[])];
   for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');
   if(C.classes.some(c=>c.cls==='druid'))langs.push('Друидический');
@@ -1043,6 +1045,7 @@ function renderSheet2024(){
   const features=[...availableFeats(),...chosenTashaFeatures(),...(bgFeat?[{lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]}]:[])].map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>';
   const tools=new Set(BACKGROUNDS[C.bg].tools||[]);
   C.classes.forEach(c=>{const t=CLASSES[c.cls].tools;if(t&&t!=='—')t.split(', ').forEach(x=>tools.add(x))});
+  if(deftExplorerActive()&&C.choices.deftExplorerMode==='language_tool'&&C.choices.deftExplorerTool)tools.add(C.choices.deftExplorerTool);
   const langs=[...(race.langs||[])];
   for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');
   const profs=`Доспехи: ${C.classes.map(c=>esc(CLASSES[c.cls].armor)).join(', ')}.<br>Оружие: ${C.classes.map(c=>esc(CLASSES[c.cls].weapons)).join(', ')}.<br>Инструменты: ${esc([...tools].join(', ')||'—')}<br>Языки: ${esc([...new Set(langs)].join(', ')||'—')}`;

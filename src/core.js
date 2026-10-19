@@ -118,6 +118,7 @@ function profSkills(){return [...new Set([...bgSkills(),...raceSkills(),...class
 function deftExplorerActive(){return C.classes.some(c=>c.cls==='ranger'&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer'))}
 function deftExplorerSkill(){const skill=C.choices.deftExplorerSkill;return deftExplorerActive()&&profSkills().includes(skill)?skill:''}
 function expertiseSkills(){const selected=[...(C.expertise||[])],tasha=deftExplorerSkill();if(tasha&&profSkills().includes(tasha))selected.push(tasha);return [...new Set(selected)]}
+function toolProficiencies(){const tools=[...(BACKGROUNDS[C.bg]?.tools||[])];C.classes.forEach(c=>{const value=CLASSES[c.cls].tools;if(value&&value!=='—')tools.push(...value.split(', '))});if(deftExplorerActive()&&TOOL_PROFICIENCIES.includes(C.choices.deftExplorerTool)&&C.choices.deftExplorerMode==='language_tool')tools.push(C.choices.deftExplorerTool);return [...new Set(tools)]}
 function skillMod(sk){
   const [id,,ab]=SKILLS.find(s=>s[0]===sk);
   let m=am(ab);
@@ -306,29 +307,46 @@ function selectedTashaFeatures(c){
   return (TASHA_FEATURES[c.cls]||[]).filter(f=>ids.includes(f[0])&&f[1]<=c.lvl);
 }
 function chosenTashaFeatures(){const features=C.classes.flatMap(c=>selectedTashaFeatures(c).map(f=>({cls:c.cls,lvl:f[1],name:f[2]+' (Таша)',desc:f[3]})));if(C.choices.pactBoon==='talisman')features.push({cls:'warlock',lvl:3,name:'Талисман договора (Таша)',desc:'Носитель может добавить к4 к проверке характеристики; число применений = БМ за долгий отдых.'});return features}
+function updateTashaChoice(cls,update){
+  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
+  update();persist();render();
+  if(wasOpen){const details=$(selector);if(details)details.open=true}
+}
 function toggleTashaFeature(cls,id,on){
   C.choices.tashaFeatures=C.choices.tashaFeatures||{};
-  const selected=new Set(C.choices.tashaFeatures[cls]||[]);
-  if(on)selected.add(id);else selected.delete(id);
-  C.choices.tashaFeatures[cls]=[...selected];
-  if(cls==='ranger'&&id==='deft_explorer'&&!on)delete C.choices.deftExplorerSkill;
-  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
-  persist();render();
-  if(wasOpen){const details=$(selector);if(details)details.open=true}
+  updateTashaChoice(cls,()=>{
+    const selected=new Set(C.choices.tashaFeatures[cls]||[]);
+    if(on)selected.add(id);else selected.delete(id);
+    C.choices.tashaFeatures[cls]=[...selected];
+    if(cls==='ranger'&&id==='deft_explorer'){
+      if(on)C.choices.deftExplorerMode='';
+      else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount())}
+    }
+  });
 }
 function tashaFeaturePicker(c){
   const options=TASHA_FEATURES[c.cls]||[];if(!options.length)return '';
   const selected=(C.choices.tashaFeatures||{})[c.cls]||[];
-  const deftExplorer=c.cls==='ranger'&&selected.includes('deft_explorer')?`<label>Навык для компетентности<select onchange="setDeftExplorerSkill(this.value)"><option value="">— выберите владение —</option>${profSkills().map(id=>`<option value="${id}"${C.choices.deftExplorerSkill===id?' selected':''}>${SKILLS.find(s=>s[0]===id)?.[1]||id}</option>`).join('')}</select></label>`:'';
-  return `<details data-tasha-features="${c.cls}"><summary>Умения из «Котла Таши» · выбрано ${selectedTashaFeatures(c).length}</summary>${deftExplorer}<div class="col-list">${options.map(([id,lvl,name,desc])=>`<label class="chk wide"><input type="checkbox" ${selected.includes(id)?'checked':''}${lvl>c.lvl?' disabled':''} onchange="toggleTashaFeature('${c.cls}','${id}',this.checked)"><span><b>${name}</b> (${lvl} ур.) <span class="tag">Таша</span><br><span class="muted small">${desc}</span></span></label>`).join('')}</div><p class="muted small">Выбор сохраняется в карточке и отображается в разделе умений листа; игровые расчёты не меняются.</p></details>`;
+  const activeDeft=c.cls==='ranger'&&selected.includes('deft_explorer'),mode=C.choices.deftExplorerMode||'',knownTools=toolProficiencies();
+  const deftExplorer=activeDeft?`<div class="card"><label>Навык для компетентности<select onchange="setDeftExplorerSkill(this.value)"><option value="">— выберите владение —</option>${profSkills().map(id=>`<option value="${id}"${C.choices.deftExplorerSkill===id?' selected':''}>${SKILLS.find(s=>s[0]===id)?.[1]||id}</option>`).join('')}</select></label><label>Дополнительные владения<select onchange="setDeftExplorerMode(this.value)"><option value="">— выберите вариант —</option><option value="two_languages"${mode==='two_languages'?' selected':''}>Два языка</option><option value="language_tool"${mode==='language_tool'?' selected':''}>Один язык и один инструмент</option></select></label>${mode==='language_tool'?`<label>Инструмент<select onchange="setDeftExplorerTool(this.value)"><option value="">— выберите —</option>${TOOL_PROFICIENCIES.filter(t=>!knownTools.includes(t)||t===C.choices.deftExplorerTool).map(t=>`<option${C.choices.deftExplorerTool===t?' selected':''}>${t}</option>`).join('')}</select></label>`:''}${mode==='two_languages'?'<p class="muted small">Языки выберите на вкладке «Основное».</p>':mode==='language_tool'?'<p class="muted small">Язык выберите на вкладке «Основное».</p>':''}</div>`:'';
+  return `<details data-tasha-features="${c.cls}"><summary>Умения из «Котла Таши» · выбрано ${selectedTashaFeatures(c).length}</summary>${deftExplorer}<div class="col-list">${options.map(([id,lvl,name,desc])=>`<label class="chk wide"><input type="checkbox" ${selected.includes(id)?'checked':''}${lvl>c.lvl?' disabled':''} onchange="toggleTashaFeature('${c.cls}','${id}',this.checked)"><span><b>${name}</b> (${lvl} ур.) <span class="tag">Таша</span><br><span class="muted small">${desc}</span></span></label>`).join('')}</div><p class="muted small">Выбор сохраняется; компетентность «Искусного исследователя» применяется автоматически, остальные эффекты не пересчитываются.</p></details>`;
 }
 function setDeftExplorerSkill(skill){
   if(!deftExplorerActive()||skill&&!profSkills().includes(skill))return;
-  C.choices.deftExplorerSkill=skill;
-  if(skill)C.expertise=(C.expertise||[]).filter(id=>id!==skill);
-  const selector='[data-tasha-features="ranger"]',wasOpen=$(selector)?.open;
-  persist();render();
-  if(wasOpen){const details=$(selector);if(details)details.open=true}
+  updateTashaChoice('ranger',()=>{C.choices.deftExplorerSkill=skill;if(skill)C.expertise=(C.expertise||[]).filter(id=>id!==skill)});
+}
+function setDeftExplorerMode(mode){
+  if(!deftExplorerActive()||!['two_languages','language_tool'].includes(mode))return;
+  updateTashaChoice('ranger',()=>{
+    const base=baseLanguageChoiceCount(),langs=C.extraLangs||[],count=mode==='two_languages'?2:1;
+    C.extraLangs=Array.from({length:base+count},(_,i)=>langs[i]||'');
+    C.choices.deftExplorerMode=mode;
+    if(mode==='two_languages')delete C.choices.deftExplorerTool;
+  });
+}
+function setDeftExplorerTool(tool){
+  if(!deftExplorerActive()||C.choices.deftExplorerMode!=='language_tool'||tool&&!TOOL_PROFICIENCIES.includes(tool)||tool&&tool!==C.choices.deftExplorerTool&&toolProficiencies().includes(tool))return;
+  updateTashaChoice('ranger',()=>{C.choices.deftExplorerTool=tool});
 }
 // классовые умения, доступные на уровне
 function availableFeats(){
@@ -365,7 +383,7 @@ function characterReadiness(){
     if(cl.sub&&c.lvl>=cl.subLvl&&!c.sub)add('main',`Выберите подкласс для класса «${cl.name}».`);
     const subcl=SUBCLASSES[c.sub];
     if(subcl?.choices)for(const [lvl,block] of Object.entries(subcl.choices))if(c.lvl>=+lvl&&!C.choices[`hunter_${lvl}`])add('cls',`Выберите умение «${block.name}» (${lvl} ур.).`);
-    if(c.cls==='ranger'&&c.lvl>=1){const variants=(C.choices.tashaFeatures||{}).ranger||[];if(!C.choices.favoredEnemy&&!variants.includes('favored_foe'))add('cls','Выберите «Избранного врага» или вариант из «Котла Таши».');if(!C.choices.favoredTerrain&&!variants.includes('deft_explorer'))add('cls','Выберите «Избранную местность» или вариант «Искусный исследователь» из «Котла Таши».');if(variants.includes('deft_explorer')&&!C.choices.deftExplorerSkill)add('cls','Выберите навык для компетентности «Искусного исследователя».')}
+    if(c.cls==='ranger'&&c.lvl>=1){const variants=(C.choices.tashaFeatures||{}).ranger||[];if(!C.choices.favoredEnemy&&!variants.includes('favored_foe'))add('cls','Выберите «Избранного врага» или вариант из «Котла Таши».');if(!C.choices.favoredTerrain&&!variants.includes('deft_explorer'))add('cls','Выберите «Избранную местность» или вариант «Искусный исследователь» из «Котла Таши».');if(variants.includes('deft_explorer')){if(!deftExplorerSkill())add('cls','Выберите навык для компетентности «Искусного исследователя».');if(!['two_languages','language_tool'].includes(C.choices.deftExplorerMode))add('cls','Выберите дополнительные владения «Искусного исследователя».');if(C.choices.deftExplorerMode==='language_tool'&&!TOOL_PROFICIENCIES.includes(C.choices.deftExplorerTool))add('cls','Выберите инструмент для «Искусного исследователя».')}}
     if(c.cls==='druid'&&c.sub==='land'&&c.lvl>=2&&!C.choices.druidLand)add('cls','Выберите местность для круга друида.');
     if(c.cls==='sorcerer'&&c.sub==='draconic'&&!C.choices.draconicType)add('cls','Выберите тип дракона-прародителя.');
     if(c.cls==='warlock'){

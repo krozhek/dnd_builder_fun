@@ -24,7 +24,7 @@ const context = vm.createContext({
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, migrate, totalLvl, pb, am, maxHp, skillMod, spellSlots, armorClass, validCharacter,
-  expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills,
+  expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   setSpellQuery,
   spellPicker, renderWizardSpells, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
@@ -142,6 +142,7 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(api.validCharacter({ name: 'Future', schemaVersion: 99, classes: [{ cls: 'fighter', lvl: 1 }] }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'unknown', lvl: 1 }] }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], choices: [] }), false);
+  assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], choices: { deftExplorerMode: 'unknown' } }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], game: { slotsUsed: [] } }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], inventory: [{ type: 'weapon', id: 'sword', qty: 'many' }] }), false);
   assert.equal(api.validCharacter(null), false);
@@ -311,6 +312,30 @@ test('Deft Explorer grants expertise to a selected proficient skill', () => {
   assert.match(api.renderClass(), /Навык для компетентности/);
   assert.match(api.renderClass(), /value="survival" selected/);
   assert.match(api.renderSkills(), /Искусный исследователь/);
+});
+
+test('Tasha Canny language and tool alternatives count toward readiness and character sheets', () => {
+  const c = character();
+  c.classes = [{ cls: 'ranger', lvl: 1, sub: 'hunter' }];
+  c.classSkills.ranger = ['survival'];
+  c.choices.tashaFeatures = { ranger: ['deft_explorer'] };
+  c.choices.deftExplorerSkill = 'survival';
+  c.choices.deftExplorerMode = 'two_languages';
+  c.extraLangs = ['Эльфийский', 'Драконий', 'Гномий'];
+  api.setChar(c);
+  assert.equal(api.languageChoiceCount(), 3);
+  assert.match(api.renderMain(), /Язык «Искусного исследователя» 2/);
+  assert.equal(api.characterReadiness().some(i => i.text.includes('дополнительные владения «Искусного исследователя»')), false);
+
+  c.choices.deftExplorerMode = 'language_tool';
+  c.choices.deftExplorerTool = 'Инструменты алхимика';
+  c.extraLangs = ['Эльфийский', 'Драконий'];
+  api.setChar(c);
+  assert.equal(api.languageChoiceCount(), 2);
+  assert.ok(api.toolProficiencies().includes('Инструменты алхимика'));
+  assert.equal(api.characterReadiness().some(i => i.text.includes('Выберите инструмент для «Искусного исследователя»')), false);
+  assert.match(api.renderSheet2014(), /Инструменты алхимика/);
+  assert.match(api.renderSheet2024(), /Инструменты алхимика/);
 });
 
 test('Tasha optional class features can be selected and appear on character sheets', () => {
