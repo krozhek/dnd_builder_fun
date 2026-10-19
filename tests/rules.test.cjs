@@ -105,6 +105,7 @@ test('fighting styles are selected separately and readiness checks every source'
   assert.equal(api.hasFightingStyle('defense'), true);
   assert.equal(api.characterReadiness().some(i => i.tab === 'cls' && i.text.includes('боевой стиль')), false);
   assert.match(api.renderClass(), /setFightingStyle\('fighter'/);
+  assert.match(api.renderClass(), /эффекты остальных стилей показаны как справка/);
   assert.match(api.renderClass(), /setFightingStyle\('paladin'/);
 
   const oldRender = api.renderFn;
@@ -312,6 +313,15 @@ test('initiative includes Jack of All Trades and Remarkable Athlete bonuses', ()
   c.classes = [{ cls: 'bard', lvl: 2, sub: 'lore' }, { cls: 'fighter', lvl: 7, sub: 'champion' }];
   api.setChar(c);
   assert.equal(api.initiative(), 6); // Distinct features both apply
+});
+
+test('Remarkable Athlete rounds half proficiency bonus up for unproficient Strength checks', () => {
+  const c = character();
+  c.bg = 'sage';
+  c.classes = [{ cls: 'fighter', lvl: 7, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.pb(), 3);
+  assert.equal(api.skillMod('athletics'), 2);
 });
 
 test('ability scores cap at 20 and Primal Champion adds +4 to Strength and Constitution at barbarian 20', () => {

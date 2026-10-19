@@ -246,7 +246,7 @@ function skillMod(sk){
   if(bard&&bard.lvl>=2&&!profSkills().includes(id))m+=Math.floor(pb()/2);
   // champion remarkable athlete
   const f=C.classes.find(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=7);
-  if(f&&['str','dex','con'].includes(ab)&&!profSkills().includes(id))m+=Math.floor(pb()/2);
+  if(f&&['str','dex','con'].includes(ab)&&!profSkills().includes(id))m+=Math.ceil(pb()/2);
   return m;
 }
 function saveMods(){
