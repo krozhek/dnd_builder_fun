@@ -3353,8 +3353,11 @@ function renderSheet2024(){
     return `<section class="pdf-page pdf-page24 p24-spell-cont" data-sheet-page="${5+index}"><div class="p24-frame"></div><div class="pdf-box p24-cont-title"><div class="pdf-title">${esc(C.name)} · продолжение списка заклинаний</div></div><div class="pdf-box p24-spell-cont-table"><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>конц.</span><span>ритуал</span><span>матер.</span><span>заметки</span></div>${page.map(spellRow).join('')}</div></section>`;
   }).join('');
   const cantripAttackRow=(spell,attackBonus,saveDc,source)=>{
-    const desc=spell.desc||'',damage=desc.match(/урон\s+[^;]+/i)?.[0];
-    if(!damage)return '';
+    const desc=spell.desc||'',dice=desc.match(/урон\s+(\d+)d(\d+)/i);
+    if(!dice)return '';
+    const level=totalLvl(),scale=level>=17?4:level>=11?3:level>=5?2:1;
+    const damageType=desc.match(/урон\s+\d+d\d+\s*(\([^;]+\))/i)?.[1]||'';
+    const damage=spell.id==='eldritch_blast'?`${dice[1]}d${dice[2]}/луч · ${scale} луча`:`урон ${+dice[1]*scale}d${dice[2]}${damageType?` ${damageType}`:''}`;
     const attack=/атака заклинанием/i.test(desc)?fmtMod(attackBonus):/спасбросок/i.test(desc)?`КС ${saveDc}`:'';
     return attack?`<tr><td>${esc(spell.ru)}</td><td>${attack}</td><td>${esc(damage)}</td><td>Заговор · ${esc(source)}</td></tr>`:'';
   };

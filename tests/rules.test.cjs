@@ -999,12 +999,25 @@ test('2024 sheet labels spell selection status and lists damaging cantrips as at
   c.spellsPrepared.wizard = ['mage_armor'];
   api.setChar(c);
   const html = api.renderSheet2024();
-  assert.match(html, /<td>Огненный снаряд<\/td><td>\+6<\/td><td>урон 1d10 \(огнём\)<\/td>/);
-  assert.match(html, /<td>Брызги кислоты<\/td><td>КС 14<\/td><td>урон 1d6 \(кислотой\)<\/td>/);
+  assert.match(html, /<td>Огненный снаряд<\/td><td>\+6<\/td><td>урон 2d10 \(огнём\)<\/td>/);
+  assert.match(html, /<td>Брызги кислоты<\/td><td>КС 14<\/td><td>урон 2d6 \(кислотой\)<\/td>/);
   assert.doesNotMatch(html.match(/<div class="p24-weapons">[\s\S]*?<\/table>/)?.[0] || '', /<td>Починка<\/td>/);
   assert.match(html, /<b>Доспехи мага<\/b>[\s\S]*?<span>Подгот\.<\/span>/);
   assert.match(html, /<b>Безмолвный образ<\/b>[\s\S]*?<span>Книга<\/span>/);
   assert.match(html, /<b>Починка<\/b>[\s\S]*?<span>Заговор<\/span>/);
+});
+
+test('2024 sheet scales damaging cantrips by total level and tracks Eldritch Blast beams', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 17, sub: 'evocation' }];
+  c.cantrips.wizard = ['fire_bolt'];
+  api.setChar(c);
+  assert.match(api.renderSheet2024(), /<td>Огненный снаряд<\/td><td>\+9<\/td><td>урон 4d10 \(огнём\)<\/td>/);
+
+  c.classes = [{ cls: 'warlock', lvl: 17, sub: 'fiend' }];
+  c.cantrips = { warlock: ['eldritch_blast'] };
+  api.setChar(c);
+  assert.match(api.renderSheet2024(), /<td>Мистический заряд<\/td><td>\+6<\/td><td>1d10\/луч · 4 луча<\/td>/);
 });
 
 test('2024 sheet adds continuation pages when the spell list exceeds one page', () => {
