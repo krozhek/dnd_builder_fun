@@ -887,6 +887,18 @@ test('2024 sheet renders four printable pages with character data', () => {
   assert.doesNotMatch(html, /Long Story Short/);
 });
 
+test('2024 sheet separates species/subspecies from class/subclass in its header', () => {
+  const c = character();
+  c.race = 'elf';
+  c.subrace = 'high';
+  c.classes = [{ cls: 'wizard', lvl: 5, sub: 'evocation' }];
+  api.setChar(c);
+  const html = api.renderSheet2024();
+  assert.match(html, /<div class="pdf-cap">вид<\/div><b>Эльф \(Высший эльф\)<\/b>/);
+  assert.match(html, /<div class="pdf-cap">класс<\/div><b>Волшебник 5<\/b>/);
+  assert.match(html, /<div class="pdf-cap">подкласс<\/div><b>Волшебник: Школа Воплощения<\/b>/);
+});
+
 test('racial spell choices are separate from class limits and appear on sheets', () => {
   const c = character();
   c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
