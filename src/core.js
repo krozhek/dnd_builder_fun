@@ -254,7 +254,7 @@ function skillMod(sk){
   return m;
 }
 function saveMods(){
-  const clsProf=[...new Set(C.classes.map(c=>CLASSES[c.cls].saves).flat())],resilient=featBonusAbility('resilient');
+  const clsProf=CLASSES[C.classes[0].cls].saves,resilient=featBonusAbility('resilient');
   const out={};
   ABILS.forEach(([a])=>{
     let m=am(a)+(clsProf.includes(a)||resilient===a?pb():0);

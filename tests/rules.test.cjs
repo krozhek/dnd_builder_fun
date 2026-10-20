@@ -347,6 +347,17 @@ test('multiclass prerequisites check the new and existing classes', () => {
   assert.match(alerts.at(-1), /текущего класса «Воин»/);
 });
 
+test('multiclass keeps only the starting class saving throw proficiencies', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: '' }, { cls: 'wizard', lvl: 1, sub: '' }];
+  api.setChar(c);
+  const saves = api.saveMods();
+  assert.equal(saves.str.prof, true);
+  assert.equal(saves.con.prof, true);
+  assert.equal(saves.int.prof, false);
+  assert.equal(saves.wis.prof, false);
+});
+
 test('initiative includes Jack of All Trades and Remarkable Athlete bonuses', () => {
   const c = character();
   c.bases.manual.dex = 14;
