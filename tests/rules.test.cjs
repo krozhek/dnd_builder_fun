@@ -38,7 +38,7 @@ globalThis.api = {
   setSpellQuery,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
-  renderMain, renderHome, renderEquip, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
+  renderMain, renderHome, renderEquip, renderGame, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
   attacksHtml,
   renderSheet2024,
@@ -721,6 +721,8 @@ test('import validation rejects malformed character data and migration fills leg
     assert.equal(api.validCharacter(unsafe), false);
   }
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], game: { slotsUsed: [] } }), false);
+  assert.equal(api.validCharacter({ ...c, game: { ...c.game, hpCur: '<img src=x onerror=alert(1)>' } }), false);
+  assert.equal(api.validCharacter({ ...c, game: { ...c.game, dsOk: '<svg onload=alert(1)>' } }), false);
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], inventory: [{ type: 'weapon', id: 'sword', qty: 'many' }] }), false);
   assert.equal(api.validCharacter({ ...c, asi: { asi0: { type: 'feat', id: 'lucky', bonus: 'str' } } }), false);
   assert.equal(api.validCharacter({ ...c, asi: { asi0: { type: 'asi', vals: ['str', 'str'] } } }), false);
@@ -867,6 +869,18 @@ test('untrusted import identifiers and languages cannot become executable markup
   const home = api.renderHome();
   assert.match(home, /data-character-action="open" data-character-id="safe-id"/);
   assert.doesNotMatch(home, /data-character-action="(?:open|duplicate|delete)"[^>]*onclick=/);
+});
+
+test('untrusted game values are rejected and escaped by sheet renderers', () => {
+  const c = character();
+  c.game.hpCur = '<img src=x onerror="window.__xss=true">';
+  assert.equal(api.validCharacter(c), false);
+  api.setChar(c);
+  const outputs = [api.renderGame(), api.renderSheet2014(), api.renderSheet2024()];
+  for (const output of outputs) {
+    assert.doesNotMatch(output, /<img src=x onerror=/);
+    assert.match(output, /&lt;img src=x onerror=/);
+  }
 });
 
 test('sheet selector keeps 2014 as default and offers 2024', () => {

@@ -263,7 +263,7 @@ function validCharacter(ch,enforceRules=true){
     return !options||typeof value!=='string'||(value!==''&&!options.some(([id])=>id===value));
   })))return false;
   if(ch.racialSpells&&!validRacialSpellChoices(ch))return false;
-  if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)))return false;
+  if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)||['hpCur','hpTemp','hdUsed','pactUsed','dsOk','dsFail','exh'].some(key=>ch.game[key]!=null&&(!Number.isFinite(ch.game[key])||ch.game[key]<0))||!['conditions','notes'].every(key=>ch.game[key]==null||typeof ch.game[key]==='string')||ch.game.insp!=null&&typeof ch.game.insp!=='boolean'||Object.values(ch.game.slotsUsed||{}).some(value=>!Number.isFinite(value)||value<0)||Object.values(ch.game.resources||{}).some(value=>!Number.isFinite(value)||value<0)))return false;
   if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
   if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean')||(i.wielded!=null&&typeof i.wielded!=='boolean')||(i.grip!=null&&!['one-handed','two-handed'].includes(i.grip))||(i.type==='weapon'&&i.wielded&&i.qty>1))))return false;
   if(enforceRules&&!validSkillChoices(ch))return false;
@@ -1056,17 +1056,17 @@ function renderGame(){
   <div class="grid two">
     <div class="card">
       <h3>Хиты</h3>
-      <div class="hp-big"><b>${g.hpCur}</b><span class="muted">/ ${mh}</span></div>
+      <div class="hp-big"><b>${esc(g.hpCur)}</b><span class="muted">/ ${mh}</span></div>
       <div class="row gap wrap">
         <input type="number" id="hpDelta" placeholder="±" style="width:80px">
         <button class="btn danger" onclick="chgHp(-1)">Урон</button>
         <button class="btn ok" onclick="chgHp(1)">Лечение</button>
         <button class="btn ghost" onclick="C.game.hpCur=maxHp();persist();render()">Полное</button>
       </div>
-      <label>Временные хиты<input type="number" min="0" value="${g.hpTemp||0}" onchange="C.game.hpTemp=+this.value||0;persist();render()"></label>
+      <label>Временные хиты<input type="number" min="0" value="${esc(g.hpTemp||0)}" onchange="C.game.hpTemp=+this.value||0;persist();render()"></label>
       <div class="row gap wrap" style="margin-top:8px">
         <span>Кости хитов: <b>${hitDiceStr()}</b></span>
-        <span class="muted">потрачено: ${g.hdUsed||0} / ${totalLvl()}</span>
+        <span class="muted">потрачено: ${esc(g.hdUsed||0)} / ${totalLvl()}</span>
         <button class="btn sm" onclick="spendHd()">Потратить кость</button>
         <button class="btn sm ghost" onclick="C.game.hdUsed=Math.max(0,(C.game.hdUsed||0)-1);persist();render()">−1</button>
       </div>
@@ -1248,8 +1248,8 @@ function renderSheet2014(){
           <div class="pdf-box p14-passive"><strong>${passivePerception()}</strong><span>пассивная мудрость (восприятие)</span><div class="pdf-small">Пассивное Расследование: ${passiveInvestigation()}</div></div><div class="pdf-box" style="flex:1"><div class="pdf-title">прочие владения и языки</div><div class="pdf-small"><b>Доспехи:</b> ${armorProficiencyText()}<br><b>Оружие:</b> ${weaponProficiencyText()}<br><b>Инструменты:</b> ${esc([...tools].join(', ')||'—')}<br><b>Языки:</b> ${esc([...new Set(langs)].join(', ')||'—')}</div></div></div>
         <div class="p14-col"><div class="p14-status"><div class="pdf-box"><span class="pdf-cap">КЗ</span><strong>${armorClass()}</strong></div><div class="pdf-box"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div></div>
           <div class="pdf-box p14-hp"><div class="pdf-title">максимум хитов</div><div class="pdf-value">${maxHp()}</div><div class="pdf-small">Кость хитов: ${hitDiceStr()}</div></div>
-          <div class="pdf-box p14-currenthp"><div class="pdf-title">текущие хиты</div><div class="pdf-row"><span>текущие</span><b>${game.hpCur!=null?game.hpCur:maxHp()}</b></div><div class="pdf-row"><span>временные</span><b>${game.hpTemp||0}</b></div><div class="pdf-lines" style="flex:1"></div></div>
-          <div class="p14-status p14-dice"><div class="pdf-box"><div class="pdf-title">кости хитов</div><div class="pdf-value">${totalLvl()} · ${hitDiceStr()}</div></div><div class="pdf-box"><div class="pdf-title">спасброски от смерти</div><div class="pdf-small">Успехи ${[0,1,2].map(i=>game.dsOk>i?'●':'○').join(' ')}<br>Провалы ${[0,1,2].map(i=>game.dsFail>i?'●':'○').join(' ')}</div></div></div>
+          <div class="pdf-box p14-currenthp"><div class="pdf-title">текущие хиты</div><div class="pdf-row"><span>текущие</span><b>${esc(game.hpCur!=null?game.hpCur:maxHp())}</b></div><div class="pdf-row"><span>временные</span><b>${esc(game.hpTemp||0)}</b></div><div class="pdf-lines" style="flex:1"></div></div>
+          <div class="p14-status p14-dice"><div class="pdf-box"><div class="pdf-title">кости хитов</div><div class="pdf-value">${totalLvl()} · ${hitDiceStr()}</div></div><div class="pdf-box"><div class="pdf-title">спасброски от смерти</div><div class="pdf-small">Успехи ${[0,1,2].map(i=>esc(game.dsOk>i?'●':'○')).join(' ')}<br>Провалы ${[0,1,2].map(i=>esc(game.dsFail>i?'●':'○')).join(' ')}</div></div></div>
           <div class="pdf-box p14-attacks"><div class="pdf-title">атаки и заклинания</div><table class="p24-table"><tr><th>название</th><th>бонус атаки</th><th>урон / вид</th><th>заметки</th></tr>${weaponRows||'<tr><td colspan="4">—</td></tr>'}</table><div class="pdf-lines"></div></div>
           <div class="pdf-box p14-equipment"><div class="pdf-row pdf-small">${['ММ','СМ','ЗМ','ЭМ','ПМ'].map(c=>`<span>${c}<br>${c==='ЗМ'?C.gold||0:''}</span>`).join('')}</div><div class="pdf-small">${(C.inventory||[]).map(it=>`${esc(itemName(it))}${(it.qty||1)>1?' ×'+it.qty:''}`).join('<br>')||'—'}</div><div class="pdf-lines"></div><div class="pdf-title">снаряжение</div></div>
         </div>
@@ -1317,7 +1317,7 @@ function renderSheet2024(){
     <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2024 · визуальный вариант</span></div>
     <section class="pdf-page pdf-page24 p24-page1" data-sheet-page="1"><div class="p24-frame"></div>
       <header class="p24-header"><div class="pdf-box p24-id"><div class="wide"><div class="pdf-cap">имя персонажа</div><b class="pdf-value">${esc(C.name)}</b></div><div><div class="pdf-cap">предыстория</div><b>${esc(BACKGROUNDS[C.bg].name)}</b></div><div><div class="pdf-cap">класс</div><b>${esc(clsText)}</b></div><div><div class="pdf-cap">вид</div><b>${esc(race.name)}${sub?` (${esc(sub.name)})`:''}</b></div><div><div class="pdf-cap">подкласс</div><b>${esc(subText||'—')}</b></div></div>
-        <div class="pdf-box p24-stat p24-level"><span class="pdf-cap">уровень</span><strong>${totalLvl()}</strong><span class="pdf-cap">опыт ${C.xp||0}</span></div><div class="pdf-box p24-stat p24-ac"><span class="pdf-cap">класс защиты</span><strong>${armorClass()}</strong><span class="pdf-cap">${hasShield()?'щит ◇':''}</span></div><div class="pdf-box p24-stat p24-hp"><span class="pdf-cap">хиты</span><div class="pdf-row"><b>${game.hpCur!=null?game.hpCur:maxHp()}</b><span>текущие</span></div><div class="pdf-row"><b>${game.hpTemp||0}</b><span>временные</span></div><div class="pdf-small">максимум ${maxHp()}</div></div><div class="pdf-box p24-stat"><span class="pdf-cap">кости хитов</span><strong>${totalLvl()-(game.hdUsed||0)} / ${totalLvl()}</strong><span class="pdf-cap">${hitDiceStr()}</span></div><div class="pdf-box p24-stat p24-death"><span class="pdf-cap">спасброски от смерти</span><span class="pdf-small">Успехи ${[0,1,2].map(i=>game.dsOk>i?'◆':'◇').join(' ')}</span><span class="pdf-small">Провалы ${[0,1,2].map(i=>game.dsFail>i?'◆':'◇').join(' ')}</span></div>
+        <div class="pdf-box p24-stat p24-level"><span class="pdf-cap">уровень</span><strong>${totalLvl()}</strong><span class="pdf-cap">опыт ${C.xp||0}</span></div><div class="pdf-box p24-stat p24-ac"><span class="pdf-cap">класс защиты</span><strong>${armorClass()}</strong><span class="pdf-cap">${hasShield()?'щит ◇':''}</span></div><div class="pdf-box p24-stat p24-hp"><span class="pdf-cap">хиты</span><div class="pdf-row"><b>${esc(game.hpCur!=null?game.hpCur:maxHp())}</b><span>текущие</span></div><div class="pdf-row"><b>${esc(game.hpTemp||0)}</b><span>временные</span></div><div class="pdf-small">максимум ${maxHp()}</div></div><div class="pdf-box p24-stat"><span class="pdf-cap">кости хитов</span><strong>${esc(totalLvl()-(game.hdUsed||0))} / ${totalLvl()}</strong><span class="pdf-cap">${hitDiceStr()}</span></div><div class="pdf-box p24-stat p24-death"><span class="pdf-cap">спасброски от смерти</span><span class="pdf-small">Успехи ${[0,1,2].map(i=>esc(game.dsOk>i?'◆':'◇')).join(' ')}</span><span class="pdf-small">Провалы ${[0,1,2].map(i=>esc(game.dsFail>i?'◆':'◇')).join(' ')}</span></div>
       </header>
       <div class="p24-body"><div class="p24-col"><div class="pdf-box p24-pb"><span class="pdf-cap">бонус владения</span><strong>${fmtMod(pb())}</strong></div>${ABILS.slice(0,3).map(([id,n])=>ability(id,n)).join('')}<div class="pdf-box"><div class="pdf-title">истощение</div>${Array.from({length:6},(_,i)=>`<span class="p24-check${(game.exh||0)>i?' on':''}" style="display:inline-block;margin:2px 4px"></span>`).join('')}</div><div class="pdf-box"><div class="pdf-title">Героическое вдохновение</div>${game.insp?'●':'○'}</div><div class="pdf-box"><div class="pdf-title">владение снаряжением и умения</div><div class="pdf-small">${profs}</div></div></div>
         <div class="p24-col">${ABILS.slice(3).map(([id,n])=>ability(id,n)).join('')}</div>
