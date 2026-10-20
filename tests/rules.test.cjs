@@ -487,6 +487,18 @@ test('multiclass spell slots use the combined caster level table', () => {
     { cls: 'cleric', lvl: 2, sub: 'life' },
   ];
   assert.deepEqual(Array.from(api.spellSlots()).slice(0, 4), [4, 3, 2, 0]);
+  c.classes = [
+    { cls: 'paladin', lvl: 3, sub: 'devotion' },
+    { cls: 'ranger', lvl: 3, sub: 'hunter' },
+  ];
+  api.setChar(c);
+  assert.deepEqual(Array.from(api.spellSlots()).slice(0, 4), [3, 0, 0, 0]);
+  c.classes = [
+    { cls: 'paladin', lvl: 3, sub: 'devotion' },
+    { cls: 'ranger', lvl: 1, sub: 'hunter' },
+  ];
+  api.setChar(c);
+  assert.deepEqual(Array.from(api.spellSlots()).slice(0, 4), [2, 0, 0, 0]);
 });
 
 test('third-caster class levels expose their own cantrip and known spell progression', () => {

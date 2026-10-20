@@ -1737,10 +1737,10 @@ function casterContribution(){
   C.classes.forEach(c=>{
     const t=spellTypeOf(c);
     if(t==='full')full+=c.lvl;
-    else if(t==='half')half+=c.lvl;
-    else if(t==='third')third+=c.lvl;
+    else if(t==='half')half+=Math.floor(c.lvl/2);
+    else if(t==='third')third+=Math.floor(c.lvl/3);
   });
-  return {full,half:Math.floor(half/2),third:Math.floor(third/3)};
+  return {full,half,third};
 }
 function spellSlots(){
   const {full,half,third}=casterContribution();
