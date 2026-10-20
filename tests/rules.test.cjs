@@ -543,6 +543,23 @@ test('armor class includes Dexterity and an equipped shield', () => {
   assert.equal(api.armorClass(), 16); // 12 + 2 Dex + 2 shield
 });
 
+test('Autognome casing grants 13 + Dexterity when unarmored and stacks with a shield', () => {
+  const c = character();
+  c.race = 'autognome';
+  c.inventory = [];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 15);
+  c.inventory = [{ type: 'shield', id: 'shield', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 17);
+  c.classes = [{ cls: 'barbarian', lvl: 1, sub: 'berserk' }];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 17);
+  c.inventory = [{ type: 'armor', id: 'studded', equipped: true }, { type: 'shield', id: 'shield', equipped: true }];
+  api.setChar(c);
+  assert.equal(api.armorClass(), 16);
+});
+
 test('monk Unarmored Defense stops applying with armor or a shield', () => {
   const c = character();
   c.classes = [{ cls: 'monk', lvl: 1, sub: 'openhand' }];

@@ -412,10 +412,11 @@ function armorClass(){
   }else{
     ac=10+am('dex');
     if(monk&&!hasShield())ac=Math.max(ac,10+am('dex')+am('wis'));
-    if(barb)ac=Math.max(ac,10+am('dex')+am('con')+(hasShield()?2:0));
+    if(barb)ac=Math.max(ac,10+am('dex')+am('con'));
     if(sorc)ac=Math.max(ac,13+am('dex'));
+    if(C.race==='autognome')ac=Math.max(ac,13+am('dex'));
   }
-  if(hasShield()&&!(C.classes.find(c=>c.cls==='barbarian')&&!arm))ac+=2;
+  if(hasShield())ac+=2;
   // стиль Защита
   if(hasFightingStyle('defense')&&arm)ac+=1;
   if(hasFeat('dual_wielder')&&dualWielding())ac+=1;
