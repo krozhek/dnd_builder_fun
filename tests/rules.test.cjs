@@ -911,6 +911,34 @@ test('character goals, appearance, and portrait fill matching sheet fields', () 
   assert.match(sheet2014, /170 см/);
 });
 
+test('2024 sheet labels spell selection status and lists damaging cantrips as attacks', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 5, sub: 'evocation' }];
+  c.cantrips.wizard = ['fire_bolt', 'acid_splash', 'mending'];
+  c.spellbook = ['mage_armor', 'silent_image'];
+  c.spellsPrepared.wizard = ['mage_armor'];
+  api.setChar(c);
+  const html = api.renderSheet2024();
+  assert.match(html, /<td>Огненный снаряд<\/td><td>\+6<\/td><td>урон 1d10 \(огнём\)<\/td>/);
+  assert.match(html, /<td>Брызги кислоты<\/td><td>КС 14<\/td><td>урон 1d6 \(кислотой\)<\/td>/);
+  assert.doesNotMatch(html.match(/<div class="p24-weapons">[\s\S]*?<\/table>/)?.[0] || '', /<td>Починка<\/td>/);
+  assert.match(html, /<b>Доспехи мага<\/b>[\s\S]*?<span>Подгот\.<\/span>/);
+  assert.match(html, /<b>Безмолвный образ<\/b>[\s\S]*?<span>Книга<\/span>/);
+  assert.match(html, /<b>Починка<\/b>[\s\S]*?<span>Заговор<\/span>/);
+});
+
+test('2024 sheet adds continuation pages when the spell list exceeds one page', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  const wizardSpells = api.SPELLS.filter(spell => spell.lvl > 0 && spell.cls.includes('wizard')).slice(0, 36);
+  assert.equal(wizardSpells.length, 36);
+  c.spellbook = wizardSpells.map(spell => spell.id);
+  api.setChar(c);
+  const html = api.renderSheet2024();
+  assert.equal([...html.matchAll(/data-sheet-page="\d+"/g)].length, 5);
+  assert.match(html, new RegExp(`<b>${wizardSpells[35].ru.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<\\/b>`));
+});
+
 test('2024 sheet separates species/subspecies from class/subclass in its header', () => {
   const c = character();
   c.race = 'elf';

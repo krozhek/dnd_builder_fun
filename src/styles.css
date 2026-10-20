@@ -332,6 +332,11 @@ label.chk.wide{flex-basis:45%}
 .p24-spell-main{display:flex;flex-direction:column;min-height:0}
 .p24-statboxes{display:grid;grid-template-columns:1fr 1.7fr 1fr .9fr;gap:6px;min-width:0}
 .p24-spellbody{display:grid;grid-template-columns:2.1fr 1fr;gap:14px;min-height:0}
+.p24-spell-cont{grid-template-rows:7% 1fr;row-gap:8px;padding-top:5%}
+.p24-cont-title{display:flex;align-items:center;justify-content:center}
+.p24-spell-cont-table{display:flex;flex-direction:column;min-height:0}
+.p24-spell-cont-table .p24-spellrow.head{flex:0 0 24px}
+.p24-spell-cont-table .p24-spellrow:not(.head){flex:0 0 20px}
 .p24-spelltable{display:flex;flex-direction:column;min-height:0}
 .p24-spelltable .p24-spellrow{flex:0 0 20px}
 .p24-slot-grid{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:2px 5px;font-size:8px}

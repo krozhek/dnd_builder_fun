@@ -1288,12 +1288,30 @@ function renderSheet2024(){
   const langs=[...(race.langs||[])];
   for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');
   const profs=`Доспехи: ${armorProficiencyText()}.<br>Оружие: ${weaponProficiencyText()}.<br>Инструменты: ${esc([...tools].join(', ')||'—')}<br>Языки: ${esc([...new Set(langs)].join(', ')||'—')}`;
-  const weapons=(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}).join('')||'<tr><td colspan="4">—</td></tr>';
   const casters=spellcasterClasses(), slots=spellSlots()||[], racialSpells=racialSpellEntries();
   const racialSpellIds=new Set(racialSpells.map(x=>x.spell.id)),primalSpells=primalAwarenessSpells(),primalSpellIds=new Set(primalSpells.map(x=>x.id));
-  const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id),...primalSpells.map(x=>x.id)])];
+  const domainSpellIds=new Set(casters.flatMap(c=>domainSpellsOf(c).map(s=>s.id)));
+  const knownSpellIds=new Set(casters.flatMap(c=>C.spellsKnown[c.cls]||[])),preparedSpellIds=new Set(casters.flatMap(c=>C.spellsPrepared[c.cls]||[]));
+  const wizardBook=new Set(C.spellbook||[]);
+  const spellIds=[...new Set([...casters.flatMap(c=>[...(C.cantrips[c.cls]||[]),...(C.spellsKnown[c.cls]||[]),...(C.spellsPrepared[c.cls]||[]),...domainSpellsOf(c).map(s=>s.id),...(c.cls==='wizard'?(C.spellbook||[]):[])]),...racialSpells.map(x=>x.spell.id),...primalSpells.map(x=>x.id)])];
   const spells=spellIds.map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean);
-  const spellPad=Array.from({length:Math.max(0,35-spells.length)},()=>'<div class="p24-spellrow"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>').join('');
+  const spellStatus=s=>s.lvl===0?'Заговор':preparedSpellIds.has(s.id)?'Подгот.':domainSpellIds.has(s.id)?'Всегда':knownSpellIds.has(s.id)?'Известно':wizardBook.has(s.id)?'Книга':'';
+  const spellRow=s=>`<div class="p24-spellrow"><span>${s.lvl===0?'0':s.lvl}</span><b>${esc(s.ru)}</b><span>${esc(s.time)}</span><span>${esc(s.range)}</span><span>◇ К</span><span>◇ Р</span><span>◇ М</span><span>${[spellStatus(s),racialSpellIds.has(s.id)?'Дар расы':'',primalSpellIds.has(s.id)?'Осведомл. · 1/долг.':''].filter(Boolean).join(' · ')}</span></div>`;
+  const SPELLS_PER_PAGE=35,firstPageSpells=spells.slice(0,SPELLS_PER_PAGE);
+  const spellPad=Array.from({length:Math.max(0,SPELLS_PER_PAGE-firstPageSpells.length)},()=>'<div class="p24-spellrow"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>').join('');
+  const overflowSpellPages=Array.from({length:Math.ceil(Math.max(0,spells.length-SPELLS_PER_PAGE)/SPELLS_PER_PAGE)},(_,index)=>{
+    const page=spells.slice(SPELLS_PER_PAGE+index*SPELLS_PER_PAGE,SPELLS_PER_PAGE+(index+1)*SPELLS_PER_PAGE);
+    return `<section class="pdf-page pdf-page24 p24-spell-cont" data-sheet-page="${5+index}"><div class="p24-frame"></div><div class="pdf-box p24-cont-title"><div class="pdf-title">${esc(C.name)} · продолжение списка заклинаний</div></div><div class="pdf-box p24-spell-cont-table"><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>конц.</span><span>ритуал</span><span>матер.</span><span>заметки</span></div>${page.map(spellRow).join('')}</div></section>`;
+  }).join('');
+  const cantripAttackRow=(spell,attackBonus,saveDc,source)=>{
+    const desc=spell.desc||'',damage=desc.match(/урон\s+[^;]+/i)?.[0];
+    if(!damage)return '';
+    const attack=/атака заклинанием/i.test(desc)?fmtMod(attackBonus):/спасбросок/i.test(desc)?`КС ${saveDc}`:'';
+    return attack?`<tr><td>${esc(spell.ru)}</td><td>${attack}</td><td>${esc(damage)}</td><td>Заговор · ${esc(source)}</td></tr>`:'';
+  };
+  const cantripAttacks=casters.flatMap(c=>(C.cantrips[c.cls]||[]).map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean).map(s=>cantripAttackRow(s,spellAttack(c.cls),spellSaveDc(c.cls),CLASSES[c.cls].name)));
+  cantripAttacks.push(...racialSpells.filter(x=>x.spell.lvl===0).map(x=>cantripAttackRow(x.spell,x.attackBonus,x.saveDc,'дар расы')));
+  const weapons=[...(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}),...cantripAttacks].join('')||'<tr><td colspan="4">—</td></tr>';
   const personality=C.personality||{};
   return `<div class="pdf-sheet">
     <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2024 · визуальный вариант</span></div>
@@ -1314,10 +1332,11 @@ function renderSheet2024(){
         <div class="p24-statboxes">${[['размер',race.size],['грузоподъёмность',`${abil('str')*15} фун.`],['прыжок в высоту',`${Math.max(0,3+am('str'))} фт.`],['прыжок в длину',`${abil('str')} фт.`]].map(([label,value])=>`<div class="pdf-box p24-stat"><span class="pdf-cap">${label}</span><strong>${value}</strong></div>`).join('')}</div>
         <div class="pdf-box p24-appearance"><div class="pdf-title">внешность</div><div class="pdf-small">${[['Возраст',appearance.age],['Рост',appearance.height],['Вес',appearance.weight],['Глаза',appearance.eyes],['Кожа',appearance.skin],['Волосы',appearance.hair]].filter(([,value])=>value).map(([label,value])=>`${label}: ${esc(value)}`).join(' · ')}</div><div class="pdf-lines">${esc(appearance.details||'')}</div></div>
       </div>
-      <div class="p24-spellbody"><div class="pdf-box p24-spelltable"><div class="pdf-title">заговоры и подготовленные заклинания</div><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>конц.</span><span>ритуал</span><span>матер.</span><span>заметки</span></div>${spells.map(s=>`<div class="p24-spellrow"><span>${s.lvl===0?'0':s.lvl}</span><b>${esc(s.ru)}</b><span>${esc(s.time)}</span><span>${esc(s.range)}</span><span>◇ К</span><span>◇ Р</span><span>◇ М</span><span>${racialSpellIds.has(s.id)?'Дар расы':primalSpellIds.has(s.id)?'Изначальная осведомлённость · 1/долгий отдых без ячейки':''}</span></div>`).join('')}${spellPad}</div>
+      <div class="p24-spellbody"><div class="pdf-box p24-spelltable"><div class="pdf-title">список заклинаний персонажа</div><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>конц.</span><span>ритуал</span><span>матер.</span><span>заметки</span></div>${firstPageSpells.map(spellRow).join('')}${spellPad}</div>
         <div class="p24-spellside"><div class="pdf-box detail"><div class="pdf-title">предыстория и личные качества</div><div class="pdf-small">${esc(C.backstory||'')}<br>${Object.values(personality).map(v=>esc(v||'')).filter(Boolean).join('<br>')}</div></div><div class="pdf-box detail"><div class="pdf-title">снаряжение</div><div class="pdf-small">${(C.inventory||[]).map(i=>`${esc(itemName(i))}${(i.qty||1)>1?' ×'+i.qty:''}`).join('<br>')}</div></div><div class="p24-coinrow">${[['ММ',0],['СМ',0],['ЗМ',C.gold||0],['ЭМ',0],['ПМ',0]].map(([name,value])=>`<div class="pdf-box"><div class="pdf-title">${name}</div><b>${value||''}</b></div>`).join('')}</div></div>
       </div>
     </section>
+    ${overflowSpellPages}
   </div>`;
 }
 // ================= Инициализация =================
