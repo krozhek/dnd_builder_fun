@@ -3333,7 +3333,8 @@ function renderSheet2024(){
   const subText=C.classes.map(c=>SUBCLASSES[c.sub]?.name?`${CLASSES[c.cls].name}: ${SUBCLASSES[c.sub].name}`:'').filter(Boolean).join(' / ');
   const ability=(id,name)=>`<div class="pdf-box p24-ability"><div class="p24-ability-head"><strong>${name}</strong><span class="p24-mod">${fmtMod(am(id))}</span></div><div class="pdf-small">Значение ${abil(id)} · спасбросок ${fmtMod(saves[id].mod)}</div>${SKILLS.filter(x=>x[2]===id).map(([skillId,skillName])=>`<div class="p24-skill"><i class="p24-check${profSkills().includes(skillId)?' on':''}"></i><b>${fmtMod(skillMod(skillId))}</b><span>${skillName}</span></div>`).join('')}</div>`;
   const bgFeat=FEATS.find(f=>f[0]===BACKGROUNDS[C.bg]?.feat);
-  const features=[...availableFeats(),...chosenTashaFeatures(),...(bgFeat?[{lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]}]:[])].map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>';
+  const asiFeats=Object.values(C.asi||{}).flatMap(a=>{const feat=a?.type==='feat'&&FEATS.find(f=>f[0]===a.id);return feat?[{lvl:99,name:feat[1],desc:feat[2]}]:[]});
+  const features=[...availableFeats(),...asiFeats,...chosenTashaFeatures(),...(bgFeat?[{lvl:99,name:bgFeat[1]+' (AAG)',desc:bgFeat[2]}]:[])].map(f=>`<li><b>${f.lvl===99?'':f.lvl+' ур. '}${esc(f.name)}</b> — ${esc(f.desc)}</li>`).join('')||'<li>—</li>';
   const tools=new Set(toolProficiencies());
   const langs=[...(race.langs||[])];
   for(let i=0;i<languageChoiceCount();i++)langs.push((C.extraLangs||[])[i]||'на выбор');

@@ -1046,6 +1046,15 @@ test('warlock expanded spell lists offer choices but do not grant spells automat
   assert.match(api.renderSheet2024(), /<b>Огненные ладони<\/b>[\s\S]*?<span>Известно<\/span>/);
 });
 
+test('ASI-selected feats appear on the 2024 sheet', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 4, sub: 'champion' }];
+  c.asi = { asi0: { type: 'feat', id: 'alert' } };
+  api.setChar(c);
+  assert.match(api.renderSheet2014(), /Бдительный/);
+  assert.match(api.renderSheet2024(), /Бдительный/);
+});
+
 test('2024 sheet separates species/subspecies from class/subclass in its header', () => {
   const c = character();
   c.race = 'elf';
