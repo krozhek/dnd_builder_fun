@@ -32,7 +32,7 @@ const context = vm.createContext({
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
-  get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; },
+  get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, hasUniqueCharacterIds,
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
   setSpellQuery,
@@ -666,6 +666,12 @@ test('import rejects invalid skill choices but storage can still open old drafts
   assert.match(api.renderSkills(), /Сбросить выборы навыков/);
   api.setLibrary([]);
   storageData.delete('dnd5e2014_chars_v1');
+});
+
+test('backup libraries require unique character ids', () => {
+  assert.equal(api.hasUniqueCharacterIds([{ id: 'one' }, { id: 'two' }]), true);
+  assert.equal(api.hasUniqueCharacterIds([{ id: 'same' }, { id: 'same' }]), false);
+  assert.equal(api.hasUniqueCharacterIds([{}, {}]), true);
 });
 
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {

@@ -273,7 +273,7 @@ function importJson(inp){
     try{
       const data=JSON.parse(r.result);
       if(data&&data.format==='dnd-builder-backup'){
-        if(data.version!==1||!Array.isArray(data.characters)||!data.characters.every(validCharacter))throw new Error('Некорректная резервная копия');
+        if(data.version!==1||!Array.isArray(data.characters)||!data.characters.every(validCharacter)||!hasUniqueCharacterIds(data.characters))throw new Error('Некорректная резервная копия');
         if(!confirm(`Заменить текущую библиотеку резервной копией (${data.characters.length} персонажей)?`)){inp.value='';return}
         const previous=LIB;
         LIB=data.characters.map(migrate);

@@ -14,6 +14,7 @@ const root = path.resolve(__dirname, '..');
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dnd-backup-e2e-'));
 const backupPath = path.join(profile, 'backup.json');
 const singlePath = path.join(profile, 'single-character.json');
+const duplicateIdsPath = path.join(profile, 'duplicate-ids-backup.json');
 const maliciousIdPath = path.join(profile, 'malicious-id-backup.json');
 const maliciousLanguagePath = path.join(profile, 'malicious-language-backup.json');
 const invalidSpellPath = path.join(profile, 'invalid-spell-character.json');
@@ -100,6 +101,7 @@ try {
   if (backup.format !== 'dnd-builder-backup' || backup.characters.length !== 1 || backup.characters[0].name !== 'Backup E2E') throw new Error('Unexpected exported backup contents');
   const single = { ...backup.characters[0], id: 'single-import-e2e', name: 'Single Import E2E' };
   fs.writeFileSync(singlePath, JSON.stringify(single));
+  fs.writeFileSync(duplicateIdsPath, JSON.stringify({ ...backup, characters: [backup.characters[0], { ...backup.characters[0], name: 'Duplicate ID' }] }));
   fs.writeFileSync(maliciousIdPath, JSON.stringify({ ...backup, characters: [{ ...backup.characters[0], id: "');window.xssProbe();//" }] }));
   fs.writeFileSync(maliciousLanguagePath, JSON.stringify({ ...backup, characters: [{ ...backup.characters[0], extraLangs: ['<img src=x onerror="window.xssProbe()">'] }] }));
   fs.writeFileSync(invalidSpellPath, JSON.stringify({ ...backup.characters[0], id: 'invalid-spell-e2e', classes: [{ cls: 'bard', lvl: 1, sub: 'lore' }], cantrips: {}, spellsKnown: { bard: ['mage_armor'] }, spellsPrepared: {}, spellbook: [] }));
@@ -144,6 +146,13 @@ try {
   await submitFile(singlePath);
   const imported = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return data.length===2&&data.some(c=>c.name==='Single Import E2E')})()`);
   if (!imported) throw new Error('Importing a single character did not add it to the library');
+
+  const duplicateDialogWait = waitFor('Page.javascriptDialogOpening');
+  await submitFile(duplicateIdsPath);
+  const duplicateDialog = await duplicateDialogWait;
+  if (duplicateDialog.type !== 'alert' || !duplicateDialog.message.includes('Некорректная резервная копия')) throw new Error('Backup with duplicate character IDs was not rejected');
+  const duplicateUnchanged = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return data.length===2&&data.every((c,i)=>data.findIndex(other=>other.id===c.id)===i)})()`);
+  if (!duplicateUnchanged) throw new Error('Rejecting duplicate IDs changed the character library');
 
   await evaluate('window.__xssFired=false;window.xssProbe=()=>{window.__xssFired=true}');
   for (const file of [maliciousIdPath, maliciousLanguagePath]) {

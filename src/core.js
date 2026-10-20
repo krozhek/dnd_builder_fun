@@ -26,14 +26,14 @@ function readStorage(key){try{return {value:localStorage.getItem(key)}}catch(err
 function writeStorage(key,value){try{localStorage.setItem(key,value);return true}catch(error){console.error(`Не удалось записать ${key}`,error);return false}}
 const storedTheme=readStorage(LS_THEME).value, storedSheet=readStorage(LS_SHEET).value;
 let LIB=[], C=null, TAB='home', THEME=storedTheme==='light'?'light':'dark', SHEET_VERSION=storedSheet==='2024'?'2024':'2014';
+function hasUniqueCharacterIds(characters){const ids=characters.map(c=>c?.id).filter(Boolean);return new Set(ids).size===ids.length}
 function loadLib(){
   const {value,error}=readStorage(LS_KEY);
   if(error){LIB=[];STORAGE_CORRUPT=true;warnStorage();return}
   if(value==null){LIB=[];return}
   try{
     const saved=JSON.parse(value);
-    const ids=Array.isArray(saved)?saved.map(c=>c?.id).filter(Boolean):[];
-    if(!Array.isArray(saved)||!saved.every(c=>validCharacter(c,false))||new Set(ids).size!==ids.length)throw new Error('Некорректная библиотека персонажей');
+    if(!Array.isArray(saved)||!saved.every(c=>validCharacter(c,false))||!hasUniqueCharacterIds(saved))throw new Error('Некорректная библиотека персонажей');
     LIB=saved.map(migrate);
   }catch(error){LIB=[];STORAGE_CORRUPT=true;console.error('Не удалось восстановить библиотеку персонажей',error);warnStorage()}
 }
