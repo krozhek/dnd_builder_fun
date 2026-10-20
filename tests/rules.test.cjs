@@ -97,6 +97,20 @@ test('Dueling requires a single wielded one-handed weapon and grip affects versa
   api.setRenderFn(oldRender);
 });
 
+test('Improved Divine Smite adds radiant damage only to paladin melee weapons at level 11', () => {
+  const c = character();
+  c.classes = [{ cls: 'paladin', lvl: 10, sub: 'devotion' }];
+  c.bases.manual.str = 16;
+  api.setChar(c);
+  const longsword = api.WEAPONS.find(w => w[0] === 'longsword');
+  const crossbow = api.WEAPONS.find(w => w[0] === 'lightcrossbow');
+  assert.equal(api.weaponDamage(longsword), '1к8 рубящий +3');
+  c.classes[0].lvl = 11;
+  api.setChar(c);
+  assert.equal(api.weaponDamage(longsword), '1к8 рубящий + 1к8 излучением +3');
+  assert.equal(api.weaponDamage(crossbow), '1к8 колющий +2');
+});
+
 test('fighting styles are selected separately and readiness checks every source', () => {
   const c = character();
   c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'paladin', lvl: 2, sub: 'devotion' }];

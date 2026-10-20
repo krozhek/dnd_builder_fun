@@ -1875,6 +1875,7 @@ function weaponDamage(w,item=null){
     const die=TABLES.monk.ma[C.classes.find(c=>c.cls==='monk').lvl-1],currentDie=dice.split(' ')[0];
     if(Number(die.split('к')[1])>Number(currentDie.split('к')[1]))dice=die+dice.slice(currentDie.length);
   }
+  if(w[6]==='melee'&&C.classes.some(c=>c.cls==='paladin'&&c.lvl>=11))dice+=' + 1к8 излучением';
   if(hasFightingStyle('dueling')&&item?.wielded&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!(item.grip==='two-handed'&&versatile)&&wieldedWeaponCount()===1)bonus+=2;
   if(bonus!==0)return dice+' '+fmtMod(bonus);
   return dice;
