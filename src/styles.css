@@ -58,6 +58,7 @@ main{padding:18px;max-width:1280px;margin:0 auto}
 .foot{margin-top:30px;text-align:center}
 label{display:block;margin:6px 0;font-size:.88rem;color:var(--muted)}
 input,select,textarea{font-family:inherit;font-size:.95rem;padding:7px 10px;border:1px solid var(--line2);border-radius:7px;background:var(--bg);color:var(--text);width:100%;margin-top:3px}
+.sheet-portrait-preview{display:block;max-width:180px;max-height:220px;object-fit:contain;border:1px solid var(--line);border-radius:6px}
 input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
 select[multiple]{min-height:90px}
 label.chk{display:inline-flex;align-items:center;gap:7px;margin:3px 10px 3px 0;cursor:pointer;color:var(--text)}
@@ -324,6 +325,7 @@ label.chk.wide{flex-basis:45%}
 .p24-page2,.p24-page3{padding-top:5%}
 .p24-page2 .pdf-box,.p24-page3 .pdf-box,.p24-features,.p24-spellside .detail{background-color:rgba(255,255,255,.55);background-image:linear-gradient(#eee 1px,transparent 1px),linear-gradient(90deg,#eee 1px,transparent 1px);background-size:8px 8px}
 .p24-page2 .pdf-box{display:flex;flex-direction:column}
+.p24-page2 .portrait-image{flex:1;min-height:0;width:100%;height:100%;object-fit:contain;padding:8px}
 .p24-page2 .pdf-lines{flex:1;min-height:0}
 .p24-page4{grid-template-rows:14% 1fr;row-gap:8px}
 .p24-spellhead{display:grid;grid-template-columns:1.19fr 2.84fr 1.97fr;gap:8px;min-height:0}

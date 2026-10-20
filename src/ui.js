@@ -245,7 +245,10 @@ function validCharacter(ch,enforceRules=true){
   if(ch.race!=null&&!RACES[ch.race]||ch.bg!=null&&!BACKGROUNDS[ch.bg]||ch.subrace!=null&&ch.subrace!==''&&!RACES[ch.race]?.subs?.[ch.subrace])return false;
   if(ch.abilityMethod!=null&&!['standard','point','manual'].includes(ch.abilityMethod))return false;
   if(ch.xp!=null&&(!Number.isFinite(ch.xp)||ch.xp<0)||ch.gold!=null&&(!Number.isFinite(ch.gold)||ch.gold<0))return false;
-  for(const key of ['bases','asi','choices','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice','game','personality'])if(!optionalRecord(ch[key]))return false;
+  if(ch.goals!=null&&(typeof ch.goals!=='string'||ch.goals.length>5000))return false;
+  if(ch.portrait!=null&&(typeof ch.portrait!=='string'||ch.portrait.length>MAX_PORTRAIT_DATA||ch.portrait!==''&&!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(ch.portrait)))return false;
+  if(ch.appearance!=null&&(!isRecord(ch.appearance)||Object.entries(ch.appearance).some(([key,value])=>!['age','height','weight','eyes','skin','hair','details'].includes(key)||typeof value!=='string'||value.length>500)))return false;
+  for(const key of ['bases','asi','choices','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice','game','personality','appearance'])if(!optionalRecord(ch[key]))return false;
   for(const key of ['raceSkills','halfElfPicks','raceAsiPicks','expertise','languages','attunement'])if(ch[key]!=null&&!stringArray(ch[key]))return false;
   if(ch.extraLangs!=null&&(!stringArray(ch.extraLangs,true)||ch.extraLangs.length>LANGS.length||ch.extraLangs.some(value=>value&&(!LANGS.includes(value)||value.length>32))))return false;
   if(!stringArrayMap(ch.classSkills)||!validSpellArrayMap(ch.cantrips)||!validSpellArrayMap(ch.spellsKnown)||!validSpellArrayMap(ch.spellsPrepared)||!validSpellSelections(ch))return false;
@@ -369,6 +372,15 @@ function renderMain(){
         ${r.asiChoice?`<div class="hint">Полуэльф: +1 к двум характеристикам (кроме Хар) — выберите на вкладке «Характеристики»</div>`:''}
       </div>
     </div>
+    <h2>Данные листа</h2>
+    <div class="card">
+      <div class="grid three">${[['age','Возраст'],['height','Рост'],['weight','Вес'],['eyes','Глаза'],['skin','Кожа'],['hair','Волосы']].map(([key,label])=>`<label>${label}<input maxlength="80" value="${esc(C.appearance[key]||'')}" oninput="setAppearance('${key}',this.value)"></label>`).join('')}</div>
+      <label>Цели и задачи<textarea rows="3" maxlength="5000" oninput="setText('goals',this.value)">${esc(C.goals||'')}</textarea></label>
+      <label>Дополнительное описание внешности<textarea rows="3" maxlength="500" oninput="setAppearance('details',this.value)">${esc(C.appearance.details||'')}</textarea></label>
+      <div class="row gap wrap"><label>Портрет (изображение будет сжато локально)<input id="portraitFile" type="file" accept="image/*" onchange="setPortraitFile(this)"></label>${C.portrait?'<button class="btn danger ghost" onclick="removePortrait()">Удалить портрет</button>':''}</div>
+      ${C.portrait?`<img class="sheet-portrait-preview" src="${esc(C.portrait)}" alt="Портрет персонажа">`:''}
+      <p class="muted small">Портрет хранится в этой библиотеке и резервной копии; изображение сжимается до 640 × 800 px и не более 150 КБ.</p>
+    </div>
     <h2>Классы</h2>
     ${classRows}
     <button class="btn" onclick="addClass()">＋ Добавить класс (мультикласс)</button>
@@ -385,6 +397,28 @@ function renderMain(){
   </div>`;
 }
 function updTabChar(){const el=$('.tab-char');if(el)el.innerHTML=`${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}`}
+function setAppearance(key,value){if(!['age','height','weight','eyes','skin','hair','details'].includes(key))return;C.appearance=C.appearance||{};C.appearance[key]=value.slice(0,500);persist()}
+function removePortrait(){C.portrait='';persist();render()}
+function setPortraitFile(input){
+  const file=input.files?.[0];if(!file)return;
+  if(!file.type.startsWith('image/')||file.size>20*1024*1024){alert('Выберите изображение размером не более 20 МБ.');input.value='';return}
+  const url=URL.createObjectURL(file),image=new Image();
+  image.onload=()=>{
+    URL.revokeObjectURL(url);
+    try{
+      const scale=Math.min(1,640/image.naturalWidth,800/image.naturalHeight),canvas=document.createElement('canvas');
+      canvas.width=Math.round(image.naturalWidth*scale);canvas.height=Math.round(image.naturalHeight*scale);
+      canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+      let portrait='';
+      for(const quality of [.82,.65,.48]){portrait=canvas.toDataURL('image/jpeg',quality);if(portrait.length<=MAX_PORTRAIT_DATA)break}
+      input.value='';
+      if(portrait.length>MAX_PORTRAIT_DATA){alert('Не удалось сжать изображение до 150 КБ. Выберите другое.');return}
+      C.portrait=portrait;persist();render();
+    }catch(error){input.value='';alert('Не удалось обработать изображение.')}
+  };
+  image.onerror=()=>{URL.revokeObjectURL(url);input.value='';alert('Не удалось открыть изображение.')};
+  image.src=url;
+}
 function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
 function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
 function changeBackground(v){C.bg=v;C.choices.backgroundTools=[];C.extraLangs=[];persist();render()}
@@ -1181,7 +1215,7 @@ function logRoll(html){
 }
 // ================= Лист персонажа (2014) =================
 function renderSheet2014(){
-  const r=raceOf(), sub=subraceOf(), game=C.game||{}, saves=saveMods();
+  const r=raceOf(), sub=subraceOf(), game=C.game||{}, saves=saveMods(), appearance=C.appearance||{};
   const clsText=C.classes.map(c=>CLASSES[c.cls].name).join(' / ');
   const abilityBlocks=ABILS.map(([id,name])=>`<div class="p14-ability"><span class="pdf-cap">${name}</span><div class="pdf-row"><strong class="mod">${fmtMod(am(id))}</strong><span class="score">${abil(id)}</span></div></div>`).join('');
   const saveRows=ABILS.map(([id,name])=>`<div class="p14-skill"><span>${saves[id].prof?'●':'○'}</span><b>${fmtMod(saves[id].mod)}</b><span>${name}</span></div>`).join('');
@@ -1223,8 +1257,8 @@ function renderSheet2014(){
       </div>
     </section>
     <section class="pdf-page pdf-page14 p14-page2" data-sheet-page="2">
-      <header class="p14-header"><div class="p14-name"><div class="pdf-cap">имя персонажа</div><strong>${esc(C.name)}</strong></div><div class="p14-id">${[['возраст',''],['рост',''],['вес',''],['цвет глаз',''],['цвет кожи',''],['цвет волос','']].map(([n,v])=>`<div><div class="pdf-cap">${n}</div><div class="pdf-line">${v}</div></div>`).join('')}</div></header>
-      <div class="p14-page2grid"><div class="pdf-box story"><div class="pdf-lines" style="height:93%">${esc(C.backstory||'')}</div><div class="pdf-title">предыстория персонажа</div></div><div class="pdf-box goals"><div class="pdf-lines" style="height:93%"></div><div class="pdf-title">цели и задачи</div></div><div class="detail-stack"><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.allies||'')}</div><div class="pdf-title">союзники и организации</div></div><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.featuresNotes||'')}</div><div class="pdf-title">дополнительные способности и умения</div></div><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.treasure||'')}</div><div class="pdf-title">сокровища</div></div></div></div>
+      <header class="p14-header"><div class="p14-name"><div class="pdf-cap">имя персонажа</div><strong>${esc(C.name)}</strong></div><div class="p14-id">${[['возраст',appearance.age],['рост',appearance.height],['вес',appearance.weight],['цвет глаз',appearance.eyes],['цвет кожи',appearance.skin],['цвет волос',appearance.hair]].map(([n,v])=>`<div><div class="pdf-cap">${n}</div><div class="pdf-line">${esc(v||'')}</div></div>`).join('')}</div></header>
+      <div class="p14-page2grid"><div class="pdf-box story"><div class="pdf-lines" style="height:93%">${esc(C.backstory||'')}</div><div class="pdf-title">предыстория персонажа</div></div><div class="pdf-box goals"><div class="pdf-lines" style="height:93%">${esc(C.goals||'')}</div><div class="pdf-title">цели и задачи</div></div><div class="detail-stack"><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.allies||'')}</div><div class="pdf-title">союзники и организации</div></div><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.featuresNotes||'')}</div><div class="pdf-title">дополнительные способности и умения</div></div><div class="pdf-box"><div class="pdf-lines" style="height:92%">${esc(C.treasure||'')}</div><div class="pdf-title">сокровища</div></div></div></div>
     </section>
     <section class="pdf-page pdf-page14 p14-page3" data-sheet-page="3"><div class="p14-notes-header"><div class="p14-name"><div class="pdf-cap">имя персонажа</div><strong>${esc(C.name)}</strong></div></div><div class="p14-notes-grid">${Array.from({length:6},(_,i)=>`<div class="pdf-box"><div class="pdf-title">Заметки${i===0?' · '+esc(C.name):''}</div><div class="pdf-lines"></div></div>`).join('')}</div></section>
     <section class="pdf-page pdf-page14 p14-page4" data-sheet-page="4">
@@ -1244,7 +1278,7 @@ function renderSheet(){
 }
 
 function renderSheet2024(){
-  const race=raceOf(), sub=subraceOf(), game=C.game||{}, saves=saveMods();
+  const race=raceOf(), sub=subraceOf(), game=C.game||{}, saves=saveMods(), appearance=C.appearance||{};
   const clsText=C.classes.map(c=>`${CLASSES[c.cls].name} ${c.lvl}`).join(' / ');
   const subText=C.classes.map(c=>SUBCLASSES[c.sub]?.name?`${CLASSES[c.cls].name}: ${SUBCLASSES[c.sub].name}`:'').filter(Boolean).join(' / ');
   const ability=(id,name)=>`<div class="pdf-box p24-ability"><div class="p24-ability-head"><strong>${name}</strong><span class="p24-mod">${fmtMod(am(id))}</span></div><div class="pdf-small">Значение ${abil(id)} · спасбросок ${fmtMod(saves[id].mod)}</div>${SKILLS.filter(x=>x[2]===id).map(([skillId,skillName])=>`<div class="p24-skill"><i class="p24-check${profSkills().includes(skillId)?' on':''}"></i><b>${fmtMod(skillMod(skillId))}</b><span>${skillName}</span></div>`).join('')}</div>`;
@@ -1273,12 +1307,12 @@ function renderSheet2024(){
           <div class="pdf-box p24-weapons"><div class="pdf-title">оружие и боевые заговоры</div><table class="p24-table"><tr><th>название</th><th>бонус / сложность</th><th>урон / вид</th><th>заметки</th></tr>${weapons}</table></div><div class="pdf-box p24-features"><div class="pdf-title">умения и способности</div><ul>${features}</ul></div><div class="p24-notegrid"><div class="pdf-box"><div class="pdf-title">атаки и заклинания</div></div><div class="pdf-box"><div class="pdf-title">черты</div><div class="pdf-small">${[...(race.traits||[]),...(sub?.traits||[])].map(esc).join('<br>')||'—'}</div></div></div></div>
       </div>
     </section>
-    <section class="pdf-page pdf-page24 p24-page2" data-sheet-page="2"><div class="p24-frame"></div><div class="pdf-box portrait"><div class="pdf-title">портрет</div></div><div class="pdf-box allies"><div class="pdf-title">союзники и организации</div><div class="pdf-lines" style="height:92%">${esc(C.allies||'')}</div></div><div class="pdf-box goals"><div class="pdf-title">цели и задачи</div><div class="pdf-lines" style="height:93%">${esc(C.backstory||'')}</div></div><div class="pdf-box extra"><div class="pdf-title">дополнительные способности и умения</div><div class="pdf-lines" style="height:90%">${esc(C.featuresNotes||'')}</div></div><div class="pdf-box treasure"><div class="pdf-title">сокровища</div><div class="pdf-lines" style="height:90%">${esc(C.treasure||'')}</div></div></section>
+    <section class="pdf-page pdf-page24 p24-page2" data-sheet-page="2"><div class="p24-frame"></div><div class="pdf-box portrait"><div class="pdf-title">портрет</div>${C.portrait?`<img class="portrait-image" src="${esc(C.portrait)}" alt="Портрет персонажа">`:''}</div><div class="pdf-box allies"><div class="pdf-title">союзники и организации</div><div class="pdf-lines" style="height:92%">${esc(C.allies||'')}</div></div><div class="pdf-box goals"><div class="pdf-title">цели и задачи</div><div class="pdf-lines" style="height:93%">${esc(C.goals||'')}</div></div><div class="pdf-box extra"><div class="pdf-title">дополнительные способности и умения</div><div class="pdf-lines" style="height:90%">${esc(C.featuresNotes||'')}</div></div><div class="pdf-box treasure"><div class="pdf-title">сокровища</div><div class="pdf-lines" style="height:90%">${esc(C.treasure||'')}</div></div></section>
     <section class="pdf-page pdf-page24 p24-page3" data-sheet-page="3"><div class="p24-frame"></div>${Array.from({length:6},()=>`<div class="pdf-box"><div class="pdf-title">заметки</div></div>`).join('')}</section>
     <section class="pdf-page pdf-page24 p24-page4" data-sheet-page="4"><div class="p24-frame"></div>
       <div class="p24-spellhead"><div class="pdf-box p24-spell-main"><div class="pdf-cap">характеристика</div><b class="pdf-value">${casters.map(c=>ABIL_RU_FULL[CLASSES[c.cls].spellAbility]).join(', ')||''}</b><div class="pdf-title">ячейки заклинаний</div><div class="p24-slot-grid">${Array.from({length:3},(_,col)=>Array.from({length:3},(_,row)=>{const level=col*3+row+1;return `<span>${level}-й · ${slots[level-1]||0}</span>`}).join('')).join('')}</div></div>
         <div class="p24-statboxes">${[['размер',race.size],['грузоподъёмность',`${abil('str')*15} фун.`],['прыжок в высоту',`${Math.max(0,3+am('str'))} фт.`],['прыжок в длину',`${abil('str')} фт.`]].map(([label,value])=>`<div class="pdf-box p24-stat"><span class="pdf-cap">${label}</span><strong>${value}</strong></div>`).join('')}</div>
-        <div class="pdf-box p24-appearance"><div class="pdf-title">внешность</div><div class="pdf-lines"></div></div>
+        <div class="pdf-box p24-appearance"><div class="pdf-title">внешность</div><div class="pdf-small">${[['Возраст',appearance.age],['Рост',appearance.height],['Вес',appearance.weight],['Глаза',appearance.eyes],['Кожа',appearance.skin],['Волосы',appearance.hair]].filter(([,value])=>value).map(([label,value])=>`${label}: ${esc(value)}`).join(' · ')}</div><div class="pdf-lines">${esc(appearance.details||'')}</div></div>
       </div>
       <div class="p24-spellbody"><div class="pdf-box p24-spelltable"><div class="pdf-title">заговоры и подготовленные заклинания</div><div class="p24-spellrow head"><span>ур.</span><span>название</span><span>время</span><span>дистанция</span><span>конц.</span><span>ритуал</span><span>матер.</span><span>заметки</span></div>${spells.map(s=>`<div class="p24-spellrow"><span>${s.lvl===0?'0':s.lvl}</span><b>${esc(s.ru)}</b><span>${esc(s.time)}</span><span>${esc(s.range)}</span><span>◇ К</span><span>◇ Р</span><span>◇ М</span><span>${racialSpellIds.has(s.id)?'Дар расы':primalSpellIds.has(s.id)?'Изначальная осведомлённость · 1/долгий отдых без ячейки':''}</span></div>`).join('')}${spellPad}</div>
         <div class="p24-spellside"><div class="pdf-box detail"><div class="pdf-title">предыстория и личные качества</div><div class="pdf-small">${esc(C.backstory||'')}<br>${Object.values(personality).map(v=>esc(v||'')).filter(Boolean).join('<br>')}</div></div><div class="pdf-box detail"><div class="pdf-title">снаряжение</div><div class="pdf-small">${(C.inventory||[]).map(i=>`${esc(itemName(i))}${(i.qty||1)>1?' ×'+i.qty:''}`).join('<br>')}</div></div><div class="p24-coinrow">${[['ММ',0],['СМ',0],['ЗМ',C.gold||0],['ЭМ',0],['ПМ',0]].map(([name,value])=>`<div class="pdf-box"><div class="pdf-title">${name}</div><b>${value||''}</b></div>`).join('')}</div></div>

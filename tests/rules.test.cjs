@@ -724,6 +724,11 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(api.validCharacter({ name: 'Broken', classes: [{ cls: 'fighter', lvl: 1 }], inventory: [{ type: 'weapon', id: 'sword', qty: 'many' }] }), false);
   assert.equal(api.validCharacter({ ...c, asi: { asi0: { type: 'feat', id: 'lucky', bonus: 'str' } } }), false);
   assert.equal(api.validCharacter({ ...c, asi: { asi0: { type: 'asi', vals: ['str', 'str'] } } }), false);
+  const profiled = { ...c, goals: 'Найти родной дом', appearance: { ...c.appearance, age: '120 лет', details: 'Шрам над бровью' }, portrait: 'data:image/jpeg;base64,AA==' };
+  assert.equal(api.validCharacter(profiled), true);
+  assert.equal(api.validCharacter({ ...profiled, portrait: 'data:image/svg+xml;base64,PHN2Zy8+' }), false);
+  assert.equal(api.validCharacter({ ...profiled, appearance: { ...profiled.appearance, unknown: 'x' } }), false);
+  assert.equal(api.validCharacter({ ...profiled, portrait: 'data:image/jpeg;base64,' + 'A'.repeat(200000) }), false);
   const fighterWithAsi = { ...c, classes: [{ cls: 'fighter', lvl: 4, sub: 'champion' }], asi: { asi0: { type: 'asi', vals: ['str', 'str'] } } };
   assert.equal(api.validCharacter(fighterWithAsi), true);
   assert.equal(api.validCharacter({ ...fighterWithAsi, asi: { ...fighterWithAsi.asi, asi1: { type: 'asi', vals: ['dex', 'dex'] } } }), false);
@@ -738,10 +743,13 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(legacy.race, 'human');
   assert.equal(legacy.bg, 'soldier');
   assert.equal(legacy.abilityMethod, 'standard');
-  assert.equal(legacy.schemaVersion, 3);
+  assert.equal(legacy.schemaVersion, 4);
   assert.equal(Object.hasOwn(legacy, 'injected'), false);
   assert.ok(Array.isArray(legacy.extraLangs));
   assert.ok(legacy.racialSpells && typeof legacy.racialSpells === 'object');
+  assert.deepEqual({ ...legacy.appearance }, { age: '', height: '', weight: '', eyes: '', skin: '', hair: '', details: '' });
+  assert.equal(legacy.goals, '');
+  assert.equal(legacy.portrait, '');
   assert.equal(api.validCharacter(legacy), true);
   const legacyStyles = api.migrate({ name: 'Старый воин', classes: [{ cls: 'fighter', lvl: 10, sub: 'champion' }], choices: { fightingStyle: 'defense', fightingStyle2: 'dueling' } });
   assert.equal(legacyStyles.choices.fightingStyles.fighter, 'defense');
@@ -885,6 +893,22 @@ test('2024 sheet renders four printable pages with character data', () => {
   assert.match(html, /Test hero/);
   assert.match(html, /Героическое вдохновение/);
   assert.doesNotMatch(html, /Long Story Short/);
+});
+
+test('character goals, appearance, and portrait fill matching sheet fields', () => {
+  const c = character();
+  c.goals = 'Найти родной дом';
+  c.appearance = { ...c.appearance, age: '120 лет', height: '170 см', eyes: 'зелёные', details: 'Шрам над бровью' };
+  c.portrait = 'data:image/jpeg;base64,AA==';
+  api.setChar(c);
+  const sheet2024 = api.renderSheet2024();
+  assert.match(sheet2024, /Найти родной дом/);
+  assert.match(sheet2024, /120 лет/);
+  assert.match(sheet2024, /Шрам над бровью/);
+  assert.match(sheet2024, /<img class="portrait-image" src="data:image\/jpeg;base64,AA=="/);
+  const sheet2014 = api.renderSheet2014();
+  assert.match(sheet2014, /Найти родной дом/);
+  assert.match(sheet2014, /170 см/);
 });
 
 test('2024 sheet separates species/subspecies from class/subclass in its header', () => {

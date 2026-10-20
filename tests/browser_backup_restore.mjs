@@ -15,6 +15,7 @@ const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'dnd-backup-e2e-'));
 const backupPath = path.join(profile, 'backup.json');
 const singlePath = path.join(profile, 'single-character.json');
 const duplicateIdsPath = path.join(profile, 'duplicate-ids-backup.json');
+const portraitPath = path.join(profile, 'portrait.png');
 const maliciousIdPath = path.join(profile, 'malicious-id-backup.json');
 const maliciousLanguagePath = path.join(profile, 'malicious-language-backup.json');
 const invalidSpellPath = path.join(profile, 'invalid-spell-character.json');
@@ -53,6 +54,13 @@ try {
     if (result.exceptionDetails) throw new Error(result.exceptionDetails.text);
     return result.result?.value;
   };
+  const waitForCondition = async expression => {
+    for (let i = 0; i < 100; i++) {
+      await sleep(100);
+      if (await evaluate(expression)) return true;
+    }
+    return false;
+  };
   ws.addEventListener('message', event => {
     const message = JSON.parse(event.data);
     if (message.id && pending.has(message.id)) {
@@ -77,12 +85,20 @@ try {
   await send('Page.navigate', { url: appUrl });
   await loaded;
 
-  await evaluate("createChar();C.name='Backup E2E';C.extraLangs=['Эльфийский'];persist()");
+  const portraitData = await evaluate(`(()=>{const canvas=document.createElement('canvas');canvas.width=2;canvas.height=2;const ctx=canvas.getContext('2d');ctx.fillStyle='#724';ctx.fillRect(0,0,2,2);return canvas.toDataURL('image/png')})()`);
+  fs.writeFileSync(portraitPath, Buffer.from(portraitData.split(',')[1], 'base64'));
+  await evaluate("createChar();C.name='Backup E2E';C.goals='Найти родной дом';C.appearance.age='120 лет';C.extraLangs=['Эльфийский'];persist()");
+  const documentRoot = await send('DOM.getDocument');
+  const portraitInput = await send('DOM.querySelector', { nodeId: documentRoot.root.nodeId, selector: '#portraitFile' });
+  if (!portraitInput.nodeId) throw new Error('Portrait upload input not found');
+  await send('DOM.setFileInputFiles', { files: [portraitPath], nodeId: portraitInput.nodeId });
+  const portraitLoaded = await waitForCondition(`C?.portrait?.startsWith('data:image/jpeg;base64,')&&C.portrait.length<=200000&&!!document.querySelector('.sheet-portrait-preview')`);
+  if (!portraitLoaded) throw new Error('Portrait was not compressed and saved');
   const reloaded = waitFor('Page.loadEventFired');
   await send('Page.reload', { ignoreCache: true });
   await reloaded;
-  const restoredSession = await evaluate(`(()=>({name:C?.name,id:C?.id,tab:TAB,library:LIB.length,language:C?.extraLangs?.[0]}))()`);
-  if (restoredSession.name !== 'Backup E2E' || restoredSession.tab !== 'main' || restoredSession.library !== 1 || restoredSession.language !== 'Эльфийский') throw new Error('Current character did not survive page reload');
+  const restoredSession = await evaluate(`(()=>({name:C?.name,id:C?.id,tab:TAB,library:LIB.length,language:C?.extraLangs?.[0],goal:C?.goals,age:C?.appearance?.age,portrait:C?.portrait?.startsWith('data:image/jpeg;base64,')}))()`);
+  if (restoredSession.name !== 'Backup E2E' || restoredSession.tab !== 'main' || restoredSession.library !== 1 || restoredSession.language !== 'Эльфийский' || restoredSession.goal !== 'Найти родной дом' || restoredSession.age !== '120 лет' || !restoredSession.portrait) throw new Error('Character data and portrait did not survive page reload');
 
   await evaluate(`(()=>{
     const create=URL.createObjectURL.bind(URL);
@@ -117,13 +133,7 @@ try {
     const nodeId = await findImportInput();
     await send('DOM.setFileInputFiles', { files: [file], nodeId });
   };
-  const waitForCondition = async expression => {
-    for (let i = 0; i < 100; i++) {
-      await sleep(100);
-      if (await evaluate(expression)) return true;
-    }
-    return false;
-  };
+
 
   dialogResponses.push(false);
   const canceled = waitFor('Page.javascriptDialogOpening');

@@ -1,4 +1,5 @@
-const CHARACTER_SCHEMA=3;
+const CHARACTER_SCHEMA=4;
+const MAX_PORTRAIT_DATA=200000;
 function newChar(){
   const ab={};ABILS.forEach(([k])=>ab[k]=10);
   const ab8={};ABILS.forEach(([k])=>ab8[k]=8);
@@ -16,7 +17,7 @@ function newChar(){
     cantrips:{}, spellsKnown:{}, spellsPrepared:{}, spellbook:[], arcanum:{}, racialSpells:{},
     equipChoice:{}, goldMode:'equipment', gold:0, inventory:[], attunement:['','',''],
     game:{hpCur:null,hpTemp:0,hdUsed:0,slotsUsed:{},pactUsed:0,resources:{},dsOk:0,dsFail:0,conditions:'',notes:'',insp:false,exh:0},
-    personality:{traits:'',ideals:'',bonds:'',flaws:''}, allies:'', backstory:'', treasure:'', featuresNotes:'',
+    personality:{traits:'',ideals:'',bonds:'',flaws:''}, allies:'', backstory:'', goals:'', appearance:{age:'',height:'',weight:'',eyes:'',skin:'',hair:'',details:''}, portrait:'', treasure:'', featuresNotes:'',
     created:Date.now(), updated:Date.now()
   };
 }
@@ -75,6 +76,7 @@ function migrate(ch){
   });
   m.game={...d.game,...(ch.game||{})};
   m.personality={...d.personality,...(ch.personality||{})};
+  m.appearance={...d.appearance,...(isRecord(ch.appearance)?ch.appearance:{})};
   m.choices={...d.choices,...(isRecord(ch.choices)?ch.choices:{})};
   m.race=RACES[m.race]?m.race:d.race;
   m.bg=BACKGROUNDS[m.bg]?m.bg:d.bg;
