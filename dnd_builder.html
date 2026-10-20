@@ -3126,7 +3126,7 @@ function renderGame(){
         <span>Провалы: ${[0,1,2].map(i=>`<span class="pip fail${g.dsFail>i?' on':''}" onclick="C.game.dsFail=${g.dsFail>i?i:i+1};persist();render()"></span>`).join('')}</span>
       </div>
       <label class="chk"><input type="checkbox" ${g.insp?'checked':''} onchange="C.game.insp=this.checked;persist()"> Вдохновение</label>
-      <label>Истощение (0–6)<input type="number" min="0" max="6" value="${g.exh||0}" onchange="C.game.exh=Math.min(6,Math.max(0,+this.value||0));persist();render()"></label>
+      <label>Истощение (0–6)<input type="number" min="0" max="6" value="${esc(g.exh||0)}" onchange="C.game.exh=Math.min(6,Math.max(0,+this.value||0));persist();render()"></label>
     </div>
     <div class="card">
       <h3>Ячейки заклинаний</h3>
@@ -3184,7 +3184,7 @@ function drawGameTrackers(){
     const el=document.querySelector(`[data-res="${r.id}"]`);
     if(el){
       const used=(g.resources||{})[r.id]||0;
-      el.innerHTML=Array.from({length:Math.min(r.max,30)},(_,k)=>`<span class="pip${k<used?' on':''}" onclick="useRes('${r.id}',${k})"></span>`).join('')+(r.max>30?` <span class="muted">${used}/${r.max}</span>`:'');
+      el.innerHTML=Array.from({length:Math.min(r.max,30)},(_,k)=>`<span class="pip${k<used?' on':''}" onclick="useRes('${r.id}',${k})"></span>`).join('')+(r.max>30?` <span class="muted">${esc(used)}/${r.max}</span>`:'');
     }
   });
 }

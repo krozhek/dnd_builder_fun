@@ -22,8 +22,9 @@ const localStorage = {
 const context = vm.createContext({
   localStorage,
   document: {
-    querySelector: selector => selector === '#spellNoResults' ? dom.empty : selector === '#modal' ? dom.modal : null,
+    querySelector: selector => selector === '#spellNoResults' ? dom.empty : selector === '#modal' ? dom.modal : selector.startsWith('[data-res=') ? dom.resource : null,
     querySelectorAll: selector => selector === '.spell-row' ? dom.rows : selector === '.spell-lvl' ? dom.levels : [],
+    getElementById: () => null,
   },
   console: { error() {} },
   alerts,
@@ -41,7 +42,7 @@ globalThis.api = {
   renderMain, renderHome, renderEquip, renderGame, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
   attacksHtml,
-  shortRest,
+  shortRest, drawGameTrackers,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
   addClass, changeClass, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
@@ -939,7 +940,10 @@ test('untrusted import identifiers and languages cannot become executable markup
 
 test('untrusted game values are rejected and escaped by sheet renderers', () => {
   const c = character();
+  c.classes = [{ cls: 'paladin', lvl: 7, sub: 'devotion' }];
   c.game.hpCur = '<img src=x onerror="window.__xss=true">';
+  c.game.exh = '<img src=x onerror="window.__xss=true">';
+  c.game.resources.layhands = '<img src=x onerror="window.__xss=true">';
   assert.equal(api.validCharacter(c), false);
   api.setChar(c);
   const outputs = [api.renderGame(), api.renderSheet2014(), api.renderSheet2024()];
@@ -947,6 +951,11 @@ test('untrusted game values are rejected and escaped by sheet renderers', () => 
     assert.doesNotMatch(output, /<img src=x onerror=/);
     assert.match(output, /&lt;img src=x onerror=/);
   }
+  dom.resource = { innerHTML: '' };
+  api.drawGameTrackers();
+  assert.doesNotMatch(dom.resource.innerHTML, /<img src=x onerror=/);
+  assert.match(dom.resource.innerHTML, /&lt;img src=x onerror=/);
+  dom.resource = null;
 });
 
 test('sheet selector keeps 2014 as default and offers 2024', () => {
