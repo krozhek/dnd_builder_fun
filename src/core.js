@@ -364,7 +364,7 @@ function classMaxSpellLevel(c){
   const type=spellTypeOf(c);
   if(type==='pact')return TABLES.warlock.pactLevel[c.lvl-1]||0;
   if(!type)return 0;
-  const slots=(type==='third'?TABLES.wizard:TABLES[c.cls]).slots?.[c.lvl-1]||[];
+  const slots=TABLES[c.cls].slots?.[c.lvl-1]||[];
   let level=0;slots.forEach((count,index)=>{if(count>0)level=index+1});return level;
 }
 function classKnownLimit(c){

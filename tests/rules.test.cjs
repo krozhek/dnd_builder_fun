@@ -495,7 +495,12 @@ test('third-caster class levels expose their own cantrip and known spell progres
   api.setChar(c);
   assert.match(api.renderSpells(), /Заговоры — 0\/2/);
   assert.match(api.renderSpells(), /Известные заклинания — 0\/3/);
+  c.spellsKnown.fighter = ['scorching_ray'];
+  api.setChar(c);
+  assert.equal(api.validCharacter(c), false);
+  assert.doesNotMatch(api.renderSpells(), /Палящий луч/);
   c.classes = [{ cls: 'rogue', lvl: 3, sub: 'arcanetrickster' }];
+  c.spellsKnown = {};
   api.setChar(c);
   assert.match(api.renderSpells(), /Заговоры — 0\/3/);
   assert.match(api.renderSpells(), /Известные заклинания — 0\/3/);
