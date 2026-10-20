@@ -1032,6 +1032,20 @@ test('2024 sheet adds continuation pages when the spell list exceeds one page', 
   assert.match(html, new RegExp(`<b>${wizardSpells[35].ru.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}<\\/b>`));
 });
 
+test('warlock expanded spell lists offer choices but do not grant spells automatically', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 1, sub: 'fiend' }];
+  api.setChar(c);
+  assert.equal(api.domainSpellsOf(c.classes[0]).length, 0);
+  assert.match(api.renderSpells(), /Огненные ладони/);
+  assert.doesNotMatch(api.renderSheet2024(), /<b>Огненные ладони<\/b>/);
+
+  c.spellsKnown.warlock = ['burning_hands'];
+  api.setChar(c);
+  assert.equal(api.validCharacter(c), true);
+  assert.match(api.renderSheet2024(), /<b>Огненные ладони<\/b>[\s\S]*?<span>Известно<\/span>/);
+});
+
 test('2024 sheet separates species/subspecies from class/subclass in its header', () => {
   const c = character();
   c.race = 'elf';

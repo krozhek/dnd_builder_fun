@@ -382,7 +382,11 @@ function spellClassAllowed(c,id){
   return Object.entries(expanded).some(([level,ids])=>+level<=classMaxSpellLevel(c)&&ids.includes(id));
 }
 function spellcasterClasses(){return C.classes.filter(c=>spellTypeOf(c))}
-function spellsForClass(cls,lvl){const l=(cls==='fighter'||cls==='rogue')?'wizard':cls;return SPELLS.filter(s=>s.lvl===lvl&&s.cls.includes(l))}
+function spellsForClass(cls,lvl){
+  const listClass=cls==='fighter'||cls==='rogue'?'wizard':cls,base=SPELLS.filter(s=>s.lvl===lvl&&s.cls.includes(listClass));
+  const caster=C.classes.find(c=>c.cls===cls),expanded=(SUBCLASSES[caster?.sub]?.expSpells||{})[lvl]||[];
+  return [...new Set([...base.map(s=>s.id),...expanded])].map(id=>SPELLS.find(s=>s.id===id)).filter(Boolean);
+}
 
 // КД
 function activeFightingStyleKeys(){

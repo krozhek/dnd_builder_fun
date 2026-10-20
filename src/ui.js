@@ -811,9 +811,6 @@ function domainSpellsOf(c){
   if(sub&&sub.oathSpells){
     Object.entries(sub.oathSpells).forEach(([plLvl,ids])=>{if(c.lvl>=+plLvl)ids.forEach(id=>{const s=byId(id);if(s&&!out.includes(s))out.push(s)})});
   }
-  if(sub&&sub.expSpells){
-    Object.entries(sub.expSpells).forEach(([splLvl,ids])=>{if(maxSpellLvlFor(c)>=+splLvl)ids.forEach(id=>{const s=byId(id);if(s&&!out.includes(s))out.push(s)})});
-  }
   if(c.cls==='druid'&&c.sub==='land'&&C.choices.druidLand){
     const cs=SUBCLASSES.land.circleSpells[C.choices.druidLand]||{};
     Object.entries(cs).forEach(([druidLvl,ids])=>{if(c.lvl>=+druidLvl)ids.forEach(id=>{const s=byId(id);if(s&&!out.includes(s))out.push(s)})});
