@@ -237,7 +237,7 @@ function validSkillChoices(ch){
 }
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
 function validCharacter(ch,enforceRules=true){
-  if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
+  if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||enforceRules&&ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
   if(ch.id!=null&&ch.id!==''&&(typeof ch.id!=='string'||!CHARACTER_ID_RE.test(ch.id)))return false;
   if(ch.schemaVersion!=null&&(!Number.isInteger(ch.schemaVersion)||ch.schemaVersion<1||ch.schemaVersion>CHARACTER_SCHEMA))return false;
   if(ch.classes.some(c=>!isRecord(c)||!CLASSES[c.cls]||!Number.isInteger(c.lvl)||c.lvl<1||c.lvl>20||(c.sub!=null&&(typeof c.sub!=='string'||c.sub!==''&&SUBCLASSES[c.sub]?.cls!==c.cls))))return false;
@@ -349,7 +349,7 @@ function renderMain(){
     <div class="grid two">
       <div class="card">
         <h3>Личность</h3>
-        <label>Имя персонажа<input value="${esc(C.name)}" oninput="setText('name',this.value);updTabChar()"></label>
+        <label>Имя персонажа<input maxlength="100" value="${esc(C.name)}" oninput="setText('name',this.value);updTabChar()"></label>
         <div class="grid two">
           <label>Раса<select onchange="changeRace(this.value)">${raceOpts}</select></label>
           ${subOpts||'<span></span>'}

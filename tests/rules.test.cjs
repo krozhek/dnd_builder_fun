@@ -701,6 +701,21 @@ test('import rejects invalid skill choices but storage can still open old drafts
   storageData.delete('dnd5e2014_chars_v1');
 });
 
+test('stored long character names remain loadable while new input respects the limit', () => {
+  const c = character();
+  c.name = 'x'.repeat(101);
+  assert.equal(api.validCharacter(c), false);
+  assert.equal(api.validCharacter(c, false), true);
+  storageData.set('dnd5e2014_chars_v1', JSON.stringify([c]));
+  api.loadLib();
+  assert.equal(api.storageCorrupt, false);
+  assert.equal(api.library.length, 1);
+  api.setChar(api.library[0]);
+  assert.match(api.renderMain(), /Имя персонажа<input maxlength="100"/);
+  api.setLibrary([]);
+  storageData.delete('dnd5e2014_chars_v1');
+});
+
 test('backup libraries require unique character ids', () => {
   assert.equal(api.hasUniqueCharacterIds([{ id: 'one' }, { id: 'two' }]), true);
   assert.equal(api.hasUniqueCharacterIds([{ id: 'same' }, { id: 'same' }]), false);
