@@ -3216,10 +3216,10 @@ function spendHd(){
 }
 function shortRest(){
   const g=C.game;
-  g.slotsUsed={}; // колдун ниже — ячейки договора
   g.pactUsed=0;
-  // варлок: ячейки договора; чародей 20: 4 ед.; монах: ци
+  // колдун восстанавливает ячейки договора на коротком отдыхе
   if(g.resources){
+    if(g.resources.pact!=null)g.resources.pact=0;
     if(g.resources.ki!=null)g.resources.ki=0;
     if(g.resources.insp!=null&&C.classes.find(c=>c.cls==='bard'&&c.lvl>=5))g.resources.insp=0;
     if(g.resources.secondwind!=null)g.resources.secondwind=0;

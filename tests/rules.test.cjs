@@ -41,6 +41,7 @@ globalThis.api = {
   renderMain, renderHome, renderEquip, renderGame, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
   attacksHtml,
+  shortRest,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
   addClass, changeClass, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
@@ -699,6 +700,27 @@ test('import rejects invalid skill choices but storage can still open old drafts
   assert.match(api.renderSkills(), /Сбросить выборы навыков/);
   api.setLibrary([]);
   storageData.delete('dnd5e2014_chars_v1');
+});
+
+test('short rest preserves ordinary spell slots and restores pact slots', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 5, sub: 'evocation' }];
+  c.game.slotsUsed = { 0: 2, 1: 1 };
+  api.setChar(c);
+  api.setLibrary([c]);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.shortRest();
+  assert.deepEqual(c.game.slotsUsed, { 0: 2, 1: 1 });
+
+  c.classes = [{ cls: 'warlock', lvl: 3, sub: 'fiend' }];
+  c.game.pactUsed = 2;
+  c.game.resources.pact = 2;
+  api.shortRest();
+  assert.equal(c.game.pactUsed, 0);
+  assert.equal(c.game.resources.pact, 0);
+  api.setRenderFn(oldRender);
+  api.setLibrary([]);
 });
 
 test('stored long character names remain loadable while new input respects the limit', () => {
