@@ -245,12 +245,9 @@ function skillMod(sk){
   const [id,,ab]=SKILLS.find(s=>s[0]===sk);
   let m=am(ab);
   if(profSkills().includes(id))m+=pb()*(expertiseSkills().includes(id)?2:1);
-  // bard jack of all trades
-  const bard=C.classes.find(c=>c.cls==='bard');
-  if(bard&&bard.lvl>=2&&!profSkills().includes(id))m+=Math.floor(pb()/2);
-  // champion remarkable athlete
-  const f=C.classes.find(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=7);
-  if(f&&['str','dex','con'].includes(ab)&&!profSkills().includes(id))m+=Math.ceil(pb()/2);
+  const proficient=profSkills().includes(id),jack=C.classes.some(c=>c.cls==='bard'&&c.lvl>=2),athlete=C.classes.some(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=7);
+  if(!proficient&&athlete&&['str','dex','con'].includes(ab))m+=Math.ceil(pb()/2);
+  else if(!proficient&&jack)m+=Math.floor(pb()/2);
   return m;
 }
 function saveMods(){
@@ -269,9 +266,8 @@ function passivePerception(){return 10+skillMod('perception')+(hasFeat('observan
 function passiveInvestigation(){return 10+skillMod('investigation')+(hasFeat('observant')?5:0)}
 function initiative(){
   let bonus=am('dex');
-  // Разные классовые особенности складываются и округляют половину БМ по своим правилам.
-  if(C.classes.some(c=>c.cls==='bard'&&c.lvl>=2))bonus+=Math.floor(pb()/2);
-  if(C.classes.some(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=7))bonus+=Math.ceil(pb()/2);
+  const jack=C.classes.some(c=>c.cls==='bard'&&c.lvl>=2),athlete=C.classes.some(c=>c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=7);
+  if(jack||athlete)bonus+=athlete?Math.ceil(pb()/2):Math.floor(pb()/2);
   if(hasFeat('alert'))bonus+=5;
   return bonus;
 }

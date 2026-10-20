@@ -375,7 +375,8 @@ test('initiative includes Jack of All Trades and Remarkable Athlete bonuses', ()
 
   c.classes = [{ cls: 'bard', lvl: 2, sub: 'lore' }, { cls: 'fighter', lvl: 7, sub: 'champion' }];
   api.setChar(c);
-  assert.equal(api.initiative(), 6); // Distinct features both apply
+  assert.equal(api.initiative(), 4); // Half-proficiency features do not stack
+  assert.equal(api.skillMod('acrobatics'), 4); // Remarkable Athlete rounds the shared bonus up
 });
 
 test('Remarkable Athlete rounds half proficiency bonus up for unproficient Strength checks', () => {
