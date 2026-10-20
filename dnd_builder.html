@@ -1870,16 +1870,18 @@ function weaponDamage(w,item=null){
   const martialArts=monkMartialArtsActive()&&isMonkWeapon(w);
   if(martialArts)ab=Math.max(ab,am('dex'));
   let bonus=ab;
-  const versatile=w[5].match(/Универсальное \(([^)]+)\)/);
+  const versatile=w[5].match(/Универсальное \(([^)]+)\)/i);
   let dice=item?.grip==='two-handed'&&versatile?`${versatile[1]} ${w[3].replace(/^\S+\s*/, '')}`:w[3];
   if(martialArts){
     const die=TABLES.monk.ma[C.classes.find(c=>c.cls==='monk').lvl-1],currentDie=dice.split(' ')[0];
     if(Number(die.split('к')[1])>Number(currentDie.split('к')[1]))dice=die+dice.slice(currentDie.length);
   }
   if(w[6]==='melee'&&C.classes.some(c=>c.cls==='paladin'&&c.lvl>=11))dice+=' + 1к8 излучением';
-  if(hasFightingStyle('dueling')&&item?.wielded&&w[6]==='melee'&&!w[5].includes('Двуручное')&&!(item.grip==='two-handed'&&versatile)&&wieldedWeaponCount()===1)bonus+=2;
-  if(bonus!==0)return dice+' '+fmtMod(bonus);
-  return dice;
+  const dueling=hasFightingStyle('dueling')&&item?.wielded&&w[6]==='melee'&&!w[5].includes('Двуручное')&&wieldedWeaponCount()===1;
+  if(dueling&&!(item.grip==='two-handed'&&versatile))bonus+=2;
+  const damage=bonus!==0?dice+' '+fmtMod(bonus):dice;
+  if(!hasFightingStyle('thrown')||!w[5].includes('Метательное')||w[3]==='—')return damage;
+  return `${damage} (при броске: ${w[3]} ${fmtMod(ab+2+(dueling?2:0))})`;
 }
 
 // ресурсы классов для игрового режима

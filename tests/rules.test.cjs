@@ -111,6 +111,22 @@ test('Improved Divine Smite adds radiant damage only to paladin melee weapons at
   assert.equal(api.weaponDamage(crossbow), '1к8 колющий +2');
 });
 
+test('Thrown Weapon Fighting shows the +2 damage on the ranged-thrown attack', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'ranger', lvl: 2, sub: 'hunter' }];
+  c.choices.fightingStyles = { fighter: 'thrown', ranger: 'dueling' };
+  c.bases.manual.str = 16;
+  c.inventory = [{ type: 'weapon', id: 'javelin', qty: 1, wielded: true }];
+  api.setChar(c);
+  const javelin = api.WEAPONS.find(w => w[0] === 'javelin');
+  assert.equal(api.weaponDamage(javelin, c.inventory[0]), '1к6 колющий +5 (при броске: 1к6 колющий +7)');
+  c.inventory[0] = { type: 'weapon', id: 'spear', qty: 1, wielded: true, grip: 'two-handed' };
+  api.setChar(c);
+  const spear = api.WEAPONS.find(w => w[0] === 'spear');
+  assert.equal(api.weaponDamage(spear, c.inventory[0]), '1к8 колющий +3 (при броске: 1к6 колющий +7)');
+  assert.equal(api.weaponDamage(api.WEAPONS.find(w => w[0] === 'longsword')), '1к8 рубящий +3');
+});
+
 test('fighting styles are selected separately and readiness checks every source', () => {
   const c = character();
   c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'paladin', lvl: 2, sub: 'devotion' }];
