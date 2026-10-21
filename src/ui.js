@@ -698,18 +698,23 @@ function toggleMetamagic(id,max,on){
 // ================= Вкладка Заклинания =================
 const LVL_NAMES=['Заговоры','1 круг','2 круг','3 круг','4 круг','5 круг','6 круг','7 круг','8 круг','9 круг'];
 let SPELL_QUERY='';
+const SPELL_FILTERS={cls:'',level:'',ritual:false,concentration:false};
 function spellSearchData(s){return esc([s.ru,s.en,s.school,s.ritual?'ритуал':''].join(' ').toLocaleLowerCase('ru'))}
 function setSpellQuery(value){SPELL_QUERY=value;filterSpellRows()}
+function setSpellFilter(key,value){if(!Object.hasOwn(SPELL_FILTERS,key))return;SPELL_FILTERS[key]=value;filterSpellRows()}
 function filterSpellRows(){
-  const q=SPELL_QUERY.trim().toLocaleLowerCase('ru');
-  $$('.spell-row').forEach(row=>row.hidden=!!q&&!row.dataset.search.includes(q));
+  const q=SPELL_QUERY.trim().toLocaleLowerCase('ru'),cls=C?.classes.find(c=>c.cls===SPELL_FILTERS.cls);
+  $$('.spell-row').forEach(row=>{
+    const spell=SPELLS.find(s=>s.id===row.dataset.spellId);
+    row.hidden=!!q&&!row.dataset.search.includes(q)||SPELL_FILTERS.level!==''&&spell?.lvl!==+SPELL_FILTERS.level||SPELL_FILTERS.ritual&&!spell?.ritual||SPELL_FILTERS.concentration&&!/концентрац/i.test(spell?.dur||'')||!!SPELL_FILTERS.cls&&(!cls||!spell||spell.lvl>classMaxSpellLevel(cls)||spell.lvl===0&&!cantripLimit(cls.cls)||!spellClassAllowed(cls,spell.id));
+  });
   $$('.spell-lvl').forEach(group=>{
     const hasMatch=!!group.querySelector('.spell-row:not([hidden])');
-    group.hidden=!!q&&!hasMatch;
+    group.hidden=!!q&&!hasMatch||!!SPELL_FILTERS.cls&&!hasMatch||SPELL_FILTERS.level!==''&&!hasMatch||SPELL_FILTERS.ritual&&!hasMatch||SPELL_FILTERS.concentration&&!hasMatch;
     if(q&&hasMatch)group.open=true;
   });
-  const empty=$('#spellNoResults');
-  if(empty)empty.hidden=!q||$$('.spell-row').some(row=>!row.hidden);
+  const active=!!q||!!SPELL_FILTERS.cls||SPELL_FILTERS.level!==''||SPELL_FILTERS.ritual||SPELL_FILTERS.concentration,empty=$('#spellNoResults');
+  if(empty)empty.hidden=!active||$$('.spell-row').some(row=>!row.hidden);
 }
 function racialCantripChoices(){
   const choices=[];
@@ -738,16 +743,18 @@ function renderRacialSpells(){
   const choices=racialCantripChoices(),entries=racialSpellEntries();if(!choices.length&&!entries.length)return '';
   const abilityName=id=>ABIL_RU_FULL[id]||id;
   return `<div class="card"><h3>Заклинания, дарованные расой</h3><p class="hint">Эти заговоры и заклинания получены от вида и не расходуют лимит выбора класса.</p>
-    ${choices.map(c=>{const selected=(C.racialSpells||{})[c.key]||'',ability=(C.racialSpells||{})[c.key+'Ability']||c.defaultAbility||c.ability,spell=entries.find(e=>e.spell.id===selected);return `<h4>${c.name} — выберите один заговор</h4>${c.abilities?`<label>Базовая характеристика<select onchange="setRacialSpellAbility('${c.key}',this.value)">${c.abilities.map(a=>`<option value="${a}"${ability===a?' selected':''}>${abilityName(a)}</option>`).join('')}</select></label>`:''}<div class="spell-grid">${c.spells.map(s=>`<div class="spell-row${selected===s.id?' picked':''}" data-search="${spellSearchData(s)}"><label class="chk"><input type="radio" name="racial_${c.key}" ${selected===s.id?'checked':''} onchange="setRacialSpell('${c.key}','${s.id}')"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label><span class="tag">Дар расы</span></div>`).join('')}</div>${spell?`<p class="muted small">${abilityName(spell.ability)} · КС ${spell.saveDc} · бонус атаки ${fmtMod(spell.attackBonus)}</p>`:''}`}).join('')}
-    ${entries.filter(e=>!choices.some(c=>(C.racialSpells||{})[c.key]===e.spell.id)).map(e=>`<div class="spell-row" data-search="${spellSearchData(e.spell)}"><span class="spell-name" onclick="spellNameClick(event,'${e.spell.id}')">${esc(e.spell.ru)}</span><span class="muted small">${e.usage}${e.ability?' · '+abilityName(e.ability):''}${e.ability?` · КС ${e.saveDc} · атака ${fmtMod(e.attackBonus)}`:''}</span><span class="tag">Дар расы</span></div>`).join('')}
+    ${choices.map(c=>{const selected=(C.racialSpells||{})[c.key]||'',ability=(C.racialSpells||{})[c.key+'Ability']||c.defaultAbility||c.ability,spell=entries.find(e=>e.spell.id===selected);return `<h4>${c.name} — выберите один заговор</h4>${c.abilities?`<label>Базовая характеристика<select onchange="setRacialSpellAbility('${c.key}',this.value)">${c.abilities.map(a=>`<option value="${a}"${ability===a?' selected':''}>${abilityName(a)}</option>`).join('')}</select></label>`:''}<div class="spell-grid">${c.spells.map(s=>`<div class="spell-row${selected===s.id?' picked':''}" data-spell-id="${s.id}" data-search="${spellSearchData(s)}"><label class="chk"><input type="radio" name="racial_${c.key}" ${selected===s.id?'checked':''} onchange="setRacialSpell('${c.key}','${s.id}')"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label><span class="tag">Дар расы</span></div>`).join('')}</div>${spell?`<p class="muted small">${abilityName(spell.ability)} · КС ${spell.saveDc} · бонус атаки ${fmtMod(spell.attackBonus)}</p>`:''}`}).join('')}
+    ${entries.filter(e=>!choices.some(c=>(C.racialSpells||{})[c.key]===e.spell.id)).map(e=>`<div class="spell-row" data-spell-id="${e.spell.id}" data-search="${spellSearchData(e.spell)}"><span class="spell-name" onclick="spellNameClick(event,'${e.spell.id}')">${esc(e.spell.ru)}</span><span class="muted small">${e.usage}${e.ability?' · '+abilityName(e.ability):''}${e.ability?` · КС ${e.saveDc} · атака ${fmtMod(e.attackBonus)}`:''}</span><span class="tag">Дар расы</span></div>`).join('')}
   </div>`;
 }
 function renderSpells(){
   const casters=spellcasterClasses(),racial=renderRacialSpells();
+  if(SPELL_FILTERS.cls&&!casters.some(c=>c.cls===SPELL_FILTERS.cls))SPELL_FILTERS.cls='';
   if(!casters.length&&!racial)return `<div class="page"><h1>Заклинания</h1><p class="muted">У выбранных классов и расы нет магии.</p></div>`;
   return `<div class="page"><h1>Заклинания</h1>
   <label>Поиск по названию, языковому названию или школе<input type="search" aria-label="Поиск заклинаний" value="${esc(SPELL_QUERY)}" oninput="setSpellQuery(this.value)"></label>
-  <p id="spellNoResults" class="muted" hidden>Ничего не найдено.</p>
+  <div class="spell-filterbar"><label>Класс персонажа<select aria-label="Фильтр по классу" onchange="setSpellFilter('cls',this.value)"><option value="">Все классы</option>${casters.map(c=>`<option value="${c.cls}"${SPELL_FILTERS.cls===c.cls?' selected':''}>${esc(CLASSES[c.cls].name)} · ${c.lvl} ур.</option>`).join('')}</select></label><label>Круг<select aria-label="Фильтр по кругу" onchange="setSpellFilter('level',this.value)"><option value="">Все круги</option>${LVL_NAMES.map((name,level)=>`<option value="${level}"${SPELL_FILTERS.level===String(level)?' selected':''}>${name}</option>`).join('')}</select></label><label class="chk"><input type="checkbox"${SPELL_FILTERS.ritual?' checked':''} onchange="setSpellFilter('ritual',this.checked)">Ритуал</label><label class="chk"><input type="checkbox"${SPELL_FILTERS.concentration?' checked':''} onchange="setSpellFilter('concentration',this.checked)">Концентрация</label></div>
+  <p id="spellNoResults" class="muted" hidden>Заклинания не найдены. Измените поиск или фильтры.</p>
   ${racial}
   ${casters.map(c=>renderCasterBlock(c)).join('')}
   </div>`;
@@ -782,7 +789,7 @@ function renderCasterBlock(c){
     const sel=C.spellsKnown[cls]||[];
     const limit=knownLimit(cls),additional=cls==='ranger'?primalAwarenessSpells():[],additionalIds=additional.map(s=>s.id);
     if(cls==='ranger'){
-      if(additional.length)head+=`<h4>Изначальная осведомлённость</h4><p class="hint">Эти заклинания известны дополнительно и не входят в лимит. Каждое можно один раз наложить без ячейки до долгого отдыха.</p><div class="spell-grid">${additional.map(({id,spellLevel,spell})=>`<div class="spell-row" data-search="${spellSearchData(spell)}"><span class="spell-name" onclick="spellNameClick(event,'${id}')">${esc(spell.ru)}</span><span class="muted small">${spellLevel}-й круг</span></div>`).join('')}</div>`;
+      if(additional.length)head+=`<h4>Изначальная осведомлённость</h4><p class="hint">Эти заклинания известны дополнительно и не входят в лимит. Каждое можно один раз наложить без ячейки до долгого отдыха.</p><div class="spell-grid">${additional.map(({id,spellLevel,spell})=>`<div class="spell-row" data-spell-id="${id}" data-search="${spellSearchData(spell)}"><span class="spell-name" onclick="spellNameClick(event,'${id}')">${esc(spell.ru)}</span><span class="muted small">${spellLevel}-й круг</span></div>`).join('')}</div>`;
     }
     if(cls==='fighter'||cls==='rogue')head+=`<p class="hint">Заклинания из списка волшебника (Мистический рыцарь: преимущественно ограждение и воплощение; Мистический ловкач: очарование и иллюзия).</p>`;
     head+=`<h4>Известные заклинания — ${sel.filter(id=>!additionalIds.includes(id)).length}/${limit}</h4>`;
@@ -824,7 +831,7 @@ function spellPicker(cls,lvl,sel,limit,store,bonusIds=[]){
   <div class="spell-grid">${list.map(s=>{
     const checked=sel.includes(s.id),bonus=bonusIds.includes(s.id),caster=C.classes.find(c=>c.cls===cls);
     const unavailable=store==='spellsKnown'&&!checked&&caster&&spellTypeOf(caster)==='third'&&!thirdCasterSpellSelectionsValid(caster,[...sel,s.id]);
-    return `<div class="spell-row${checked?' picked':''}${bonus?' bonus':''}" data-search="${spellSearchData(s)}">
+    return `<div class="spell-row${checked?' picked':''}${bonus?' bonus':''}" data-spell-id="${s.id}" data-search="${spellSearchData(s)}">
       <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus||unavailable?'disabled':''}${unavailable?' title="Нет свободного выбора для этой школы заклинаний"':''} onchange="toggleSpell('${store}','${cls}',${limit},'${s.id}',this.checked)">
       <span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
       <span class="muted small">${esc(s.school)}${s.ritual?' · ритуал':''}</span>
@@ -851,7 +858,7 @@ function renderWizardSpells(c,maxLvl){
     h+=`<details class="spell-lvl" data-key="wizard-book-${l}"><summary>${LVL_NAMES[l]}</summary>
     <div class="spell-grid">${spellsForClass('wizard',l).map(s=>{
       const inBook=book.includes(s.id), prepped=prep.includes(s.id);
-      return `<div class="spell-row${inBook?' picked':''}" data-search="${spellSearchData(s)}">
+      return `<div class="spell-row${inBook?' picked':''}" data-spell-id="${s.id}" data-search="${spellSearchData(s)}">
         <label class="chk"><input type="checkbox" ${inBook?'checked':''} onchange="toggleSpellbook('${s.id}',this.checked)"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
         ${inBook?`<label class="chk prep"><input type="checkbox" ${prepped?'checked':''} onchange="toggleSpell('spellsPrepared','wizard',${limit},'${s.id}',this.checked)"> подг.</label>`:'<span class="muted small">не в книге</span>'}
       </div>`}).join('')}</div></details>`;

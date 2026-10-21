@@ -36,7 +36,7 @@ globalThis.api = {
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, hasUniqueCharacterIds,
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
-  setSpellQuery,
+  setSpellQuery, setSpellFilter,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
   renderMain, renderHome, renderEquip, renderGame, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
@@ -652,6 +652,40 @@ test('spell search filters rows and hides empty spell levels', () => {
   assert.equal(acid.hidden, false);
   assert.equal(mageArmor.hidden, false);
   assert.equal(dom.empty.hidden, true);
+});
+
+test('spell filters combine class access, circle, ritual, concentration, and text search', () => {
+  const c = character();
+  c.classes = [{ cls: 'druid', lvl: 3, sub: 'land' }];
+  api.setChar(c);
+  const rows = ['detect_magic', 'entangle', 'cure_wounds', 'acid_splash', 'call_lightning'].map(id => {
+    const spell = api.SPELLS.find(s => s.id === id);
+    return { dataset: { spellId: id, search: [spell.ru, spell.en, spell.school].join(' ').toLocaleLowerCase('ru') }, hidden: false };
+  });
+  const group = { hidden: false, open: false, querySelector: () => rows.find(row => !row.hidden) || null };
+  dom.rows = rows;
+  dom.levels = [group];
+  assert.match(api.renderSpells(), /Класс персонажа/);
+  assert.match(api.renderSpells(), /Концентрация/);
+
+  api.setSpellFilter('cls', 'druid');
+  assert.deepEqual(rows.filter(row => !row.hidden).map(row => row.dataset.spellId), ['detect_magic', 'entangle', 'cure_wounds']);
+  assert.equal(rows.find(row => row.dataset.spellId === 'call_lightning').hidden, true); // 3rd circle is above druid 3 access
+  api.setSpellFilter('concentration', true);
+  assert.deepEqual(rows.filter(row => !row.hidden).map(row => row.dataset.spellId), ['detect_magic', 'entangle']);
+  api.setSpellFilter('ritual', true);
+  assert.deepEqual(rows.filter(row => !row.hidden).map(row => row.dataset.spellId), ['detect_magic']);
+  api.setSpellFilter('level', '2');
+  assert.equal(dom.empty.hidden, false);
+  api.setSpellQuery('неизвестное');
+  assert.equal(dom.empty.hidden, false);
+  api.setSpellQuery('');
+  api.setSpellFilter('level', '');
+  api.setSpellFilter('ritual', false);
+  api.setSpellFilter('concentration', false);
+  api.setSpellFilter('cls', '');
+  dom.rows = [];
+  dom.levels = [];
 });
 
 test('clicking a spell name opens its details without selecting it', () => {
