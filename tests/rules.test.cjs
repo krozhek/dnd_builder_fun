@@ -37,6 +37,7 @@ globalThis.api = {
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
   setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
+  setCharacterAbilityMethod, setCharacterStandardAbility, stepCharacterPointAbility, setCharacterManualAbility, setCharacterRaceAsiMode, setCharacterRaceAsi, toggleCharacterHalfElfAbility, setCharacterAsiType, setCharacterAsiFeat, setCharacterAsiFeatBonus, setCharacterAsiValues, resetCharacterSkillChoices, toggleCharacterRaceSkill, toggleCharacterClassSkill, toggleCharacterExpertise,
   setSpellQuery, setSpellFilter,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
@@ -798,6 +799,38 @@ test('clicking a spell name opens its details without selecting it', () => {
   const bookPicker = api.renderWizardSpells(c, 1);
   assert.match(bookPicker, /onchange="toggleSpellbook\(/);
   assert.match(bookPicker, /onclick="spellNameClick\(event,/);
+});
+
+test('ability, feat, and proficiency choices are mutated through the state layer', () => {
+  const c = character();
+  assert.equal(api.setCharacterAbilityMethod('point'), true);
+  assert.equal(c.abilityMethod, 'point');
+  assert.equal(api.stepCharacterPointAbility('str', 1), true);
+  assert.equal(c.bases.point.str, 9);
+  assert.equal(api.setCharacterStandardAbility('dex', 15), true);
+  assert.equal(c.bases.standard.dex, 15);
+  assert.equal(c.bases.standard.str, 14); // swap the occupied standard score
+  assert.equal(api.setCharacterManualAbility('con', 99), true);
+  assert.equal(c.bases.manual.con, 18);
+
+  c.race = 'halfelf';
+  c.classes = [{ cls: 'rogue', lvl: 1, sub: 'arcanetrickster' }];
+  api.setChar(c);
+  assert.equal(api.toggleCharacterHalfElfAbility('str', true), '');
+  assert.equal(api.toggleCharacterHalfElfAbility('str', true), 'Недопустимый бонус характеристики.');
+  assert.equal(api.setCharacterAsiType(0, 'feat'), true);
+  assert.equal(api.setCharacterAsiFeat(0, 'resilient'), true);
+  assert.equal(api.setCharacterAsiFeatBonus(0, 'wis'), true);
+  assert.equal(c.asi.asi0.bonus, 'wis');
+  assert.equal(api.setCharacterAsiFeatBonus(0, 'invalid'), false);
+
+  assert.equal(api.toggleCharacterRaceSkill('arcana', true), '');
+  assert.equal(api.toggleCharacterClassSkill('rogue', 4, 'acrobatics', true), '');
+  assert.equal(api.toggleCharacterExpertise('arcana', 2, true), '');
+  assert.deepEqual(Array.from(c.raceSkills), ['arcana']);
+  assert.deepEqual(Array.from(c.classSkills.rogue), ['acrobatics']);
+  assert.deepEqual(Array.from(c.expertise), ['arcana']);
+  assert.match(api.toggleCharacterExpertise('stealth', 2, true), /только для навыка/);
 });
 
 test('ability methods enforce legal scores and the 27-point budget', () => {

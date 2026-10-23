@@ -133,3 +133,59 @@ function removeCharacterClass(index){
   if(cls==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
   pruneExpertise();return true;
 }
+function setCharacterAbilityMethod(method){if(!['standard','point','manual'].includes(method))return false;C.abilityMethod=method;return true}
+function setCharacterStandardAbility(ability,value){
+  if(!ABILS.some(([id])=>id===ability)||![15,14,13,12,10,8].includes(+value))return false;
+  const base=C.bases.standard,other=ABILS.map(([id])=>id).find(id=>id!==ability&&base[id]===+value);
+  if(other)base[other]=base[ability];base[ability]=+value;return true;
+}
+function stepCharacterPointAbility(ability,delta){
+  if(!ABILS.some(([id])=>id===ability)||![-1,1].includes(delta))return false;
+  const base=C.bases.point,value=(base[ability]??8)+delta;
+  if(value<8||value>15||delta>0&&pointBuySpent(base)-(POINT_COST[base[ability]??8]??0)+(POINT_COST[value]??0)>27)return false;
+  base[ability]=value;return true;
+}
+function setCharacterManualAbility(ability,value){if(!ABILS.some(([id])=>id===ability))return false;C.bases.manual[ability]=Math.max(3,Math.min(18,+value||10));return true}
+function setCharacterRaceAsiMode(mode){if(!raceOf().flexibleAsi||!['two','three'].includes(mode))return false;C.raceAsiMode=mode;C.raceAsiPicks=[];return true}
+function setCharacterRaceAsi(index,ability){
+  const count=C.raceAsiMode==='three'?3:2;
+  if(!raceOf().flexibleAsi||!Number.isInteger(index)||index<0||index>=count||ability&&(!ABILS.some(([id])=>id===ability)||(C.raceAsiPicks||[]).some((id,i)=>i!==index&&id===ability)))return false;
+  C.raceAsiPicks=C.raceAsiPicks||[];C.raceAsiPicks[index]=ability;return true;
+}
+function toggleCharacterHalfElfAbility(ability,on){
+  C.halfElfPicks=C.halfElfPicks||[];const choice=raceOf().asiChoice;
+  if(on){
+    if(!choice||!ABILS.some(([id])=>id===ability)||choice.exclude.includes(ability)||C.halfElfPicks.includes(ability)||C.halfElfPicks.length>=choice.count)return 'Недопустимый бонус характеристики.';
+    C.halfElfPicks.push(ability);
+  }else C.halfElfPicks=C.halfElfPicks.filter(id=>id!==ability);
+  return '';
+}
+function setCharacterAsiType(index,type){if(!Number.isInteger(index)||index<0||!['asi','feat'].includes(type))return false;C.asi['asi'+index]=type==='feat'?{type:'feat',id:'',bonus:''}:{type:'asi',vals:[]};return true}
+function setCharacterAsiFeat(index,id){if(!Number.isInteger(index)||index<0||id&&!FEATS.some(([feat])=>feat===id))return false;C.asi['asi'+index]={type:'feat',id,bonus:''};return true}
+function setCharacterAsiFeatBonus(index,ability){
+  const feat=C.asi['asi'+index],definition=FEATS.find(([id])=>id===feat?.id);
+  if(!definition?.[3]?.includes(ability))return false;feat.bonus=ability;return true;
+}
+function setCharacterAsiValues(index,values){
+  if(!Number.isInteger(index)||index<0||!Array.isArray(values)||values.length>2||values.some(id=>!ABILS.some(([ability])=>ability===id)))return false;
+  const vals=values.length===1?[values[0],values[0]]:values;C.asi['asi'+index]={type:'asi',vals};return true;
+}
+function resetCharacterSkillChoices(){C.classSkills={};C.raceSkills=[];C.expertise=[];delete C.choices.deftExplorerSkill}
+function toggleCharacterRaceSkill(id,on){
+  C.raceSkills=C.raceSkills||[];const max=raceOf().skillChoice||0;
+  if(on){if(!SKILLS.some(([skill])=>skill===id)||profSkills().includes(id))return 'Навык уже выбран из другого источника.';if(C.raceSkills.length>=max)return 'Максимум '+max;C.raceSkills.push(id)}
+  else C.raceSkills=C.raceSkills.filter(skill=>skill!==id);
+  return '';
+}
+function toggleCharacterClassSkill(cls,max,id,on){
+  C.classSkills[cls]=C.classSkills[cls]||[];
+  if(on){if(!SKILLS.some(([skill])=>skill===id))return 'Неизвестный навык.';if(profSkills().includes(id))return 'Навык уже выбран из другого источника';if(C.classSkills[cls].length>=max)return 'Максимум '+max;C.classSkills[cls].push(id)}
+  else C.classSkills[cls]=C.classSkills[cls].filter(skill=>skill!==id);
+  return '';
+}
+function toggleCharacterExpertise(id,max,on){
+  C.expertise=C.expertise||[];
+  if(on){if(!profSkills().includes(id))return 'Компетентность доступна только для навыка, которым вы владеете.';if(deftExplorerSkill()===id)return '';if(expertiseSkills().length>=max)return 'Максимум '+max;C.expertise.push(id)}
+  else C.expertise=C.expertise.filter(skill=>skill!==id);
+  return '';
+}
