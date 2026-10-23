@@ -1020,9 +1020,13 @@ test('schema migrations assign legacy spent hit dice to class levels and upgrade
 
   legacy.schemaVersion = 3;
   legacy.game.hdUsed = 1;
-  const older = api.migrate(legacy);
-  assert.equal(older.schemaVersion, 5);
-  assert.deepEqual({ ...older.game.hdUsedByClass }, { fighter: 1 });
+  for(const version of [1, 2]){
+    legacy.schemaVersion = version;
+    legacy.game.hdUsed = 1;
+    const older = api.migrate(legacy);
+    assert.equal(older.schemaVersion, 5);
+    assert.deepEqual({ ...older.game.hdUsedByClass }, { fighter: 1 });
+  }
 });
 
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {
