@@ -251,14 +251,16 @@ function skillMod(sk){
   return m;
 }
 function saveMods(){
-  const clsProf=CLASSES[C.classes[0].cls].saves,resilient=featBonusAbility('resilient');
+  const profs=new Set(CLASSES[C.classes[0].cls].saves),resilient=featBonusAbility('resilient');
+  if(C.classes.some(c=>c.cls==='monk'&&c.lvl>=14))ABILS.forEach(([a])=>profs.add(a));
+  if(C.classes.some(c=>c.cls==='rogue'&&c.lvl>=15))profs.add('wis');
+  if(resilient)profs.add(resilient);
   const out={};
   ABILS.forEach(([a])=>{
-    let m=am(a)+(clsProf.includes(a)||resilient===a?pb():0);
-    // паладин: аура защиты 6+
+    let m=am(a)+(profs.has(a)?pb():0);
     const p=C.classes.find(c=>c.cls==='paladin');
     if(p&&p.lvl>=6)m+=Math.max(1,am('cha'));
-    out[a]={mod:m,prof:clsProf.includes(a)||resilient===a};
+    out[a]={mod:m,prof:profs.has(a)};
   });
   return out;
 }
@@ -271,15 +273,25 @@ function initiative(){
   if(hasFeat('alert'))bonus+=5;
   return bonus;
 }
+function rovingActive(){
+  const armor=equippedArmor(),data=armor&&ARMORS.find(a=>a[0]===armor.id);
+  return C.classes.some(c=>c.cls==='ranger'&&c.lvl>=6&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer'))&&data?.[8]!=='heavy';
+}
 function speed(){
-  const s=subraceOf();let value=(s&&s.speed)||raceOf().speed||30;
+  const s=subraceOf(),armor=equippedArmor(),armorData=armor&&ARMORS.find(a=>a[0]===armor.id),heavy=armorData?.[8]==='heavy';
+  let value=(s&&s.speed)||raceOf().speed||30;
   const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&monk.lvl>=2&&!equippedArmor()&&!hasShield())value+=10+Math.floor((monk.lvl-2)/4)*5;
+  if(monk&&monk.lvl>=2&&!armor&&!hasShield())value+=10+Math.floor((monk.lvl-2)/4)*5;
   const barbarian=C.classes.find(c=>c.cls==='barbarian');
-  if(barbarian&&barbarian.lvl>=5){const armor=equippedArmor(),type=armor&&ARMORS.find(a=>a[0]===armor.id)?.[8];if(!armor||type!=='heavy')value+=10}
-  if(C.classes.some(c=>c.cls==='ranger'&&c.lvl>=6&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer')))value+=5;
+  if(barbarian&&barbarian.lvl>=5&&!heavy)value+=10;
+  if(rovingActive())value+=5;
   if(hasFeat('mobile'))value+=10;
+  if(heavy&&armorData[5]&&abil('str')<armorData[5])value-=10;
   return value;
+}
+function speedText(){
+  const walking=speed();
+  return `${walking} фт${rovingActive()?` · лазание/плавание ${walking} фт`:''}`;
 }
 
 // хиты

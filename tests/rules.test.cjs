@@ -32,7 +32,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
+  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, speedText, rovingActive, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, hasUniqueCharacterIds,
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -359,6 +359,17 @@ test('multiclass keeps only the starting class saving throw proficiencies', () =
   assert.equal(saves.wis.prof, false);
 });
 
+test('Diamond Soul and Slippery Mind grant their saving throw proficiencies', () => {
+  const c = character();
+  c.classes = [{ cls: 'monk', lvl: 14, sub: 'openhand' }];
+  api.setChar(c);
+  assert.ok(Object.values(api.saveMods()).every(save => save.prof));
+  c.classes = [{ cls: 'rogue', lvl: 15, sub: 'thief' }];
+  api.setChar(c);
+  assert.equal(api.saveMods().wis.prof, true);
+  assert.equal(api.saveMods().wis.mod, api.am('wis') + api.pb());
+});
+
 test('initiative includes Jack of All Trades and Remarkable Athlete bonuses', () => {
   const c = character();
   c.bases.manual.dex = 14;
@@ -598,15 +609,26 @@ test('speed includes monk, barbarian, and Deft Explorer bonuses with armor condi
   c.inventory = [{ type: 'armor', id: 'scalemail', equipped: true }];
   api.setChar(c);
   assert.equal(api.speed(), 40);
-  c.inventory = [{ type: 'armor', id: 'chainmail', equipped: true }];
+  c.inventory = [{ type: 'armor', id: 'chainmail', qty: 1, equipped: true }];
   api.setChar(c);
-  assert.equal(api.speed(), 30);
+  assert.equal(api.speed(), 20); // STR 11 < chainmail requirement 13
+  c.bases.manual.str = 15;
+  api.setChar(c);
+  assert.equal(api.speed(), 30); // meets the requirement, but heavy armor disables Fast Movement
 
   c.classes = [{ cls: 'ranger', lvl: 6, sub: 'hunter' }];
+  c.bases.manual.str = 10;
   c.inventory = [];
   c.choices.tashaFeatures = { ranger: ['deft_explorer'] };
   api.setChar(c);
   assert.equal(api.speed(), 35);
+  assert.equal(api.rovingActive(), true);
+  assert.match(api.speedText(), /лазание\/плавание 35 фт/);
+  c.inventory = [{ type: 'armor', id: 'chainmail', qty: 1, equipped: true }];
+  api.setChar(c);
+  assert.equal(api.speed(), 20); // no Roving in heavy armor; insufficient STR reduces speed
+  assert.equal(api.rovingActive(), false);
+  assert.doesNotMatch(api.speedText(), /лазание\/плавание/);
 });
 
 test('armor class includes Dexterity and an equipped shield', () => {
