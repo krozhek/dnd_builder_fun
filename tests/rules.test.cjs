@@ -1303,6 +1303,25 @@ test('lowering class levels prunes choices that are no longer available', () => 
   api.setRenderFn(oldRender);
 });
 
+test('losing a subclass or level prunes its tool choices', () => {
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  let c = character();
+  c.classes = [{ cls: 'fighter', lvl: 3, sub: 'battlemaster' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterClassTools('fighter', [api.TOOL_PROFICIENCIES[0]]), true);
+  api.changeSub(0, 'champion');
+  assert.equal(c.choices.classTools.fighter, undefined);
+
+  c = character();
+  c.classes = [{ cls: 'fighter', lvl: 3, sub: 'battlemaster' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterClassTools('fighter', [api.TOOL_PROFICIENCIES[0]]), true);
+  api.changeLvl(0, 2);
+  assert.equal(c.choices.classTools.fighter, undefined);
+  api.setRenderFn(oldRender);
+});
+
 test('race and subrace changes clear incompatible racial spell selections', () => {
   const c = character();
   c.race = 'elf';c.subrace = 'high';c.bg = 'criminal';c.extraLangs = ['Драконий'];c.racialSpells = { highelf: 'fire_bolt', highelfAbility: 'int' };

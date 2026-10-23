@@ -2339,8 +2339,17 @@ function pruneWarlockInvocations(){
   const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock'),max=warlock?TABLES.warlock.invocations[warlock.lvl-1]||0:0;
   C.choices.invocations=(C.choices.invocations||[]).filter(id=>!invocationPrerequisiteError(id,warlock)).slice(0,max);
 }
+function pruneClassTools(cls){
+  const index=C.classes.findIndex(characterClass=>characterClass.cls===cls);if(index<0)return;
+  const selected=(C.choices.classTools||{})[cls]||[],kept=[];let offset=0;
+  for(const group of classToolChoiceGroups(C.classes[index],index)){
+    kept.push(...selected.slice(offset,offset+group.count).filter(value=>group.options.includes(value)));offset+=group.count;
+  }
+  if(kept.length)C.choices.classTools[cls]=kept;else delete C.choices.classTools?.[cls];
+}
 function pruneClassLevelChoices(characterClass){
   const {cls,lvl,sub}=characterClass,selected=(C.choices.tashaFeatures||{})[cls]||[];
+  pruneClassTools(cls);
   if(selected.length){
     const eligible=selected.filter(id=>(TASHA_FEATURES[cls]||[]).some(([option,required])=>option===id&&required<=lvl));
     if(eligible.length)C.choices.tashaFeatures[cls]=eligible;else delete C.choices.tashaFeatures[cls];
@@ -2370,7 +2379,7 @@ function setCharacterLevel(index,value){
 function setCharacterSubclass(index,subclass){
   const current=C.classes[index];if(!current||current.sub===subclass)return null;
   if(subclass&&SUBCLASSES[subclass]?.cls!==current.cls)return null;
-  current.sub=subclass;
+  current.sub=subclass;pruneClassTools(current.cls);
   if(current.cls==='ranger')pruneHunterChoices(subclass==='hunter'?current.lvl:0);
   if(current.cls==='druid'&&subclass!=='land')delete C.choices.druidLand;
   if(current.cls==='sorcerer'&&subclass!=='draconic')delete C.choices.draconicType;
