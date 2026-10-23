@@ -189,3 +189,73 @@ function toggleCharacterExpertise(id,max,on){
   else C.expertise=C.expertise.filter(skill=>skill!==id);
   return '';
 }
+function priceToGold(price){const match=String(price).match(/([\d.,]+)\s*(зм|см|мм)/);if(!match)return 0;const value=parseFloat(match[1].replace(',','.'));return match[2]==='зм'?value:match[2]==='см'?value/10:value/100}
+function setCharacterEquipmentMode(mode){if(!['equipment','gold'].includes(mode))return false;C.goldMode=mode;return true}
+function setCharacterEquipmentChoice(cls,name){if(!STARTING_EQUIPMENT[cls]?.choices?.some(choice=>choice.name===name))return false;C.equipChoice[cls]=name;return true}
+function setCharacterGold(value){if(!Number.isFinite(+value))return false;C.gold=Math.max(0,+value);return true}
+function setCharacterAttunement(index,value){if(!Number.isInteger(index)||index<0||index>=3)return false;C.attunement[index]=String(value).slice(0,500);return true}
+function addCharacterItem(type,id,qty=1){
+  if(!Number.isInteger(qty)||qty<1)return false;
+  C.inventory=C.inventory||[];
+  const existing=C.inventory.find(item=>item.type===type&&item.id===id&&type!=='armor'&&type!=='shield'&&!(type==='weapon'&&item.wielded));
+  if(existing)existing.qty=(existing.qty||1)+qty;else C.inventory.push({type,id,qty,equipped:false});
+  return true;
+}
+function buyCharacterItem(type,id,cost){
+  if(C.goldMode==='gold'){
+    if(!Number.isFinite(cost)||cost<0)return 'Некорректная цена.';
+    if((C.gold||0)<cost)return 'Не хватает золота';
+    C.gold=Math.round((C.gold-cost)*100)/100;
+  }
+  addCharacterItem(type,id,1);return '';
+}
+function sellCharacterItem(index){
+  const item=C.inventory[index];if(!item)return false;
+  if(item.equipped)item.equipped=false;
+  if(C.goldMode==='gold'){
+    let price=0;
+    if(item.type==='weapon')price=priceToGold((WEAPONS.find(row=>row[0]===item.id)||[])[2]||0);
+    if(item.type==='armor'||item.type==='shield')price=priceToGold((ARMORS.find(row=>row[0]===item.id)||[])[2]||0);
+    if(item.type==='gear')price=priceToGold((GEAR.find(row=>row[0]===item.id)||[])[2]||0);
+    C.gold=Math.round(((C.gold||0)+price/2*(item.qty||1))*100)/100;
+  }
+  if((item.qty||1)>1)item.qty--;else C.inventory.splice(index,1);
+  return true;
+}
+function removeCharacterItem(index){if(!C.inventory[index])return false;C.inventory.splice(index,1);return true}
+function toggleCharacterEquipItem(index){
+  const item=C.inventory[index];if(!item||!['armor','shield'].includes(item.type))return false;
+  if(item.type==='armor'||item.type==='shield')C.inventory.forEach(other=>{if(other.type===item.type)other.equipped=false});
+  item.equipped=!item.equipped;return true;
+}
+function toggleCharacterWieldWeapon(index){
+  const item=C.inventory[index];if(!item||item.type!=='weapon')return false;
+  if(item.wielded)item.wielded=false;
+  else if((item.qty||1)>1){item.qty--;C.inventory.splice(index,0,{...item,qty:1,wielded:true,grip:'one-handed'})}
+  else item.wielded=true;
+  return true;
+}
+function setCharacterWeaponGrip(index,grip){
+  const item=C.inventory[index],weapon=item&&WEAPONS.find(row=>row[0]===item.id);
+  if(!weapon||!weapon[5].includes('Универсальное')||!['one-handed','two-handed'].includes(grip))return false;
+  item.grip=grip;return true;
+}
+function applyCharacterStartingKit(){
+  C.inventory=[];
+  C.classes.forEach(characterClass=>{
+    const equipment=STARTING_EQUIPMENT[characterClass.cls];if(!equipment)return;
+    const choice=(C.equipChoice[characterClass.cls]||'а'),selected=equipment.choices.find(item=>item.name===choice)||equipment.choices[0];
+    for(const [kind,a,b] of [...(selected?.items||[]),...(equipment.defaults||[])]){
+      if(kind==='weapon')addCharacterItem('weapon',a,typeof b==='number'?b:1);
+      else if(kind==='weaponAny'){
+        const category=a.includes('martial')?'martial':'simple',melee=a.includes('melee'),weapon=WEAPONS.find(row=>row[7]===category&&(melee?row[6]==='melee':true));
+        if(weapon)addCharacterItem('weapon',weapon[0],1);
+      }else if(kind==='armor')addCharacterItem('armor',a,1);
+      else if(kind==='shield')addCharacterItem('shield','shield',1);
+      else if(kind==='ammo'||kind==='gear')addCharacterItem('gear',a,1);
+      else if(kind==='pack')addCharacterItem('pack',a,1);
+      else if(kind==='instrument')addCharacterItem('instrument',a,1);
+    }
+  });
+  const armor=C.inventory.find(item=>item.type==='armor');if(armor)armor.equipped=true;
+}

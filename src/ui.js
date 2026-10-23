@@ -691,16 +691,16 @@ function renderEquip(){
   return `<div class="page"><h1>Снаряжение</h1>
     <div class="card"><h3>Стартовое снаряжение или золото</h3>
       <div class="row gap">
-        <button class="btn${C.goldMode==='equipment'?' primary':''}" onclick="C.goldMode='equipment';persist();render()">Комплект класса</button>
-        <button class="btn${C.goldMode==='gold'?' primary':''}" onclick="C.goldMode='gold';persist();render()">Покупка за золото</button>
+        <button class="btn${C.goldMode==='equipment'?' primary':''}" onclick="setEquipmentMode('equipment')">Комплект класса</button>
+        <button class="btn${C.goldMode==='gold'?' primary':''}" onclick="setEquipmentMode('gold')">Покупка за золото</button>
       </div>
       ${C.goldMode==='equipment'?C.classes.map(c=>{
         const se=STARTING_EQUIPMENT[c.cls];
         const opts=se?se.choices:null;
         if(!opts)return '';
-        return `<div class="row gap wrap"><b>${CLASSES[c.cls].name}:</b>${opts.map(o=>`<button class="btn sm${C.equipChoice[c.cls]===o.name?' primary':''}" onclick="C.equipChoice['${c.cls}']='${o.name}';persist();render()">${o.name}</button>`).join('')}</div>`}).join('')
+        return `<div class="row gap wrap"><b>${CLASSES[c.cls].name}:</b>${opts.map(o=>`<button class="btn sm${C.equipChoice[c.cls]===o.name?' primary':''}" onclick="setEquipmentChoice('${c.cls}','${o.name}')">${o.name}</button>`).join('')}</div>`}).join('')
       :`<div class="row gap wrap">${C.classes.map(c=>`<span>${CLASSES[c.cls].name}: <b>${STARTING_GOLD[c.cls]}</b> зм <button class="btn sm" onclick="rollGold('${c.cls}')">🎲</button></span>`).join('')}
-        <label>Текущее золото (зм)<input type="number" min="0" value="${C.gold||0}" onchange="C.gold=+this.value||0;persist();render()"></label></div>`}
+        <label>Текущее золото (зм)<input type="number" min="0" value="${C.gold||0}" onchange="setGold(this.value)"></label></div>`}
       ${C.goldMode==='equipment'?`<button class="btn" onclick="applyStartingKit()">Применить комплект в инвентарь</button>`:''}
     </div>
     <div class="grid two">
@@ -721,7 +721,7 @@ function renderEquip(){
       </div>
     </div>
     <div class="card"><h3>Настройка на магические предметы (3 слота)</h3>
-      <div class="grid three">${[0,1,2].map(i=>`<input placeholder="предмет…" value="${esc((C.attunement||[])[i]||'')}" oninput="C.attunement[${i}]=this.value;persist()">`).join('')}</div>
+      <div class="grid three">${[0,1,2].map(i=>`<input placeholder="предмет…" value="${esc((C.attunement||[])[i]||'')}" oninput="setAttunement(${i},this.value)">`).join('')}</div>
     </div>
   </div>`;
 }
@@ -742,88 +742,21 @@ function shopListHtml(q){
   return sec('weapons','🗡 Оружие',wrows)+sec('armors','🛡 Доспехи и щиты',arows)+sec('gear','🎒 Снаряжение и инструменты',grows);
 }
 function renderShop(q){const open=[...document.querySelectorAll('details.shop-sec[open]')].map(d=>d.dataset.key);$('#shopList').innerHTML=shopListHtml(q);open.forEach(k=>{const d=document.querySelector(`details.shop-sec[data-key="${k}"]`);if(d)d.open=true})}
-function priceToGold(p){ // "10 зм"/"5 см"/"1 мм" -> золото
-  const m=String(p).match(/([\d.,]+)\s*(зм|см|мм)/);
-  if(!m)return 0;
-  const v=parseFloat(m[1].replace(',','.'));
-  return m[2]==='зм'?v:m[2]==='см'?v/10:v/100;
-}
-function buyItem(type,id,price){
-  if(C.goldMode==='gold'){
-    const cost=priceToGold(price);
-    if((C.gold||0)<cost){alert('Не хватает золота');return}
-    C.gold=Math.round((C.gold-cost)*100)/100;
-  }
-  addItem(type,id,1);
-  persist();render();
-}
-function addItem(type,id,qty){
-  C.inventory=C.inventory||[];
-  const ex=C.inventory.find(i=>i.type===type&&i.id===id&&i.type!=='armor'&&i.type!=='shield'&&!(type==='weapon'&&i.wielded));
-  if(ex)ex.qty=(ex.qty||1)+qty;else C.inventory.push({type,id,qty,equipped:false});
-}
-function sellItem(i){
-  const it=C.inventory[i];
-  if(it.equipped)it.equipped=false;
-  if(C.goldMode==='gold'){
-    let p=0;
-    if(it.type==='weapon')p=priceToGold((WEAPONS.find(x=>x[0]===it.id)||[])[2]||0);
-    if(it.type==='armor'||it.type==='shield')p=priceToGold((ARMORS.find(x=>x[0]===it.id)||[])[2]||0);
-    if(it.type==='gear')p=priceToGold((GEAR.find(x=>x[0]===it.id)||[])[2]||0);
-    C.gold=Math.round(((C.gold||0)+p/2*(it.qty||1))*100)/100;
-  }
-  if((it.qty||1)>1)it.qty--;else C.inventory.splice(i,1);
-  persist();render();
-}
-function delItem(i){C.inventory.splice(i,1);persist();render()}
-function toggleEquipItem(i){
-  const it=C.inventory[i];
-  if(it.type==='armor')C.inventory.forEach(x=>{if(x.type==='armor')x.equipped=false});
-  if(it.type==='shield')C.inventory.forEach(x=>{if(x.type==='shield')x.equipped=false});
-  it.equipped=!it.equipped;persist();render();
-}
-function toggleWieldWeapon(i){
-  const it=C.inventory[i];if(!it||it.type!=='weapon')return;
-  if(it.wielded)it.wielded=false;
-  else if((it.qty||1)>1){it.qty--;C.inventory.splice(i,0,{...it,qty:1,wielded:true,grip:'one-handed'})}
-  else it.wielded=true;
-  persist();render();
-}
-function setWeaponGrip(i,grip){
-  const it=C.inventory[i],w=it&&WEAPONS.find(x=>x[0]===it.id);
-  if(!w||!w[5].includes('Универсальное')||!['one-handed','two-handed'].includes(grip))return;
-  it.grip=grip;persist();render();
-}
+function buyItem(type,id,price){const error=buyCharacterItem(type,id,priceToGold(price));if(error){alert(error);return}persist();render()}
+function sellItem(index){if(sellCharacterItem(index)){persist();render()}}
+function delItem(index){if(removeCharacterItem(index)){persist();render()}}
+function toggleEquipItem(index){if(toggleCharacterEquipItem(index)){persist();render()}}
+function toggleWieldWeapon(index){if(toggleCharacterWieldWeapon(index)){persist();render()}}
+function setWeaponGrip(index,grip){if(setCharacterWeaponGrip(index,grip)){persist();render()}}
+function setEquipmentMode(mode){if(setCharacterEquipmentMode(mode)){persist();render()}}
+function setEquipmentChoice(cls,name){if(setCharacterEquipmentChoice(cls,name)){persist();render()}}
+function setGold(value){if(setCharacterGold(value)){persist();render()}}
+function setAttunement(index,value){if(setCharacterAttunement(index,value))persist()}
 function applyStartingKit(){
   if(!confirm('Добавить стартовое снаряжение классов в инвентарь?'))return;
-  C.inventory=[];
-  C.classes.forEach(c=>{
-    const choice=(C.equipChoice[c.cls]||'а');
-    const se=STARTING_EQUIPMENT[c.cls];
-    if(!se)return;
-    const opts=se.choices;
-    const chosen=opts.find(o=>o.name===choice)||opts[0];
-    const all=[...(chosen?chosen.items:[]),...(se.defaults||[])];
-    all.forEach(entry=>{
-      const [kind,a,b]=entry;
-      if(kind==='weapon')addItem('weapon',a,typeof b==='number'?b:1);
-      else if(kind==='weaponAny'){ // берём первый подходящий
-        const [cat,melee]=[a.includes('martial')?'martial':'simple',a.includes('melee')];
-        const w=WEAPONS.find(x=>x[7]===cat&&(melee?x[6]==='melee':true));
-        if(w)addItem('weapon',w[0],1);
-      }
-      else if(kind==='armor')addItem('armor',a,1);
-      else if(kind==='shield')addItem('shield','shield',1);
-      else if(kind==='ammo')addItem('gear',a,1);
-      else if(kind==='gear')addItem('gear',a,1);
-      else if(kind==='pack')addItem('pack',a,1);
-      else if(kind==='instrument')addItem('instrument',a,1);
-    });
-  });
-  // надеть первый доспех
-  const arm=C.inventory.find(i=>i.type==='armor');if(arm)arm.equipped=true;
-  persist();render();
+  applyCharacterStartingKit();persist();render();
 }
+
 function attacksHtml(){
   const weapons=(C.inventory||[]).filter(i=>i.type==='weapon');
   const monk=C.classes.find(c=>c.cls==='monk');

@@ -38,6 +38,7 @@ globalThis.api = {
   primalAwarenessSpells, knownLimit,
   setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
   setCharacterAbilityMethod, setCharacterStandardAbility, stepCharacterPointAbility, setCharacterManualAbility, setCharacterRaceAsiMode, setCharacterRaceAsi, toggleCharacterHalfElfAbility, setCharacterAsiType, setCharacterAsiFeat, setCharacterAsiFeatBonus, setCharacterAsiValues, resetCharacterSkillChoices, toggleCharacterRaceSkill, toggleCharacterClassSkill, toggleCharacterExpertise,
+  setCharacterEquipmentMode, setCharacterEquipmentChoice, setCharacterGold, setCharacterAttunement, priceToGold, addCharacterItem, buyCharacterItem, sellCharacterItem, removeCharacterItem, toggleCharacterEquipItem, toggleCharacterWieldWeapon, setCharacterWeaponGrip, applyCharacterStartingKit,
   setSpellQuery, setSpellFilter,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
@@ -639,6 +640,39 @@ test('speed includes monk, barbarian, and Deft Explorer bonuses with armor condi
   assert.equal(api.speed(), 25); // STR 11 < chainmail requirement 13; Roving still grants +5 ft
   assert.equal(api.rovingActive(), true);
   assert.match(api.speedText(), /лазание\/плавание 25 фт/);
+});
+
+test('equipment and currency changes are owned by the state layer', () => {
+  const c = character();
+  c.goldMode = 'gold';
+  c.gold = 3;
+  api.setChar(c);
+  assert.equal(api.buyCharacterItem('weapon', 'dagger', api.priceToGold('2 зм')), '');
+  assert.equal(c.gold, 1);
+  assert.deepEqual(Array.from(c.inventory, item => item.id), ['dagger']);
+  assert.match(api.buyCharacterItem('weapon', 'shortsword', 5), /Не хватает золота/);
+  assert.equal(c.inventory.length, 1);
+  assert.equal(api.sellCharacterItem(0), true);
+  assert.equal(c.gold, 2);
+  assert.equal(c.inventory.length, 0);
+
+  c.inventory = [
+    { type: 'armor', id: 'leather', qty: 1, equipped: true },
+    { type: 'armor', id: 'chainmail', qty: 1, equipped: false },
+  ];
+  api.setChar(c);
+  assert.equal(api.toggleCharacterEquipItem(1), true);
+  assert.deepEqual(Array.from(c.inventory, item => item.equipped), [false, true]);
+  assert.equal(api.setCharacterAttunement(1, 'Кольцо'), true);
+  assert.equal(c.attunement[1], 'Кольцо');
+  assert.equal(api.setCharacterGold(-5), true);
+  assert.equal(c.gold, 0);
+
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  api.setChar(c);
+  api.applyCharacterStartingKit();
+  assert.ok(c.inventory.length > 0);
+  assert.ok(c.inventory.some(item => item.type === 'armor' && item.equipped));
 });
 
 test('armor class includes Dexterity and an equipped shield', () => {
