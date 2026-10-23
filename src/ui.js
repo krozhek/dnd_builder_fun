@@ -4,7 +4,7 @@ function setTab(t){TAB=t;render();window.scrollTo(0,0)}
 function setField(k,v){C[k]=v;persist()}
 function setText(k,v){C[k]=v;persist()} // без ререндера
 function setNested(k,sub,v){C[k][sub]=v;persist()}
-function setChoice(k,v){C.choices[k]=v;persist();render()}
+function setChoice(k,v){if(setCharacterChoice(k,v)){persist();render()}}
 function toggleTheme(){THEME=THEME==='dark'?'light':'dark';writeStorage(LS_THEME,THEME);applyTheme()}
 function applyTheme(){document.documentElement.dataset.theme=THEME;const b=$('#themeBtn');if(b)b.textContent=THEME==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема'}
 
@@ -146,7 +146,7 @@ function importJson(inp){
 
 // ---------- Основное ----------
 function languageChoiceCount(){const mode=C.choices.deftExplorerMode;return baseLanguageChoiceCount()+(deftExplorerActive()?(mode==='two_languages'?2:mode==='language_tool'?1:0):0)}
-function setExtraLang(index,value){C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;persist();render()}
+function setExtraLang(index,value){if(setCharacterExtraLanguage(index,value)){persist();render()}}
 function languageChoiceFields(){
   const r=raceOf(),langs=C.extraLangs||[],base=baseLanguageChoiceCount();
   return Array.from({length:languageChoiceCount()},(_,i)=>{
@@ -164,15 +164,8 @@ function classToolChoiceFields(c,index){
     return `<label>${group.label}<select multiple size="${Math.min(4,group.options.length)}" onchange="setClassToolChoices('${c.cls}',this)">${group.options.map(tool=>`<option value="${esc(tool)}"${selected.includes(tool)?' selected':''}>${esc(tool)}</option>`).join('')}</select><span class="muted small">Выбрано ${selected.length}/${count}</span></label>`;
   }).join('');
 }
-function setBackgroundToolChoices(index,select){
-  const groups=backgroundToolChoiceGroups().choices;
-  C.choices.backgroundTools=C.choices.backgroundTools||[];
-  C.choices.backgroundTools[index]=groups[index]?.options.includes(select.value)?select.value:'';persist();render();
-}
-function setClassToolChoices(cls,select){
-  const index=C.classes.findIndex(c=>c.cls===cls),groups=index<0?[]:classToolChoiceGroups(C.classes[index],index),max=groups.reduce((n,g)=>n+g.count,0);
-  C.choices.classTools=C.choices.classTools||{};C.choices.classTools[cls]=[...select.selectedOptions].map(option=>option.value).slice(0,max);persist();render();
-}
+function setBackgroundToolChoices(index,select){if(setCharacterBackgroundTool(index,select.value)){persist();render()}}
+function setClassToolChoices(cls,select){if(setCharacterClassTools(cls,[...select.selectedOptions].map(option=>option.value))){persist();render()}}
 function renderMain(){
   const r=raceOf(), s=subraceOf();
   const raceOpts=Object.entries(RACES).map(([id,x])=>`<option value="${id}"${C.race===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
@@ -419,18 +412,22 @@ function toggleRaceSkill(id,on){const error=toggleCharacterRaceSkill(id,on);if(e
 function toggleClassSkill(cls,max,id,on){const error=toggleCharacterClassSkill(cls,max,id,on);if(error){alert(error);render();return}persist();render()}
 function toggleExpertise(id,max,on){const error=toggleCharacterExpertise(id,max,on);if(error){alert(error);render();return}persist();render()}
 // ================= Вкладка Класс =================
+function updateTashaChoice(cls,change){
+  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
+  if(!change())return;
+  persist();render();
+  if(wasOpen){const details=$(selector);if(details)details.open=true}
+}
+function toggleTashaFeature(cls,id,on){updateTashaChoice(cls,()=>toggleCharacterTashaFeature(cls,id,on))}
+function setDeftExplorerSkill(skill){updateTashaChoice('ranger',()=>setCharacterDeftExplorerSkill(skill))}
+function setDeftExplorerMode(mode){updateTashaChoice('ranger',()=>setCharacterDeftExplorerMode(mode))}
+function setDeftExplorerTool(tool){updateTashaChoice('ranger',()=>setCharacterDeftExplorerTool(tool))}
+function setHunterChoice(level,id){if(setCharacterHunterChoice(level,id)){persist();render()}}
 function availableFightingStyles(key,options){
   const styles=C.choices.fightingStyles||{},used=new Set(activeFightingStyleKeys().filter(other=>other!==key).map(other=>styles[other]).filter(Boolean));
   return options.filter(([id])=>id===styles[key]||!used.has(id));
 }
-function setFightingStyle(key,value){
-  const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
-  if(!options||!activeFightingStyleKeys().includes(key)||value&&!options.some(([id])=>id===value))return;
-  C.choices.fightingStyles=C.choices.fightingStyles||{};
-  if(value&&activeFightingStyleKeys().some(other=>other!==key&&C.choices.fightingStyles[other]===value)){alert('Боевой стиль уже выбран.');render();return}
-  if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];
-  persist();render();
-}
+function setFightingStyle(key,value){const result=setCharacterFightingStyle(key,value);if(result===false)return;if(result){alert(result);render();return}persist();render()}
 function renderClass(){
   return `<div class="page"><h1>Класс и умения</h1>
   ${C.classes.map((c,i)=>{
@@ -451,7 +448,7 @@ function renderClass(){
       ${c.cls==='sorcerer'&&c.lvl>=3?sorcererChoices(c):''}
       ${sub&&sub.choices?Object.entries(sub.choices).map(([lvl,block])=>{
         if(c.lvl<+lvl)return '';
-        return `<label>${block.name} (${lvl} ур.)<select onchange="C.choices['hunter_${lvl}']=this.value;persist();render()"><option value="">—</option>${block.opts.map(([id,d])=>`<option value="${id}"${C.choices['hunter_'+lvl]===id?' selected':''}>${d}</option>`).join('')}</select></label>`}).join(''):''}
+        return `<label>${block.name} (${lvl} ур.)<select onchange="setHunterChoice(${lvl},this.value)"><option value="">—</option>${block.opts.map(([id,d])=>`<option value="${id}"${C.choices['hunter_'+lvl]===id?' selected':''}>${d}</option>`).join('')}</select></label>`}).join(''):''}
       <h4>Умения</h4>
       <ul class="feats">${cl.feats.filter(([l,n])=>l<=c.lvl&&!replaced.includes(n)).map(([l,n,d])=>`<li><b>${l} ур. ${n}.</b> ${esc(d)}</li>`).join('')}
       ${sub?sub.feats.filter(([l])=>l<=c.lvl).map(([l,n,d])=>`<li class="sub-feat"><b>${l} ур. ${n}</b> <span class="tag">${esc(sub.name)}</span><br>${esc(d)}</li>`).join(''):''}
@@ -474,24 +471,14 @@ function warlockChoices(c){
   ${c.lvl>=2?`<div class="hint">Мистические откровения: ${inv.length}/${invMax}</div>
   <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''} onchange="toggleInvocation('${id}',${invMax},this.checked)"> ${d}</label>`).join('')}</div>`:''}`;
 }
-function toggleInvocation(id,max,on){
-  C.choices.invocations=C.choices.invocations||[];
-  if(on){if(C.choices.invocations.length>=max){alert('Максимум '+max);render();return}C.choices.invocations.push(id)}
-  else C.choices.invocations=C.choices.invocations.filter(x=>x!==id);
-  persist();render();
-}
+function toggleInvocation(id,max,on){const error=toggleCharacterInvocation(id,max,on);if(error){alert(error);render();return}persist();render()}
 function sorcererChoices(c){
   const max=c.lvl>=17?4:c.lvl>=10?3:2;
   const sel=C.choices.metamagic||[];
   return `<div class="hint">Метамагия: ${sel.length}/${max}</div>
   <div class="row gap wrap col-list">${METAMAGIC.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${sel.includes(id)?'checked':''} onchange="toggleMetamagic('${id}',${max},this.checked)"> ${d}</label>`).join('')}</div>`;
 }
-function toggleMetamagic(id,max,on){
-  C.choices.metamagic=C.choices.metamagic||[];
-  if(on){if(C.choices.metamagic.length>=max){alert('Максимум '+max);render();return}C.choices.metamagic.push(id)}
-  else C.choices.metamagic=C.choices.metamagic.filter(x=>x!==id);
-  persist();render();
-}
+function toggleMetamagic(id,max,on){const error=toggleCharacterMetamagic(id,max,on);if(error){alert(error);render();return}persist();render()}
 
 // ================= Вкладка Заклинания =================
 const LVL_NAMES=['Заговоры','1 круг','2 круг','3 круг','4 круг','5 круг','6 круг','7 круг','8 круг','9 круг'];

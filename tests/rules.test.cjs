@@ -39,6 +39,7 @@ globalThis.api = {
   setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
   setCharacterAbilityMethod, setCharacterStandardAbility, stepCharacterPointAbility, setCharacterManualAbility, setCharacterRaceAsiMode, setCharacterRaceAsi, toggleCharacterHalfElfAbility, setCharacterAsiType, setCharacterAsiFeat, setCharacterAsiFeatBonus, setCharacterAsiValues, resetCharacterSkillChoices, toggleCharacterRaceSkill, toggleCharacterClassSkill, toggleCharacterExpertise,
   setCharacterEquipmentMode, setCharacterEquipmentChoice, setCharacterGold, setCharacterAttunement, priceToGold, addCharacterItem, buyCharacterItem, sellCharacterItem, removeCharacterItem, toggleCharacterEquipItem, toggleCharacterWieldWeapon, setCharacterWeaponGrip, applyCharacterStartingKit,
+  setCharacterBackgroundTool, setCharacterClassTools, setCharacterExtraLanguage, setCharacterChoice, setCharacterHunterChoice, setCharacterFightingStyle, toggleCharacterInvocation, toggleCharacterMetamagic, toggleCharacterTashaFeature, setCharacterDeftExplorerSkill, setCharacterDeftExplorerMode, setCharacterDeftExplorerTool,
   setCharacterGameField, changeCharacterHp, setCharacterFullHp, setCharacterDeathSaves, toggleCharacterTracker, reduceCharacterHitDiceUsed, spendCharacterHitDie, shortRestCharacter, longRestCharacter,
   setSpellQuery, setSpellFilter,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
@@ -1675,6 +1676,41 @@ test('clearing Deft Explorer mode removes only its extra language and tool choic
   assert.equal(api.languageChoiceCount(), 1);
   assert.equal(c.extraLangs.length, 1);
   api.setRenderFn(oldRender);
+});
+
+test('class feature and proficiency choices are handled by the state layer', () => {
+  const c = character();
+  c.classes = [{ cls: 'ranger', lvl: 3, sub: 'hunter' }];
+  c.classSkills.ranger = ['survival'];
+  api.setChar(c);
+  assert.equal(api.setCharacterChoice('favoredEnemy', 'Драконы'), true);
+  assert.equal(api.setCharacterChoice('favoredEnemy', 'invalid'), false);
+  assert.equal(api.setCharacterHunterChoice(3, 'colossus'), true);
+  assert.equal(api.setCharacterHunterChoice(3, 'invalid'), false);
+  assert.equal(api.toggleCharacterTashaFeature('ranger', 'deft_explorer', true), true);
+  assert.equal(api.setCharacterDeftExplorerSkill('survival'), true);
+  assert.equal(api.setCharacterDeftExplorerMode('language_tool'), true);
+  assert.equal(api.setCharacterDeftExplorerTool(api.TOOL_PROFICIENCIES[0]), true);
+  assert.equal(api.toggleCharacterTashaFeature('ranger', 'deft_explorer', false), true);
+  assert.equal(c.choices.deftExplorerMode, undefined);
+  assert.equal(c.choices.deftExplorerTool, undefined);
+
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterFightingStyle('fighter', 'dueling'), '');
+  assert.equal(api.setCharacterFightingStyle('fighter', 'invalid'), false);
+
+  c.classes = [{ cls: 'warlock', lvl: 2, sub: 'fiend' }];
+  api.setChar(c);
+  assert.equal(api.toggleCharacterInvocation('armor', 1, true), '');
+  assert.match(api.toggleCharacterInvocation('beast', 1, true), /Максимум/);
+  assert.equal(api.toggleCharacterInvocation('invalid', 2, true).includes('Недоступное'), true);
+
+  c.classes = [{ cls: 'sorcerer', lvl: 3, sub: 'wildsorc' }];
+  api.setChar(c);
+  assert.equal(api.toggleCharacterMetamagic('careful', 2, true), '');
+  assert.equal(api.toggleCharacterMetamagic('distant', 2, true), '');
+  assert.match(api.toggleCharacterMetamagic('empowered', 2, true), /Максимум/);
 });
 
 test('Tasha Canny language and tool alternatives count toward readiness and character sheets', () => {

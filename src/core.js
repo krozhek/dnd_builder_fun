@@ -534,48 +534,12 @@ function primalAwarenessSpells(){
   return PRIMAL_AWARENESS_SPELLS.filter(([level])=>ranger.lvl>=level).map(([level,id,spellLevel])=>{const spell=SPELLS.find(s=>s.id===id);return {level,id,name:spell.ru,spellLevel,spell}});
 }
 function chosenTashaFeatures(){const features=C.classes.flatMap(c=>selectedTashaFeatures(c).map(f=>({cls:c.cls,lvl:f[1],name:f[2]+' (Таша)',desc:f[3]})));if(C.choices.pactBoon==='talisman')features.push({cls:'warlock',lvl:3,name:'Талисман договора (Таша)',desc:'Носитель может добавить к4 к проверке характеристики; число применений = БМ за долгий отдых.'});return features}
-function updateTashaChoice(cls,update){
-  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
-  update();persist();render();
-  if(wasOpen){const details=$(selector);if(details)details.open=true}
-}
-function toggleTashaFeature(cls,id,on){
-  C.choices.tashaFeatures=C.choices.tashaFeatures||{};
-  updateTashaChoice(cls,()=>{
-    const selected=new Set(C.choices.tashaFeatures[cls]||[]);
-    if(on)selected.add(id);else selected.delete(id);
-    C.choices.tashaFeatures[cls]=[...selected];
-    if(cls==='ranger'&&id==='deft_explorer'){
-      if(on)C.choices.deftExplorerMode='';
-      else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount())}
-    }
-  });
-}
 function tashaFeaturePicker(c){
   const options=TASHA_FEATURES[c.cls]||[];if(!options.length)return '';
   const selected=(C.choices.tashaFeatures||{})[c.cls]||[];
   const activeDeft=c.cls==='ranger'&&selected.includes('deft_explorer'),mode=C.choices.deftExplorerMode||'',knownTools=toolProficiencies();
   const deftExplorer=activeDeft?`<div class="card"><label>Навык для компетентности<select onchange="setDeftExplorerSkill(this.value)"><option value="">— выберите владение —</option>${profSkills().map(id=>`<option value="${id}"${C.choices.deftExplorerSkill===id?' selected':''}>${SKILLS.find(s=>s[0]===id)?.[1]||id}</option>`).join('')}</select></label><label>Дополнительные владения<select onchange="setDeftExplorerMode(this.value)"><option value="">— выберите вариант —</option><option value="two_languages"${mode==='two_languages'?' selected':''}>Два языка</option><option value="language_tool"${mode==='language_tool'?' selected':''}>Один язык и один инструмент</option></select></label>${mode==='language_tool'?`<label>Инструмент<select onchange="setDeftExplorerTool(this.value)"><option value="">— выберите —</option>${TOOL_PROFICIENCIES.filter(t=>!knownTools.includes(t)||t===C.choices.deftExplorerTool).map(t=>`<option${C.choices.deftExplorerTool===t?' selected':''}>${t}</option>`).join('')}</select></label>`:''}${mode==='two_languages'?'<p class="muted small">Языки выберите на вкладке «Основное».</p>':mode==='language_tool'?'<p class="muted small">Язык выберите на вкладке «Основное».</p>':''}</div>`:'';
   return `<details data-tasha-features="${c.cls}"><summary>Умения из «Котла Таши» · выбрано ${selectedTashaFeatures(c).length}</summary>${deftExplorer}<div class="col-list">${options.map(([id,lvl,name,desc])=>`<label class="chk wide"><input type="checkbox" ${selected.includes(id)?'checked':''}${lvl>c.lvl?' disabled':''} onchange="toggleTashaFeature('${c.cls}','${id}',this.checked)"><span><b>${name}</b> (${lvl} ур.) <span class="tag">Таша</span><br><span class="muted small">${desc}</span></span></label>`).join('')}</div><p class="muted small">Выбор сохраняется; компетентность «Искусного исследователя» применяется автоматически, остальные эффекты не пересчитываются.</p></details>`;
-}
-function setDeftExplorerSkill(skill){
-  if(!deftExplorerActive()||skill&&!profSkills().includes(skill))return;
-  updateTashaChoice('ranger',()=>{C.choices.deftExplorerSkill=skill;if(skill)C.expertise=(C.expertise||[]).filter(id=>id!==skill)});
-}
-function setDeftExplorerMode(mode){
-  if(!deftExplorerActive())return;
-  mode=mode||'';
-  if(mode&&!['two_languages','language_tool'].includes(mode))return;
-  updateTashaChoice('ranger',()=>{
-    const base=baseLanguageChoiceCount(),langs=C.extraLangs||[],count=mode==='two_languages'?2:mode==='language_tool'?1:0;
-    C.extraLangs=mode?Array.from({length:base+count},(_,i)=>langs[i]||''):langs.slice(0,base);
-    if(mode)C.choices.deftExplorerMode=mode;else delete C.choices.deftExplorerMode;
-    if(mode!=='language_tool')delete C.choices.deftExplorerTool;
-  });
-}
-function setDeftExplorerTool(tool){
-  if(!deftExplorerActive()||C.choices.deftExplorerMode!=='language_tool'||tool&&!TOOL_PROFICIENCIES.includes(tool)||tool&&tool!==C.choices.deftExplorerTool&&toolProficiencies().includes(tool))return;
-  updateTashaChoice('ranger',()=>{if(tool)C.choices.deftExplorerTool=tool;else delete C.choices.deftExplorerTool});
 }
 // классовые умения, доступные на уровне
 function availableFeats(){

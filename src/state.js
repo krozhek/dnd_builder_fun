@@ -259,6 +259,81 @@ function applyCharacterStartingKit(){
   });
   const armor=C.inventory.find(item=>item.type==='armor');if(armor)armor.equipped=true;
 }
+function setCharacterBackgroundTool(index,value){
+  const groups=backgroundToolChoiceGroups().choices;if(!Number.isInteger(index)||index<0||index>=groups.length)return false;
+  C.choices.backgroundTools=C.choices.backgroundTools||[];C.choices.backgroundTools[index]=groups[index].options.includes(value)?value:'';return true;
+}
+function setCharacterClassTools(cls,values){
+  const index=C.classes.findIndex(characterClass=>characterClass.cls===cls);if(index<0||!Array.isArray(values))return false;
+  const groups=classToolChoiceGroups(C.classes[index],index),max=groups.reduce((sum,group)=>sum+group.count,0),options=groups.flatMap(group=>group.options);
+  C.choices.classTools=C.choices.classTools||{};C.choices.classTools[cls]=values.filter(value=>options.includes(value)).slice(0,max);return true;
+}
+function setCharacterExtraLanguage(index,value){
+  if(!Number.isInteger(index)||index<0||index>=languageChoiceCount()||value&&!LANGS.includes(value))return false;
+  const used=[...(raceOf().langs||[]),...(C.extraLangs||[]).filter((lang,i)=>i!==index&&lang)];if(value&&used.includes(value))return false;
+  C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;return true;
+}
+function setCharacterChoice(key,value){
+  const allowed={favoredEnemy:FAVORED_ENEMIES,favoredTerrain:FAVORED_TERRAIN,druidLand:Object.keys(SUBCLASSES.land.lands),draconicType:['black','blue','brass','bronze','copper','gold','green','red','silver','white'],pactBoon:['blade','chain','tome','talisman']};
+  if(!allowed[key]||value&&!allowed[key].includes(value))return false;
+  const available=key==='favoredEnemy'||key==='favoredTerrain'?C.classes.some(characterClass=>characterClass.cls==='ranger'):key==='druidLand'?C.classes.some(characterClass=>characterClass.cls==='druid'&&characterClass.sub==='land'&&characterClass.lvl>=2):key==='draconicType'?C.classes.some(characterClass=>characterClass.cls==='sorcerer'&&characterClass.sub==='draconic'):C.classes.some(characterClass=>characterClass.cls==='warlock'&&characterClass.lvl>=3);
+  if(!available)return false;
+  if(value)C.choices[key]=value;else delete C.choices[key];return true;
+}
+function setCharacterHunterChoice(level,id){
+  const current=C.classes.find(characterClass=>characterClass.cls==='ranger'),choice=SUBCLASSES[current?.sub]?.choices?.[level];
+  if(!choice||current.lvl<+level||id&&!choice.opts.some(([option])=>option===id))return false;
+  const key='hunter_'+level;if(id)C.choices[key]=id;else delete C.choices[key];return true;
+}
+function setCharacterFightingStyle(key,value){
+  const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
+  if(!options||!activeFightingStyleKeys().includes(key)||value&&!options.some(([id])=>id===value))return false;
+  const styles=C.choices.fightingStyles||{};
+  if(value&&activeFightingStyleKeys().some(other=>other!==key&&styles[other]===value))return 'Боевой стиль уже выбран.';
+  C.choices.fightingStyles=C.choices.fightingStyles||{};if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];return '';
+}
+function toggleCharacterInvocation(id,max,on){
+  if(!C.classes.some(characterClass=>characterClass.cls==='warlock'&&characterClass.lvl>=2)||!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
+  const selected=C.choices.invocations||[];
+  if(on){if(selected.includes(id))return '';if(selected.length>=max)return 'Максимум '+max;C.choices.invocations=[...selected,id]}
+  else C.choices.invocations=selected.filter(option=>option!==id);
+  return '';
+}
+function toggleCharacterMetamagic(id,max,on){
+  if(!C.classes.some(characterClass=>characterClass.cls==='sorcerer'&&characterClass.lvl>=3)||!METAMAGIC.some(([option])=>option===id))return 'Недоступное умение Метамагии.';
+  const selected=C.choices.metamagic||[];
+  if(on){if(selected.includes(id))return '';if(selected.length>=max)return 'Максимум '+max;C.choices.metamagic=[...selected,id]}
+  else C.choices.metamagic=selected.filter(option=>option!==id);
+  return '';
+}
+function toggleCharacterTashaFeature(cls,id,on){
+  const characterClass=C.classes.find(entry=>entry.cls===cls),feature=(TASHA_FEATURES[cls]||[]).find(([option])=>option===id);
+  if(!characterClass||!feature||feature[1]>characterClass.lvl)return false;
+  C.choices.tashaFeatures=C.choices.tashaFeatures||{};
+  const selected=new Set(C.choices.tashaFeatures[cls]||[]);if(on)selected.add(id);else selected.delete(id);C.choices.tashaFeatures[cls]=[...selected];
+  if(cls==='ranger'&&id==='deft_explorer'){
+    if(on)C.choices.deftExplorerMode='';
+    else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount())}
+  }
+  return true;
+}
+function setCharacterDeftExplorerSkill(skill){
+  if(!deftExplorerActive()||skill&&!profSkills().includes(skill))return false;
+  C.choices.deftExplorerSkill=skill;if(skill)C.expertise=(C.expertise||[]).filter(id=>id!==skill);return true;
+}
+function setCharacterDeftExplorerMode(mode){
+  if(!deftExplorerActive())return false;mode=mode||'';
+  if(mode&&!['two_languages','language_tool'].includes(mode))return false;
+  const base=baseLanguageChoiceCount(),langs=C.extraLangs||[],count=mode==='two_languages'?2:mode==='language_tool'?1:0;
+  C.extraLangs=mode?Array.from({length:base+count},(_,i)=>langs[i]||''):langs.slice(0,base);
+  if(mode)C.choices.deftExplorerMode=mode;else delete C.choices.deftExplorerMode;
+  if(mode!=='language_tool')delete C.choices.deftExplorerTool;
+  return true;
+}
+function setCharacterDeftExplorerTool(tool){
+  if(!deftExplorerActive()||C.choices.deftExplorerMode!=='language_tool'||tool&&!TOOL_PROFICIENCIES.includes(tool)||tool&&tool!==C.choices.deftExplorerTool&&toolProficiencies().includes(tool))return false;
+  if(tool)C.choices.deftExplorerTool=tool;else delete C.choices.deftExplorerTool;return true;
+}
 function setCharacterGameField(field,value){
   const game=C.game;
   if(field==='hpTemp'){const n=Number(value);if(!Number.isFinite(n))return false;game.hpTemp=Math.max(0,n)}

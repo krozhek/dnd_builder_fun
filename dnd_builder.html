@@ -1977,48 +1977,12 @@ function primalAwarenessSpells(){
   return PRIMAL_AWARENESS_SPELLS.filter(([level])=>ranger.lvl>=level).map(([level,id,spellLevel])=>{const spell=SPELLS.find(s=>s.id===id);return {level,id,name:spell.ru,spellLevel,spell}});
 }
 function chosenTashaFeatures(){const features=C.classes.flatMap(c=>selectedTashaFeatures(c).map(f=>({cls:c.cls,lvl:f[1],name:f[2]+' (Таша)',desc:f[3]})));if(C.choices.pactBoon==='talisman')features.push({cls:'warlock',lvl:3,name:'Талисман договора (Таша)',desc:'Носитель может добавить к4 к проверке характеристики; число применений = БМ за долгий отдых.'});return features}
-function updateTashaChoice(cls,update){
-  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
-  update();persist();render();
-  if(wasOpen){const details=$(selector);if(details)details.open=true}
-}
-function toggleTashaFeature(cls,id,on){
-  C.choices.tashaFeatures=C.choices.tashaFeatures||{};
-  updateTashaChoice(cls,()=>{
-    const selected=new Set(C.choices.tashaFeatures[cls]||[]);
-    if(on)selected.add(id);else selected.delete(id);
-    C.choices.tashaFeatures[cls]=[...selected];
-    if(cls==='ranger'&&id==='deft_explorer'){
-      if(on)C.choices.deftExplorerMode='';
-      else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount())}
-    }
-  });
-}
 function tashaFeaturePicker(c){
   const options=TASHA_FEATURES[c.cls]||[];if(!options.length)return '';
   const selected=(C.choices.tashaFeatures||{})[c.cls]||[];
   const activeDeft=c.cls==='ranger'&&selected.includes('deft_explorer'),mode=C.choices.deftExplorerMode||'',knownTools=toolProficiencies();
   const deftExplorer=activeDeft?`<div class="card"><label>Навык для компетентности<select onchange="setDeftExplorerSkill(this.value)"><option value="">— выберите владение —</option>${profSkills().map(id=>`<option value="${id}"${C.choices.deftExplorerSkill===id?' selected':''}>${SKILLS.find(s=>s[0]===id)?.[1]||id}</option>`).join('')}</select></label><label>Дополнительные владения<select onchange="setDeftExplorerMode(this.value)"><option value="">— выберите вариант —</option><option value="two_languages"${mode==='two_languages'?' selected':''}>Два языка</option><option value="language_tool"${mode==='language_tool'?' selected':''}>Один язык и один инструмент</option></select></label>${mode==='language_tool'?`<label>Инструмент<select onchange="setDeftExplorerTool(this.value)"><option value="">— выберите —</option>${TOOL_PROFICIENCIES.filter(t=>!knownTools.includes(t)||t===C.choices.deftExplorerTool).map(t=>`<option${C.choices.deftExplorerTool===t?' selected':''}>${t}</option>`).join('')}</select></label>`:''}${mode==='two_languages'?'<p class="muted small">Языки выберите на вкладке «Основное».</p>':mode==='language_tool'?'<p class="muted small">Язык выберите на вкладке «Основное».</p>':''}</div>`:'';
   return `<details data-tasha-features="${c.cls}"><summary>Умения из «Котла Таши» · выбрано ${selectedTashaFeatures(c).length}</summary>${deftExplorer}<div class="col-list">${options.map(([id,lvl,name,desc])=>`<label class="chk wide"><input type="checkbox" ${selected.includes(id)?'checked':''}${lvl>c.lvl?' disabled':''} onchange="toggleTashaFeature('${c.cls}','${id}',this.checked)"><span><b>${name}</b> (${lvl} ур.) <span class="tag">Таша</span><br><span class="muted small">${desc}</span></span></label>`).join('')}</div><p class="muted small">Выбор сохраняется; компетентность «Искусного исследователя» применяется автоматически, остальные эффекты не пересчитываются.</p></details>`;
-}
-function setDeftExplorerSkill(skill){
-  if(!deftExplorerActive()||skill&&!profSkills().includes(skill))return;
-  updateTashaChoice('ranger',()=>{C.choices.deftExplorerSkill=skill;if(skill)C.expertise=(C.expertise||[]).filter(id=>id!==skill)});
-}
-function setDeftExplorerMode(mode){
-  if(!deftExplorerActive())return;
-  mode=mode||'';
-  if(mode&&!['two_languages','language_tool'].includes(mode))return;
-  updateTashaChoice('ranger',()=>{
-    const base=baseLanguageChoiceCount(),langs=C.extraLangs||[],count=mode==='two_languages'?2:mode==='language_tool'?1:0;
-    C.extraLangs=mode?Array.from({length:base+count},(_,i)=>langs[i]||''):langs.slice(0,base);
-    if(mode)C.choices.deftExplorerMode=mode;else delete C.choices.deftExplorerMode;
-    if(mode!=='language_tool')delete C.choices.deftExplorerTool;
-  });
-}
-function setDeftExplorerTool(tool){
-  if(!deftExplorerActive()||C.choices.deftExplorerMode!=='language_tool'||tool&&!TOOL_PROFICIENCIES.includes(tool)||tool&&tool!==C.choices.deftExplorerTool&&toolProficiencies().includes(tool))return;
-  updateTashaChoice('ranger',()=>{if(tool)C.choices.deftExplorerTool=tool;else delete C.choices.deftExplorerTool});
 }
 // классовые умения, доступные на уровне
 function availableFeats(){
@@ -2535,6 +2499,81 @@ function applyCharacterStartingKit(){
   });
   const armor=C.inventory.find(item=>item.type==='armor');if(armor)armor.equipped=true;
 }
+function setCharacterBackgroundTool(index,value){
+  const groups=backgroundToolChoiceGroups().choices;if(!Number.isInteger(index)||index<0||index>=groups.length)return false;
+  C.choices.backgroundTools=C.choices.backgroundTools||[];C.choices.backgroundTools[index]=groups[index].options.includes(value)?value:'';return true;
+}
+function setCharacterClassTools(cls,values){
+  const index=C.classes.findIndex(characterClass=>characterClass.cls===cls);if(index<0||!Array.isArray(values))return false;
+  const groups=classToolChoiceGroups(C.classes[index],index),max=groups.reduce((sum,group)=>sum+group.count,0),options=groups.flatMap(group=>group.options);
+  C.choices.classTools=C.choices.classTools||{};C.choices.classTools[cls]=values.filter(value=>options.includes(value)).slice(0,max);return true;
+}
+function setCharacterExtraLanguage(index,value){
+  if(!Number.isInteger(index)||index<0||index>=languageChoiceCount()||value&&!LANGS.includes(value))return false;
+  const used=[...(raceOf().langs||[]),...(C.extraLangs||[]).filter((lang,i)=>i!==index&&lang)];if(value&&used.includes(value))return false;
+  C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;return true;
+}
+function setCharacterChoice(key,value){
+  const allowed={favoredEnemy:FAVORED_ENEMIES,favoredTerrain:FAVORED_TERRAIN,druidLand:Object.keys(SUBCLASSES.land.lands),draconicType:['black','blue','brass','bronze','copper','gold','green','red','silver','white'],pactBoon:['blade','chain','tome','talisman']};
+  if(!allowed[key]||value&&!allowed[key].includes(value))return false;
+  const available=key==='favoredEnemy'||key==='favoredTerrain'?C.classes.some(characterClass=>characterClass.cls==='ranger'):key==='druidLand'?C.classes.some(characterClass=>characterClass.cls==='druid'&&characterClass.sub==='land'&&characterClass.lvl>=2):key==='draconicType'?C.classes.some(characterClass=>characterClass.cls==='sorcerer'&&characterClass.sub==='draconic'):C.classes.some(characterClass=>characterClass.cls==='warlock'&&characterClass.lvl>=3);
+  if(!available)return false;
+  if(value)C.choices[key]=value;else delete C.choices[key];return true;
+}
+function setCharacterHunterChoice(level,id){
+  const current=C.classes.find(characterClass=>characterClass.cls==='ranger'),choice=SUBCLASSES[current?.sub]?.choices?.[level];
+  if(!choice||current.lvl<+level||id&&!choice.opts.some(([option])=>option===id))return false;
+  const key='hunter_'+level;if(id)C.choices[key]=id;else delete C.choices[key];return true;
+}
+function setCharacterFightingStyle(key,value){
+  const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
+  if(!options||!activeFightingStyleKeys().includes(key)||value&&!options.some(([id])=>id===value))return false;
+  const styles=C.choices.fightingStyles||{};
+  if(value&&activeFightingStyleKeys().some(other=>other!==key&&styles[other]===value))return 'Боевой стиль уже выбран.';
+  C.choices.fightingStyles=C.choices.fightingStyles||{};if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];return '';
+}
+function toggleCharacterInvocation(id,max,on){
+  if(!C.classes.some(characterClass=>characterClass.cls==='warlock'&&characterClass.lvl>=2)||!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
+  const selected=C.choices.invocations||[];
+  if(on){if(selected.includes(id))return '';if(selected.length>=max)return 'Максимум '+max;C.choices.invocations=[...selected,id]}
+  else C.choices.invocations=selected.filter(option=>option!==id);
+  return '';
+}
+function toggleCharacterMetamagic(id,max,on){
+  if(!C.classes.some(characterClass=>characterClass.cls==='sorcerer'&&characterClass.lvl>=3)||!METAMAGIC.some(([option])=>option===id))return 'Недоступное умение Метамагии.';
+  const selected=C.choices.metamagic||[];
+  if(on){if(selected.includes(id))return '';if(selected.length>=max)return 'Максимум '+max;C.choices.metamagic=[...selected,id]}
+  else C.choices.metamagic=selected.filter(option=>option!==id);
+  return '';
+}
+function toggleCharacterTashaFeature(cls,id,on){
+  const characterClass=C.classes.find(entry=>entry.cls===cls),feature=(TASHA_FEATURES[cls]||[]).find(([option])=>option===id);
+  if(!characterClass||!feature||feature[1]>characterClass.lvl)return false;
+  C.choices.tashaFeatures=C.choices.tashaFeatures||{};
+  const selected=new Set(C.choices.tashaFeatures[cls]||[]);if(on)selected.add(id);else selected.delete(id);C.choices.tashaFeatures[cls]=[...selected];
+  if(cls==='ranger'&&id==='deft_explorer'){
+    if(on)C.choices.deftExplorerMode='';
+    else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount())}
+  }
+  return true;
+}
+function setCharacterDeftExplorerSkill(skill){
+  if(!deftExplorerActive()||skill&&!profSkills().includes(skill))return false;
+  C.choices.deftExplorerSkill=skill;if(skill)C.expertise=(C.expertise||[]).filter(id=>id!==skill);return true;
+}
+function setCharacterDeftExplorerMode(mode){
+  if(!deftExplorerActive())return false;mode=mode||'';
+  if(mode&&!['two_languages','language_tool'].includes(mode))return false;
+  const base=baseLanguageChoiceCount(),langs=C.extraLangs||[],count=mode==='two_languages'?2:mode==='language_tool'?1:0;
+  C.extraLangs=mode?Array.from({length:base+count},(_,i)=>langs[i]||''):langs.slice(0,base);
+  if(mode)C.choices.deftExplorerMode=mode;else delete C.choices.deftExplorerMode;
+  if(mode!=='language_tool')delete C.choices.deftExplorerTool;
+  return true;
+}
+function setCharacterDeftExplorerTool(tool){
+  if(!deftExplorerActive()||C.choices.deftExplorerMode!=='language_tool'||tool&&!TOOL_PROFICIENCIES.includes(tool)||tool&&tool!==C.choices.deftExplorerTool&&toolProficiencies().includes(tool))return false;
+  if(tool)C.choices.deftExplorerTool=tool;else delete C.choices.deftExplorerTool;return true;
+}
 function setCharacterGameField(field,value){
   const game=C.game;
   if(field==='hpTemp'){const n=Number(value);if(!Number.isFinite(n))return false;game.hpTemp=Math.max(0,n)}
@@ -2606,7 +2645,7 @@ function setTab(t){TAB=t;render();window.scrollTo(0,0)}
 function setField(k,v){C[k]=v;persist()}
 function setText(k,v){C[k]=v;persist()} // без ререндера
 function setNested(k,sub,v){C[k][sub]=v;persist()}
-function setChoice(k,v){C.choices[k]=v;persist();render()}
+function setChoice(k,v){if(setCharacterChoice(k,v)){persist();render()}}
 function toggleTheme(){THEME=THEME==='dark'?'light':'dark';writeStorage(LS_THEME,THEME);applyTheme()}
 function applyTheme(){document.documentElement.dataset.theme=THEME;const b=$('#themeBtn');if(b)b.textContent=THEME==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема'}
 
@@ -2748,7 +2787,7 @@ function importJson(inp){
 
 // ---------- Основное ----------
 function languageChoiceCount(){const mode=C.choices.deftExplorerMode;return baseLanguageChoiceCount()+(deftExplorerActive()?(mode==='two_languages'?2:mode==='language_tool'?1:0):0)}
-function setExtraLang(index,value){C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;persist();render()}
+function setExtraLang(index,value){if(setCharacterExtraLanguage(index,value)){persist();render()}}
 function languageChoiceFields(){
   const r=raceOf(),langs=C.extraLangs||[],base=baseLanguageChoiceCount();
   return Array.from({length:languageChoiceCount()},(_,i)=>{
@@ -2766,15 +2805,8 @@ function classToolChoiceFields(c,index){
     return `<label>${group.label}<select multiple size="${Math.min(4,group.options.length)}" onchange="setClassToolChoices('${c.cls}',this)">${group.options.map(tool=>`<option value="${esc(tool)}"${selected.includes(tool)?' selected':''}>${esc(tool)}</option>`).join('')}</select><span class="muted small">Выбрано ${selected.length}/${count}</span></label>`;
   }).join('');
 }
-function setBackgroundToolChoices(index,select){
-  const groups=backgroundToolChoiceGroups().choices;
-  C.choices.backgroundTools=C.choices.backgroundTools||[];
-  C.choices.backgroundTools[index]=groups[index]?.options.includes(select.value)?select.value:'';persist();render();
-}
-function setClassToolChoices(cls,select){
-  const index=C.classes.findIndex(c=>c.cls===cls),groups=index<0?[]:classToolChoiceGroups(C.classes[index],index),max=groups.reduce((n,g)=>n+g.count,0);
-  C.choices.classTools=C.choices.classTools||{};C.choices.classTools[cls]=[...select.selectedOptions].map(option=>option.value).slice(0,max);persist();render();
-}
+function setBackgroundToolChoices(index,select){if(setCharacterBackgroundTool(index,select.value)){persist();render()}}
+function setClassToolChoices(cls,select){if(setCharacterClassTools(cls,[...select.selectedOptions].map(option=>option.value))){persist();render()}}
 function renderMain(){
   const r=raceOf(), s=subraceOf();
   const raceOpts=Object.entries(RACES).map(([id,x])=>`<option value="${id}"${C.race===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
@@ -3021,18 +3053,22 @@ function toggleRaceSkill(id,on){const error=toggleCharacterRaceSkill(id,on);if(e
 function toggleClassSkill(cls,max,id,on){const error=toggleCharacterClassSkill(cls,max,id,on);if(error){alert(error);render();return}persist();render()}
 function toggleExpertise(id,max,on){const error=toggleCharacterExpertise(id,max,on);if(error){alert(error);render();return}persist();render()}
 // ================= Вкладка Класс =================
+function updateTashaChoice(cls,change){
+  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
+  if(!change())return;
+  persist();render();
+  if(wasOpen){const details=$(selector);if(details)details.open=true}
+}
+function toggleTashaFeature(cls,id,on){updateTashaChoice(cls,()=>toggleCharacterTashaFeature(cls,id,on))}
+function setDeftExplorerSkill(skill){updateTashaChoice('ranger',()=>setCharacterDeftExplorerSkill(skill))}
+function setDeftExplorerMode(mode){updateTashaChoice('ranger',()=>setCharacterDeftExplorerMode(mode))}
+function setDeftExplorerTool(tool){updateTashaChoice('ranger',()=>setCharacterDeftExplorerTool(tool))}
+function setHunterChoice(level,id){if(setCharacterHunterChoice(level,id)){persist();render()}}
 function availableFightingStyles(key,options){
   const styles=C.choices.fightingStyles||{},used=new Set(activeFightingStyleKeys().filter(other=>other!==key).map(other=>styles[other]).filter(Boolean));
   return options.filter(([id])=>id===styles[key]||!used.has(id));
 }
-function setFightingStyle(key,value){
-  const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
-  if(!options||!activeFightingStyleKeys().includes(key)||value&&!options.some(([id])=>id===value))return;
-  C.choices.fightingStyles=C.choices.fightingStyles||{};
-  if(value&&activeFightingStyleKeys().some(other=>other!==key&&C.choices.fightingStyles[other]===value)){alert('Боевой стиль уже выбран.');render();return}
-  if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];
-  persist();render();
-}
+function setFightingStyle(key,value){const result=setCharacterFightingStyle(key,value);if(result===false)return;if(result){alert(result);render();return}persist();render()}
 function renderClass(){
   return `<div class="page"><h1>Класс и умения</h1>
   ${C.classes.map((c,i)=>{
@@ -3053,7 +3089,7 @@ function renderClass(){
       ${c.cls==='sorcerer'&&c.lvl>=3?sorcererChoices(c):''}
       ${sub&&sub.choices?Object.entries(sub.choices).map(([lvl,block])=>{
         if(c.lvl<+lvl)return '';
-        return `<label>${block.name} (${lvl} ур.)<select onchange="C.choices['hunter_${lvl}']=this.value;persist();render()"><option value="">—</option>${block.opts.map(([id,d])=>`<option value="${id}"${C.choices['hunter_'+lvl]===id?' selected':''}>${d}</option>`).join('')}</select></label>`}).join(''):''}
+        return `<label>${block.name} (${lvl} ур.)<select onchange="setHunterChoice(${lvl},this.value)"><option value="">—</option>${block.opts.map(([id,d])=>`<option value="${id}"${C.choices['hunter_'+lvl]===id?' selected':''}>${d}</option>`).join('')}</select></label>`}).join(''):''}
       <h4>Умения</h4>
       <ul class="feats">${cl.feats.filter(([l,n])=>l<=c.lvl&&!replaced.includes(n)).map(([l,n,d])=>`<li><b>${l} ур. ${n}.</b> ${esc(d)}</li>`).join('')}
       ${sub?sub.feats.filter(([l])=>l<=c.lvl).map(([l,n,d])=>`<li class="sub-feat"><b>${l} ур. ${n}</b> <span class="tag">${esc(sub.name)}</span><br>${esc(d)}</li>`).join(''):''}
@@ -3076,24 +3112,14 @@ function warlockChoices(c){
   ${c.lvl>=2?`<div class="hint">Мистические откровения: ${inv.length}/${invMax}</div>
   <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''} onchange="toggleInvocation('${id}',${invMax},this.checked)"> ${d}</label>`).join('')}</div>`:''}`;
 }
-function toggleInvocation(id,max,on){
-  C.choices.invocations=C.choices.invocations||[];
-  if(on){if(C.choices.invocations.length>=max){alert('Максимум '+max);render();return}C.choices.invocations.push(id)}
-  else C.choices.invocations=C.choices.invocations.filter(x=>x!==id);
-  persist();render();
-}
+function toggleInvocation(id,max,on){const error=toggleCharacterInvocation(id,max,on);if(error){alert(error);render();return}persist();render()}
 function sorcererChoices(c){
   const max=c.lvl>=17?4:c.lvl>=10?3:2;
   const sel=C.choices.metamagic||[];
   return `<div class="hint">Метамагия: ${sel.length}/${max}</div>
   <div class="row gap wrap col-list">${METAMAGIC.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${sel.includes(id)?'checked':''} onchange="toggleMetamagic('${id}',${max},this.checked)"> ${d}</label>`).join('')}</div>`;
 }
-function toggleMetamagic(id,max,on){
-  C.choices.metamagic=C.choices.metamagic||[];
-  if(on){if(C.choices.metamagic.length>=max){alert('Максимум '+max);render();return}C.choices.metamagic.push(id)}
-  else C.choices.metamagic=C.choices.metamagic.filter(x=>x!==id);
-  persist();render();
-}
+function toggleMetamagic(id,max,on){const error=toggleCharacterMetamagic(id,max,on);if(error){alert(error);render();return}persist();render()}
 
 // ================= Вкладка Заклинания =================
 const LVL_NAMES=['Заговоры','1 круг','2 круг','3 круг','4 круг','5 круг','6 круг','7 круг','8 круг','9 круг'];
