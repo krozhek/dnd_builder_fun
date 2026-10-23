@@ -21,7 +21,7 @@ const validSpell = spell => !!spell && typeof spell === 'object' && !Array.isArr
 if (!Array.isArray(spells) || !spells.length || spells.some(spell => !validSpell(spell)) || new Set(spells.map(spell => spell.id)).size !== spells.length) {
   throw new Error('Invalid spell catalog structure');
 }
-const app = [data.replace(spellMarker, () => JSON.stringify(spells)), read('src/rules.js'), read('src/core.js'), read('src/validation.js'), read('src/ui.js')].join('');
+const app = [data.replace(spellMarker, () => JSON.stringify(spells)), read('src/rules.js'), read('src/core.js'), read('src/validation.js'), read('src/state.js'), read('src/ui.js')].join('');
 const html = template.replace('{{STYLES}}', () => styles).replace('{{APP}}', () => app);
 const output = path.join(root, 'dnd_builder.html');
 

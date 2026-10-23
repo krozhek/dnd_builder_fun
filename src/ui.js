@@ -267,91 +267,22 @@ function setPortraitFile(input){
   image.src=url;
 }
 function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
-function pruneAsiChoices(){
-  const need=C.classes.reduce((total,c)=>total+CLASSES[c.cls].asiLvls.filter(level=>level<=c.lvl).length,0);
-  for(const key of Object.keys(C.asi||{})){const match=/^asi(\d+)$/.exec(key);if(!match||+match[1]>=need)delete C.asi[key]}
-}
-function discardClassHitDice(cls){
-  const used=syncHitDice(),count=used[cls]||0;
-  delete used[cls];C.game.hdUsedByClass=used;C.game.hdUsed=Math.max(0,C.game.hdUsed-count);
-}
-function clearClassSelections(cls){
-  for(const key of ['classSkills','cantrips','spellsKnown','spellsPrepared'])delete C[key]?.[cls];
-  delete C.choices.classTools?.[cls];delete C.choices.fightingStyles?.[cls];delete C.choices.tashaFeatures?.[cls];
-  if(cls==='wizard')C.spellbook=[];
-  if(cls==='ranger'){
-    delete C.choices.favoredEnemy;delete C.choices.favoredTerrain;delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;
-    for(const key of Object.keys(C.choices))if(/^hunter_\d+$/.test(key))delete C.choices[key];
-  }
-  if(cls==='druid')delete C.choices.druidLand;
-  if(cls==='sorcerer'){delete C.choices.draconicType;delete C.choices.metamagic}
-  if(cls==='warlock'){delete C.choices.pactBoon;delete C.choices.invocations;C.arcanum={}}
-}
-function pruneExpertise(){C.expertise=(C.expertise||[]).filter(id=>profSkills().includes(id))}
-function pruneClassSpells(cls){
-  const caster=C.classes.find(c=>c.cls===cls);if(!caster)return 0;
-  let removed=0;
-  const valid=(id,kind)=>{
-    const spell=SPELLS.find(s=>s.id===id);
-    return spell&&spellClassAllowed(caster,id)&&(kind==='cantrip'?spell.lvl===0:spell.lvl>0&&spell.lvl<=classMaxSpellLevel(caster))&&!(kind==='prepared'&&cls==='wizard'&&!(C.spellbook||[]).includes(id));
-  };
-  for(const [field,kind] of [['cantrips','cantrip'],['spellsKnown','known'],['spellsPrepared','prepared']]){
-    const old=C[field][cls]||[],limit=kind==='cantrip'?cantripLimit(cls):kind==='known'?knownLimit(cls):['cleric','druid','paladin','wizard'].includes(cls)?prepLimit(cls):0,kept=[];
-    for(const id of old){if(!valid(id,kind)||kept.length>=limit||kind==='known'&&!thirdCasterSpellSelectionsValid(caster,[...kept,id]))continue;kept.push(id)}
-    removed+=old.length-kept.length;C[field][cls]=kept;
-  }
-  if(cls==='wizard'){
-    const old=C.spellbook||[];C.spellbook=old.filter(id=>valid(id,'known'));removed+=old.length-C.spellbook.length;
-    const kept=C.spellsPrepared.wizard||[];C.spellsPrepared.wizard=kept.filter(id=>C.spellbook.includes(id));
-  }
-  return removed;
-}
-function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];C.racialSpells={};if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
-function changeBackground(v){C.bg=v;C.choices.backgroundTools=[];C.extraLangs=[];persist();render()}
-function changeClass(i,v){
-  if(C.classes.some((c,j)=>j!==i&&c.cls===v)){alert('Этот класс уже добавлен.');render();return}
-  const error=C.classes.length>1?multiclassRequirementError(v,i):'';
-  if(error){alert(error);render();return}
-  const previous=C.classes[i].cls;
-  if(previous===v)return;
-  discardClassHitDice(previous);C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';
-  clearClassSelections(previous);pruneAsiChoices();
-  if(previous==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
-  pruneExpertise();persist();render()
-}
+function changeRace(v){if(setCharacterRace(v)){persist();render()}}
+function changeBackground(v){if(setCharacterBackground(v)){persist();render()}}
+function changeClass(i,v){const error=setCharacterClass(i,v);if(error){alert(error);render();return}persist();render()}
 function changeLvl(i,v){
-  const lvl=Number(v),total=totalLvl()-C.classes[i].lvl+lvl;
-  if(!Number.isInteger(lvl)||lvl<1||lvl>20||total>20){alert('Общий уровень персонажа не может превышать 20.');render();return}
-  const used=syncHitDice();
-  C.classes[i].lvl=lvl;used[C.classes[i].cls]=Math.min(used[C.classes[i].cls]||0,lvl);
-  C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
-  const removed=pruneClassSpells(C.classes[i].cls);pruneAsiChoices();
-  if(removed)alert(`Удалено недоступных заклинаний: ${removed}.`);
+  const result=setCharacterLevel(i,v);
+  if(result.error){alert(result.error);render();return}
+  if(result.removed)alert(`Удалено недоступных заклинаний: ${result.removed}.`);
   persist();render()
 }
 function changeSub(i,v){
-  const c=C.classes[i];if(!c||c.sub===v)return;
-  c.sub=v;
-  if(c.cls==='druid'&&v!=='land')delete C.choices.druidLand;
-  if(c.cls==='sorcerer'&&v!=='draconic')delete C.choices.draconicType;
-  if(c.cls==='fighter'&&v!=='champion')delete C.choices.fightingStyles?.championExtra;
-  const removed=pruneClassSpells(c.cls);
-  if(removed)alert(`Удалено заклинаний, недоступных для нового подкласса: ${removed}.`);
+  const result=setCharacterSubclass(i,v);if(!result)return;
+  if(result.removed)alert(`Удалено заклинаний, недоступных для нового подкласса: ${result.removed}.`);
   persist();render()
 }
-function addClass(){
-  if(totalLvl()>=20){alert('Общий уровень персонажа уже равен 20.');return}
-  const used=C.classes.map(c=>c.cls),available=Object.keys(CLASSES).filter(k=>!used.includes(k));
-  const free=available.find(k=>!multiclassRequirementError(k));
-  if(!free){alert(available.length?multiclassRequirementError(available[0]):'Все классы уже добавлены.');return}
-  C.classes.push({cls:free,lvl:1,sub:CLASSES[free].sub||''});persist();render()
-}
-function removeClass(i){
-  const cls=C.classes[i]?.cls;if(!cls)return;
-  discardClassHitDice(cls);C.classes.splice(i,1);clearClassSelections(cls);pruneAsiChoices();
-  if(cls==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
-  pruneExpertise();persist();render()
-}
+function addClass(){const error=addCharacterClass();if(error){alert(error);return}persist();render()}
+function removeClass(i){if(removeCharacterClass(i)){persist();render()}}
 function subclassOpts(c){
   return Object.entries(SUBCLASSES).filter(([,s])=>s.cls===c.cls)
     .map(([id,s])=>`<option value="${id}"${c.sub===id?' selected':''}>${s.name}${s.src?' ('+s.src+')':''}</option>`).join('');
