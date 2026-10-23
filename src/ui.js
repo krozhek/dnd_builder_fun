@@ -581,11 +581,10 @@ function renderCasterBlock(c){
     if(cls==='fighter'||cls==='rogue')head+=`<p class="hint">Заклинания из списка волшебника (Мистический рыцарь: преимущественно ограждение и воплощение; Мистический ловкач: очарование и иллюзия).</p>`;
     head+=`<h4>Известные заклинания — ${sel.filter(id=>!additionalIds.includes(id)).length}/${limit}</h4>`;
     for(let l=1;l<=maxLvl;l++)head+=spellPicker(cls,l,sel,limit,'spellsKnown',additionalIds);
-    if(cls==='warlock'&&c.lvl>=11){
-      const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;
+    if(cls==='warlock')head+=arcanumLevels(c.lvl).map(arcLvl=>{
       const cur=C.arcanum[arcLvl];
-      head+=`<label>Мистический арканум (${arcLvl} круг)<select onchange="setArcanum(${arcLvl},this.value)"><option value="">—</option>${SPELLS.filter(s=>s.lvl===arcLvl&&s.cls.includes('warlock')).map(s=>`<option value="${s.id}"${cur===s.id?' selected':''}>${s.ru}</option>`).join('')}</select></label>`;
-    }
+      return `<label>Мистический арканум (${arcLvl} круг)<select onchange="setArcanum(${arcLvl},this.value)"><option value="">—</option>${SPELLS.filter(s=>s.lvl===arcLvl&&s.cls.includes('warlock')).map(s=>`<option value="${s.id}"${cur===s.id?' selected':''}>${s.ru}</option>`).join('')}</select></label>`;
+    }).join('');
   }
   return head+'</div>';
 }

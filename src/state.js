@@ -65,6 +65,7 @@ function setCharacterLevel(index,value){
   const used=syncHitDice();current.lvl=level;
   used[current.cls]=Math.min(used[current.cls]||0,level);
   C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
+  if(current.cls==='warlock')C.arcanum=Object.fromEntries(Object.entries(C.arcanum||{}).filter(([spellLevel])=>arcanumLevels(level).includes(+spellLevel)));
   const removed=pruneClassSpells(current.cls);pruneAsiChoices();return {removed};
 }
 function setCharacterSubclass(index,subclass){
@@ -86,8 +87,7 @@ function addCharacterClass(){
 }
 function setCharacterArcanum(level,id){
   const warlock=C.classes.find(c=>c.cls==='warlock');
-  const maxLevel=warlock?.lvl>=17?9:warlock?.lvl>=15?8:warlock?.lvl>=13?7:warlock?.lvl>=11?6:0;
-  if(!warlock||level!==maxLevel||id&&!SPELLS.some(s=>s.id===id&&s.lvl===level&&s.cls.includes('warlock')))return false;
+  if(!warlock||!arcanumLevels(warlock.lvl).includes(level)||id&&!SPELLS.some(s=>s.id===id&&s.lvl===level&&s.cls.includes('warlock')))return false;
   if(id)C.arcanum[level]=id;else delete C.arcanum[level];
   return true;
 }

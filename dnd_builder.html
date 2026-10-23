@@ -1864,6 +1864,8 @@ function spellClassAllowed(c,id){
   const expanded=SUBCLASSES[c.sub]?.expSpells||{};
   return Object.entries(expanded).some(([level,ids])=>+level<=classMaxSpellLevel(c)&&ids.includes(id));
 }
+const MYSTIC_ARCANUM_LEVELS=[[11,6],[13,7],[15,8],[17,9]];
+function arcanumLevels(level){return MYSTIC_ARCANUM_LEVELS.filter(([required])=>level>=required).map(([,spellLevel])=>spellLevel)}
 function spellcasterClasses(){return C.classes.filter(c=>spellTypeOf(c))}
 function spellsForClass(cls,lvl){
   const listClass=cls==='fighter'||cls==='rogue'?'wizard':cls,base=SPELLS.filter(s=>s.lvl===lvl&&s.cls.includes(listClass));
@@ -2045,7 +2047,7 @@ function characterReadiness(){
     if(c.cls==='warlock'){
       if(c.lvl>=3&&!C.choices.pactBoon)add('cls','Выберите договорный дар колдуна.');
       const invMax=TABLES.warlock.invocations[c.lvl-1]||0;if((C.choices.invocations||[]).length<invMax)add('cls',`Выберите мистические откровения: ${(C.choices.invocations||[]).length}/${invMax}.`);
-      if(c.lvl>=11){const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`)}
+      for(const arcLvl of arcanumLevels(c.lvl))if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`);
     }
     if(c.cls==='sorcerer'&&c.lvl>=3){const max=c.lvl>=17?4:c.lvl>=10?3:2;if((C.choices.metamagic||[]).length<max)add('cls',`Выберите приёмы Метамагии: ${(C.choices.metamagic||[]).length}/${max}.`)}
     const cantrips=cantripLimit(c.cls),selectedCantrips=knownSpellSelection((C.cantrips||{})[c.cls]);if(cantrips>selectedCantrips.length)add('spells',`${cl.name}: выберите заговоры (${selectedCantrips.length}/${cantrips}).`);if(selectedCantrips.length>cantrips)add('spells',`${cl.name}: удалите лишние заговоры (${selectedCantrips.length}/${cantrips}).`);if(selectedCantrips.some(id=>{const s=SPELLS.find(x=>x.id===id);return !spellClassAllowed(c,id)||s?.lvl!==0}))add('spells',`${cl.name}: есть заговоры не из доступного списка.`);if(c.cls==='rogue'&&c.sub==='arcanetrickster'&&c.lvl>=3&&!selectedCantrips.includes('mage_hand'))add('spells','Мистический ловкач: выберите обязательный заговор «Волшебная рука».');
@@ -2305,6 +2307,7 @@ function setCharacterLevel(index,value){
   const used=syncHitDice();current.lvl=level;
   used[current.cls]=Math.min(used[current.cls]||0,level);
   C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
+  if(current.cls==='warlock')C.arcanum=Object.fromEntries(Object.entries(C.arcanum||{}).filter(([spellLevel])=>arcanumLevels(level).includes(+spellLevel)));
   const removed=pruneClassSpells(current.cls);pruneAsiChoices();return {removed};
 }
 function setCharacterSubclass(index,subclass){
@@ -2326,8 +2329,7 @@ function addCharacterClass(){
 }
 function setCharacterArcanum(level,id){
   const warlock=C.classes.find(c=>c.cls==='warlock');
-  const maxLevel=warlock?.lvl>=17?9:warlock?.lvl>=15?8:warlock?.lvl>=13?7:warlock?.lvl>=11?6:0;
-  if(!warlock||level!==maxLevel||id&&!SPELLS.some(s=>s.id===id&&s.lvl===level&&s.cls.includes('warlock')))return false;
+  if(!warlock||!arcanumLevels(warlock.lvl).includes(level)||id&&!SPELLS.some(s=>s.id===id&&s.lvl===level&&s.cls.includes('warlock')))return false;
   if(id)C.arcanum[level]=id;else delete C.arcanum[level];
   return true;
 }
@@ -3400,11 +3402,10 @@ function renderCasterBlock(c){
     if(cls==='fighter'||cls==='rogue')head+=`<p class="hint">Заклинания из списка волшебника (Мистический рыцарь: преимущественно ограждение и воплощение; Мистический ловкач: очарование и иллюзия).</p>`;
     head+=`<h4>Известные заклинания — ${sel.filter(id=>!additionalIds.includes(id)).length}/${limit}</h4>`;
     for(let l=1;l<=maxLvl;l++)head+=spellPicker(cls,l,sel,limit,'spellsKnown',additionalIds);
-    if(cls==='warlock'&&c.lvl>=11){
-      const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;
+    if(cls==='warlock')head+=arcanumLevels(c.lvl).map(arcLvl=>{
       const cur=C.arcanum[arcLvl];
-      head+=`<label>Мистический арканум (${arcLvl} круг)<select onchange="setArcanum(${arcLvl},this.value)"><option value="">—</option>${SPELLS.filter(s=>s.lvl===arcLvl&&s.cls.includes('warlock')).map(s=>`<option value="${s.id}"${cur===s.id?' selected':''}>${s.ru}</option>`).join('')}</select></label>`;
-    }
+      return `<label>Мистический арканум (${arcLvl} круг)<select onchange="setArcanum(${arcLvl},this.value)"><option value="">—</option>${SPELLS.filter(s=>s.lvl===arcLvl&&s.cls.includes('warlock')).map(s=>`<option value="${s.id}"${cur===s.id?' selected':''}>${s.ru}</option>`).join('')}</select></label>`;
+    }).join('');
   }
   return head+'</div>';
 }

@@ -1139,6 +1139,28 @@ test('subclass and level changes prune spells that are no longer available', () 
   api.setRenderFn(oldRender);
 });
 
+test('warlock Mystic Arcanum supports all unlocked spell circles and prunes them on level loss', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 17, sub: 'fiend' }];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  assert.equal(api.characterReadiness().filter(issue => issue.text.includes('арканум')).length, 4);
+  for (const level of [6, 7, 8, 9]) {
+    const spell = api.SPELLS.find(entry => entry.lvl === level && entry.cls.includes('warlock'));
+    assert.ok(spell, `warlock arcanum spell exists for circle ${level}`);
+    assert.equal(api.setCharacterArcanum(level, spell.id), true);
+    assert.match(api.renderSpells(), new RegExp(`Мистический арканум \\(${level} круг\\)`));
+  }
+  assert.equal(api.setCharacterArcanum(5, 'true_seeing'), false);
+  assert.equal(api.characterReadiness().some(issue => issue.text.includes('арканум')), false);
+  api.changeLvl(0, 13);
+  assert.deepEqual(Object.keys(c.arcanum).sort(), ['6', '7']);
+  assert.equal(api.setCharacterArcanum(8, 'finger_of_death'), false);
+  assert.equal((api.renderSpells().match(/Мистический арканум \(/g) || []).length, 2);
+  api.setRenderFn(oldRender);
+});
+
 test('race changes clear incompatible racial spell selections', () => {
   const c = character();
   c.race = 'elf';c.subrace = 'high';c.racialSpells = { highelf: 'fire_bolt', highelfAbility: 'int' };

@@ -421,6 +421,8 @@ function spellClassAllowed(c,id){
   const expanded=SUBCLASSES[c.sub]?.expSpells||{};
   return Object.entries(expanded).some(([level,ids])=>+level<=classMaxSpellLevel(c)&&ids.includes(id));
 }
+const MYSTIC_ARCANUM_LEVELS=[[11,6],[13,7],[15,8],[17,9]];
+function arcanumLevels(level){return MYSTIC_ARCANUM_LEVELS.filter(([required])=>level>=required).map(([,spellLevel])=>spellLevel)}
 function spellcasterClasses(){return C.classes.filter(c=>spellTypeOf(c))}
 function spellsForClass(cls,lvl){
   const listClass=cls==='fighter'||cls==='rogue'?'wizard':cls,base=SPELLS.filter(s=>s.lvl===lvl&&s.cls.includes(listClass));
@@ -602,7 +604,7 @@ function characterReadiness(){
     if(c.cls==='warlock'){
       if(c.lvl>=3&&!C.choices.pactBoon)add('cls','Выберите договорный дар колдуна.');
       const invMax=TABLES.warlock.invocations[c.lvl-1]||0;if((C.choices.invocations||[]).length<invMax)add('cls',`Выберите мистические откровения: ${(C.choices.invocations||[]).length}/${invMax}.`);
-      if(c.lvl>=11){const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`)}
+      for(const arcLvl of arcanumLevels(c.lvl))if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`);
     }
     if(c.cls==='sorcerer'&&c.lvl>=3){const max=c.lvl>=17?4:c.lvl>=10?3:2;if((C.choices.metamagic||[]).length<max)add('cls',`Выберите приёмы Метамагии: ${(C.choices.metamagic||[]).length}/${max}.`)}
     const cantrips=cantripLimit(c.cls),selectedCantrips=knownSpellSelection((C.cantrips||{})[c.cls]);if(cantrips>selectedCantrips.length)add('spells',`${cl.name}: выберите заговоры (${selectedCantrips.length}/${cantrips}).`);if(selectedCantrips.length>cantrips)add('spells',`${cl.name}: удалите лишние заговоры (${selectedCantrips.length}/${cantrips}).`);if(selectedCantrips.some(id=>{const s=SPELLS.find(x=>x.id===id);return !spellClassAllowed(c,id)||s?.lvl!==0}))add('spells',`${cl.name}: есть заговоры не из доступного списка.`);if(c.cls==='rogue'&&c.sub==='arcanetrickster'&&c.lvl>=3&&!selectedCantrips.includes('mage_hand'))add('spells','Мистический ловкач: выберите обязательный заговор «Волшебная рука».');
