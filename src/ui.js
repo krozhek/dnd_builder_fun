@@ -145,7 +145,6 @@ function importJson(inp){
 }
 
 // ---------- Основное ----------
-function baseLanguageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
 function languageChoiceCount(){const mode=C.choices.deftExplorerMode;return baseLanguageChoiceCount()+(deftExplorerActive()?(mode==='two_languages'?2:mode==='language_tool'?1:0):0)}
 function setExtraLang(index,value){C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;persist();render()}
 function languageChoiceFields(){

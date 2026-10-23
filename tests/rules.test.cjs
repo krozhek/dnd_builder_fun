@@ -840,6 +840,35 @@ test('persist rolls back malformed state to the last saved character', () => {
   api.setRenderFn(oldRender);
 });
 
+test('persist rejects new rule violations but permits gradual repair of legacy drafts', () => {
+  const c = character();
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.persist();
+  c.classSkills.fighter = ['arcana'];
+  assert.equal(api.persist(), false);
+  assert.equal(api.character.classSkills.fighter, undefined);
+  const current=api.character;
+  current.abilityMethod = 'manual';
+  current.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  current.bases.manual.int = 10;
+  assert.equal(api.persist(), false);
+  assert.equal(api.character.classes.length, 1);
+
+  const legacy = api.newChar();
+  legacy.abilityMethod = 'point';
+  legacy.bases.point = { str: 15, dex: 15, con: 15, int: 15, wis: 15, cha: 15 };
+  api.setLibrary([JSON.parse(JSON.stringify(legacy))]);
+  api.setChar(legacy);
+  assert.ok(api.pointBuySpent(legacy.bases.point) > 27);
+  assert.notEqual(api.persist(), false);
+  legacy.bases.point.str = 14;
+  assert.notEqual(api.persist(), false);
+  assert.equal(api.character.bases.point.str, 14);
+  api.setRenderFn(oldRender);
+});
+
 test('hit dice use the selected multiclass hit die and track expenditure per class', () => {
   const c = character();
   c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];

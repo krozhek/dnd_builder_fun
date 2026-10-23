@@ -121,6 +121,13 @@ function validSkillChoices(ch){
   }finally{C=previous}
 }
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
+function validCharacterTransition(ch,previous){
+  if(!validCharacter(ch,false)||ch.name.length>100&&ch.name!==previous?.name)return false;
+  const checks=[validAbilityBases,validRacialAbilityChoices,validAsiChoices,validMulticlassCharacter,validSkillChoices],current=checks.map(check=>check(ch));
+  if(!previous)return current.every(Boolean);
+  const old=checks.map(check=>check(previous));
+  return current.every((valid,index)=>valid||!old[index]);
+}
 function validCharacter(ch,enforceRules=true){
   if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||enforceRules&&ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
   if(ch.id!=null&&ch.id!==''&&(typeof ch.id!=='string'||!CHARACTER_ID_RE.test(ch.id)))return false;

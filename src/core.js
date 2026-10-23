@@ -53,8 +53,8 @@ function saveLib(replaceCorrupt=false){
 }
 function persist(){
   if(!C)return;
-  if(!validCharacter(C,false)){
-    const previous=LIB.find(c=>c.id===C.id);
+  const previous=LIB.find(c=>c.id===C.id);
+  if(!validCharacterTransition(C,previous)){
     if(previous){C=migrate(JSON.parse(JSON.stringify(previous)));render()}
     alert('Некорректное изменение отменено; восстановлено последнее сохранённое состояние.');
     return false;
@@ -74,6 +74,7 @@ function openChar(id){
   TAB='main';
   render();
 }
+// ponytail: legacy versions share migrate()'s normalization; add a version step only when a schema change needs a distinct transform.
 const SCHEMA_MIGRATIONS={
   4:character=>{
     const used={...(character.game.hdUsedByClass||{})};
@@ -125,6 +126,7 @@ const totalLvl=()=>C.classes.reduce((s,c)=>s+c.lvl,0);
 const pb=()=>PB_BY_LVL[Math.min(20,totalLvl())-1];
 function raceOf(){return RACES[C.race]||RACES.human}
 function subraceOf(){const r=raceOf();return r.subs&&C.subrace?r.subs[C.subrace]:null}
+function baseLanguageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
 function racialAsi(){
   const out={str:0,dex:0,con:0,int:0,wis:0,cha:0};
   const r=raceOf(), s=subraceOf();
