@@ -2285,6 +2285,17 @@ function pruneExpertise(){
   const max=expertiseAvailable()-(deftExplorerActive()?1:0);
   C.expertise=(C.expertise||[]).filter(id=>profSkills().includes(id)&&id!==deftExplorerSkill()).slice(0,max);
 }
+function pruneSkillChoices(){
+  C.classSkills=C.classSkills||{};C.raceSkills=C.raceSkills||[];
+  const prof=new Set([...bgSkills(),...(raceOf().skillProf||[])]),raceLimit=raceOf().skillChoice||0;
+  C.raceSkills=C.raceSkills.filter(id=>!prof.has(id)).slice(0,raceLimit);C.raceSkills.forEach(id=>prof.add(id));
+  C.classes.forEach((c,index)=>{
+    const picks=(C.classSkills[c.cls]||[]).filter(id=>CLASSES[c.cls].skillList.includes(id)&&!prof.has(id)).slice(0,classSkillChoiceCount(index,c.cls));
+    C.classSkills[c.cls]=picks;picks.forEach(id=>prof.add(id));
+  });
+  if(C.choices.deftExplorerSkill&&(!deftExplorerActive()||!prof.has(C.choices.deftExplorerSkill)))delete C.choices.deftExplorerSkill;
+  pruneExpertise();
+}
 function pruneClassSpells(cls){
   const caster=C.classes.find(c=>c.cls===cls);if(!caster)return 0;
   let removed=0;
@@ -2307,11 +2318,11 @@ function setCharacterRace(race){
   if(!RACES[race])return false;
   C.race=race;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];C.racialSpells={};
   if(RACES[race].src==='AAG')C.size=RACES[race].size;
-  return true;
+  pruneSkillChoices();return true;
 }
 function setCharacterBackground(background){
   if(!BACKGROUNDS[background])return false;
-  C.bg=background;C.choices.backgroundTools=[];C.extraLangs=[];return true;
+  C.bg=background;C.choices.backgroundTools=[];C.extraLangs=[];pruneSkillChoices();return true;
 }
 function setCharacterClass(index,cls){
   if(!CLASSES[cls])return 'Неизвестный класс.';

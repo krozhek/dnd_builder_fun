@@ -39,7 +39,7 @@ globalThis.api = {
   setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
   setCharacterAbilityMethod, setCharacterStandardAbility, stepCharacterPointAbility, setCharacterManualAbility, setCharacterRaceAsiMode, setCharacterRaceAsi, toggleCharacterHalfElfAbility, setCharacterAsiType, setCharacterAsiFeat, setCharacterAsiFeatBonus, setCharacterAsiValues, resetCharacterSkillChoices, toggleCharacterRaceSkill, toggleCharacterClassSkill, toggleCharacterExpertise,
   setCharacterEquipmentMode, setCharacterEquipmentChoice, setCharacterGold, setCharacterAttunement, priceToGold, addCharacterItem, buyCharacterItem, sellCharacterItem, removeCharacterItem, toggleCharacterEquipItem, toggleCharacterWieldWeapon, setCharacterWeaponGrip, applyCharacterStartingKit,
-  setCharacterBackgroundTool, setCharacterClassTools, setCharacterExtraLanguage, setCharacterChoice, setCharacterHunterChoice, setCharacterFightingStyle, toggleCharacterInvocation, toggleCharacterMetamagic, toggleCharacterTashaFeature, setCharacterDeftExplorerSkill, setCharacterDeftExplorerMode, setCharacterDeftExplorerTool,
+  setCharacterRace, setCharacterBackground, setCharacterBackgroundTool, setCharacterClassTools, setCharacterExtraLanguage, setCharacterChoice, setCharacterHunterChoice, setCharacterFightingStyle, toggleCharacterInvocation, toggleCharacterMetamagic, toggleCharacterTashaFeature, setCharacterDeftExplorerSkill, setCharacterDeftExplorerMode, setCharacterDeftExplorerTool,
   setCharacterField, setCharacterAppearance, setCharacterPortrait, setCharacterPersonality, addCharacterPersonality,
   setCharacterGameField, changeCharacterHp, setCharacterFullHp, setCharacterDeathSaves, toggleCharacterTracker, reduceCharacterHitDiceUsed, spendCharacterHitDie, shortRestCharacter, longRestCharacter,
   setSpellQuery, setSpellFilter,
@@ -974,6 +974,35 @@ test('ability, feat, and proficiency choices are mutated through the state layer
   assert.deepEqual(Array.from(c.classSkills.rogue), ['acrobatics']);
   assert.deepEqual(Array.from(c.expertise), ['arcana']);
   assert.match(api.toggleCharacterExpertise('stealth', true), /только для навыка/);
+});
+
+test('race and background changes prune conflicting skill choices', () => {
+  const c = character();
+  c.race = 'human';
+  c.bg = 'sage';
+  c.classes = [{ cls: 'rogue', lvl: 1, sub: 'thief' }];
+  c.classSkills.rogue = ['stealth', 'acrobatics', 'perception', 'insight'];
+  c.expertise = ['perception', 'stealth'];
+  api.setChar(c);
+  assert.equal(api.setCharacterRace('elf'), true);
+  assert.deepEqual(Array.from(c.classSkills.rogue), ['stealth', 'acrobatics', 'insight']);
+  assert.deepEqual(Array.from(c.expertise), ['perception', 'stealth']);
+  assert.equal(api.validCharacter(c), true);
+
+  assert.equal(api.setCharacterBackground('criminal'), true);
+  assert.deepEqual(Array.from(c.classSkills.rogue), ['acrobatics', 'insight']);
+  assert.equal(api.validCharacter(c), true);
+
+  const c2 = character();
+  c2.bg = 'acolyte';
+  c2.classes = [{ cls: 'ranger', lvl: 1, sub: 'hunter' }];
+  c2.classSkills.ranger = ['survival'];
+  c2.choices.tashaFeatures = { ranger: ['deft_explorer'] };
+  c2.choices.deftExplorerSkill = 'religion';
+  api.setChar(c2);
+  assert.equal(api.setCharacterBackground('criminal'), true);
+  assert.equal(c2.choices.deftExplorerSkill, undefined);
+  assert.equal(api.validCharacter(c2), true);
 });
 
 test('ability methods enforce legal scores and the 27-point budget', () => {
