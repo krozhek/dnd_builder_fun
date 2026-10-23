@@ -1365,6 +1365,17 @@ test('game tracker changes are handled in the state layer', () => {
   assert.equal(c.game.hpCur, api.maxHp());
 });
 
+test('paladin Channel Divinity is tracked and restored by a short rest', () => {
+  const c = character();
+  c.classes = [{ cls: 'paladin', lvl: 3, sub: 'devotion' }];
+  api.setChar(c);
+  assert.match(api.renderGame(), /Божественный канал/);
+  assert.equal(api.toggleCharacterTracker('resource', 'paladinChannel', 0), true);
+  assert.equal(c.game.resources.paladinChannel, 1);
+  api.shortRestCharacter();
+  assert.equal(c.game.resources.paladinChannel, 0);
+});
+
 test('short rest preserves ordinary spell slots and restores pact slots', () => {
   const c = character();
   c.classes = [{ cls: 'wizard', lvl: 5, sub: 'evocation' }];

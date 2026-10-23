@@ -454,7 +454,7 @@ function spendCharacterHitDie(cls,roll){
 function shortRestCharacter(){
   const game=C.game;game.pactUsed=0;
   if(game.resources){
-    for(const id of ['pact','ki','secondwind','surge','wildshape','channel','luck'])if(game.resources[id]!=null)game.resources[id]=0;
+    for(const id of ['pact','ki','secondwind','surge','wildshape','channel','paladinChannel','luck'])if(game.resources[id]!=null)game.resources[id]=0;
     if(game.resources.insp!=null&&C.classes.find(c=>c.cls==='bard'&&c.lvl>=5))game.resources.insp=0;
     if(C.classes.some(c=>c.cls==='sorcerer'&&c.lvl>=20)&&game.resources.sorc!=null)game.resources.sorc=Math.max(0,game.resources.sorc-4);
   }

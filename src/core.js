@@ -525,7 +525,7 @@ function classResources(){
     if(cls==='druid')out.push({id:'wildshape',name:'Дикая форма',max:2});
     if(cls==='fighter'){out.push({id:'secondwind',name:'Второе дыхание',max:1});out.push({id:'surge',name:'Всплеск действий',max:L>=17?2:1});if(L>=9)out.push({id:'indom',name:'Несгибаемость',max:L>=17?3:L>=13?2:1});}
     if(cls==='monk')out.push({id:'ki',name:'Ци',max:TABLES.monk.ki[L-1]});
-    if(cls==='paladin')out.push({id:'layhands',name:'Наложение рук',max:5*L});
+    if(cls==='paladin'){if(L>=3&&c.sub)out.push({id:'paladinChannel',name:'Божественный канал',max:1});out.push({id:'layhands',name:'Наложение рук',max:5*L})}
     if(cls==='sorcerer')out.push({id:'sorc',name:'Единицы чародейства',max:TABLES.sorcerer.sorcPoints[L-1]});
     if(cls==='rogue'&&L>=20)out.push({id:'luck',name:'Удар удачи',max:1});
     if(cls==='warlock'){const p=pactSlots();if(p)out.push({id:'pact',name:'Ячейки договора ('+p.level+' круг)',max:p.count});}
