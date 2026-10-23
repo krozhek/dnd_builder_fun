@@ -259,6 +259,24 @@ function applyCharacterStartingKit(){
   });
   const armor=C.inventory.find(item=>item.type==='armor');if(armor)armor.equipped=true;
 }
+function setCharacterField(key,value){
+  if(key==='subrace'){if(value&&!RACES[C.race]?.subs?.[value])return false;C.subrace=value}
+  else if(key==='dragonColor'){if(!['black','blue','brass','bronze','copper','gold','green','red','silver','white'].includes(value))return false;C.dragonColor=value}
+  else if(key==='align'){if(!ALIGN.includes(value))return false;C.align=value}
+  else if(key==='size'){if(!['Крошечный','Маленький','Средний','Большой','Огромный'].includes(value))return false;C.size=value}
+  else if(key==='name'){C.name=String(value).slice(0,100)}
+  else if(key==='xp'){const xp=Number(value);if(!Number.isFinite(xp)||xp<0)return false;C.xp=xp}
+  else if(key==='goals'){C.goals=String(value).slice(0,5000)}
+  else return false;
+  return true;
+}
+function setCharacterAppearance(key,value){
+  if(!['age','height','weight','eyes','skin','hair','details'].includes(key))return false;
+  C.appearance=C.appearance||{};C.appearance[key]=String(value).slice(0,500);return true;
+}
+function setCharacterPortrait(portrait){if(typeof portrait!=='string'||portrait.length>MAX_PORTRAIT_DATA||portrait&&!portrait.startsWith('data:image/'))return false;C.portrait=portrait;return true}
+function setCharacterPersonality(key,value){if(!['traits','ideals','bonds','flaws'].includes(key))return false;C.personality[key]=String(value);return true}
+function addCharacterPersonality(key,value){if(!['traits','ideals','bonds','flaws'].includes(key))return false;C.personality[key]=(C.personality[key]?C.personality[key]+'\n':'')+String(value);return true}
 function setCharacterBackgroundTool(index,value){
   const groups=backgroundToolChoiceGroups().choices;if(!Number.isInteger(index)||index<0||index>=groups.length)return false;
   C.choices.backgroundTools=C.choices.backgroundTools||[];C.choices.backgroundTools[index]=groups[index].options.includes(value)?value:'';return true;

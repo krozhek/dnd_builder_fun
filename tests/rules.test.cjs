@@ -40,6 +40,7 @@ globalThis.api = {
   setCharacterAbilityMethod, setCharacterStandardAbility, stepCharacterPointAbility, setCharacterManualAbility, setCharacterRaceAsiMode, setCharacterRaceAsi, toggleCharacterHalfElfAbility, setCharacterAsiType, setCharacterAsiFeat, setCharacterAsiFeatBonus, setCharacterAsiValues, resetCharacterSkillChoices, toggleCharacterRaceSkill, toggleCharacterClassSkill, toggleCharacterExpertise,
   setCharacterEquipmentMode, setCharacterEquipmentChoice, setCharacterGold, setCharacterAttunement, priceToGold, addCharacterItem, buyCharacterItem, sellCharacterItem, removeCharacterItem, toggleCharacterEquipItem, toggleCharacterWieldWeapon, setCharacterWeaponGrip, applyCharacterStartingKit,
   setCharacterBackgroundTool, setCharacterClassTools, setCharacterExtraLanguage, setCharacterChoice, setCharacterHunterChoice, setCharacterFightingStyle, toggleCharacterInvocation, toggleCharacterMetamagic, toggleCharacterTashaFeature, setCharacterDeftExplorerSkill, setCharacterDeftExplorerMode, setCharacterDeftExplorerTool,
+  setCharacterField, setCharacterAppearance, setCharacterPortrait, setCharacterPersonality, addCharacterPersonality,
   setCharacterGameField, changeCharacterHp, setCharacterFullHp, setCharacterDeathSaves, toggleCharacterTracker, reduceCharacterHitDiceUsed, spendCharacterHitDie, shortRestCharacter, longRestCharacter,
   setSpellQuery, setSpellFilter,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
@@ -835,6 +836,29 @@ test('clicking a spell name opens its details without selecting it', () => {
   const bookPicker = api.renderWizardSpells(c, 1);
   assert.match(bookPicker, /onchange="toggleSpellbook\(/);
   assert.match(bookPicker, /onclick="spellNameClick\(event,/);
+});
+
+test('character text, appearance, portrait, and personality edits are handled by the state layer', () => {
+  const c = character();
+  api.setChar(c);
+  assert.equal(api.setCharacterField('name', 'N'.repeat(150)), true);
+  assert.equal(c.name.length, 100);
+  assert.equal(api.setCharacterField('align', 'Lawful good'), false);
+  assert.equal(api.setCharacterField('goals', 'G'.repeat(6000)), true);
+  assert.equal(c.goals.length, 5000);
+  assert.equal(api.setCharacterField('subrace', 'high'), false);
+  c.race = 'elf';
+  api.setChar(c);
+  assert.equal(api.setCharacterField('subrace', 'high'), true);
+  assert.equal(c.subrace, 'high');
+  assert.equal(api.setCharacterAppearance('details', 'D'.repeat(600)), true);
+  assert.equal(c.appearance.details.length, 500);
+  assert.equal(api.setCharacterPortrait('data:image/jpeg;base64,AA=='), true);
+  assert.equal(api.setCharacterPortrait('<img src=x onerror=alert(1)>'), false);
+  assert.equal(api.setCharacterPersonality('traits', 'Brave'), true);
+  assert.equal(api.addCharacterPersonality('traits', 'Curious'), true);
+  assert.equal(c.personality.traits, 'Brave\nCurious');
+  assert.equal(api.addCharacterPersonality('unknown', 'text'), false);
 });
 
 test('ability, feat, and proficiency choices are mutated through the state layer', () => {

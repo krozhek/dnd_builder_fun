@@ -1,9 +1,8 @@
 // ================= Рендер интерфейса =================
 const TABS=[['home','Герои'],['main','Основное'],['abil','Характеристики'],['skills','Навыки','Здесь выбираются владения навыками (от класса, расы, предыстории) и компетентность плута/барда.\nКаждое владение добавляет бонус мастерства к проверкам навыка, меняет модификаторы в быстрых проверках (Игра) и на листе персонажа.'],['cls','Класс'],['spells','Заклинания'],['equip','Снаряжение'],['game','Игра'],['sheet','Лист']];
 function setTab(t){TAB=t;render();window.scrollTo(0,0)}
-function setField(k,v){C[k]=v;persist()}
-function setText(k,v){C[k]=v;persist()} // без ререндера
-function setNested(k,sub,v){C[k][sub]=v;persist()}
+function setField(k,v){if(setCharacterField(k,v))persist()}
+function setText(k,v){if(setCharacterField(k,v))persist()} // без ререндера
 function setChoice(k,v){if(setCharacterChoice(k,v)){persist();render()}}
 function toggleTheme(){THEME=THEME==='dark'?'light':'dark';writeStorage(LS_THEME,THEME);applyTheme()}
 function applyTheme(){document.documentElement.dataset.theme=THEME;const b=$('#themeBtn');if(b)b.textContent=THEME==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема'}
@@ -229,15 +228,16 @@ function renderMain(){
         const names={traits:'Черты характера',ideals:'Идеалы',bonds:'Привязанности',flaws:'Слабости'};
         const sugg=(bg[k]||[]);
         return `<div class="card"><h4>${names[k]}</h4>
-          <textarea rows="3" oninput="C.personality.${k}=this.value;persist()">${esc(C.personality[k]||'')}</textarea>
+          <textarea rows="3" oninput="setPersonality('${k}',this.value)">${esc(C.personality[k]||'')}</textarea>
           ${sugg.length?`<div class="chips">${sugg.map(x=>`<span class="chip" onclick="addPersonality('${k}',this.textContent)">${esc(x)}</span>`).join('')}</div>`:''}
         </div>`}).join('')}
     </div>
   </div>`;
 }
 function updTabChar(){const el=$('.tab-char');if(el)el.innerHTML=`${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}`}
-function setAppearance(key,value){if(!['age','height','weight','eyes','skin','hair','details'].includes(key))return;C.appearance=C.appearance||{};C.appearance[key]=value.slice(0,500);persist()}
-function removePortrait(){C.portrait='';persist();render()}
+function setAppearance(key,value){if(setCharacterAppearance(key,value))persist()}
+function setPersonality(key,value){if(setCharacterPersonality(key,value))persist()}
+function removePortrait(){if(setCharacterPortrait('')){persist();render()}}
 function setPortraitFile(input){
   const file=input.files?.[0];if(!file)return;
   if(!file.type.startsWith('image/')||file.size>20*1024*1024){alert('Выберите изображение размером не более 20 МБ.');input.value='';return}
@@ -252,13 +252,13 @@ function setPortraitFile(input){
       for(const quality of [.82,.65,.48]){portrait=canvas.toDataURL('image/jpeg',quality);if(portrait.length<=MAX_PORTRAIT_DATA)break}
       input.value='';
       if(portrait.length>MAX_PORTRAIT_DATA){alert('Не удалось сжать изображение до 150 КБ. Выберите другое.');return}
-      C.portrait=portrait;persist();render();
+      setCharacterPortrait(portrait);persist();render();
     }catch(error){input.value='';alert('Не удалось обработать изображение.')}
   };
   image.onerror=()=>{URL.revokeObjectURL(url);input.value='';alert('Не удалось открыть изображение.')};
   image.src=url;
 }
-function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
+function addPersonality(k,v){if(addCharacterPersonality(k,v)){persist();render()}}
 function changeRace(v){if(setCharacterRace(v)){persist();render()}}
 function changeBackground(v){if(setCharacterBackground(v)){persist();render()}}
 function changeClass(i,v){const error=setCharacterClass(i,v);if(error){alert(error);render();return}persist();render()}
