@@ -307,6 +307,7 @@ function setCharacterField(key,value){
     if(value&&!RACES[C.race]?.subs?.[value])return false;
     C.subrace=value;
     if(C.race==='elf'&&value!=='high'&&C.racialSpells){delete C.racialSpells.highelf;delete C.racialSpells.highelfAbility}
+    C.extraLangs=(C.extraLangs||[]).slice(0,languageChoiceCount());
   }
   else if(key==='dragonColor'){if(!['black','blue','brass','bronze','copper','gold','green','red','silver','white'].includes(value))return false;C.dragonColor=value}
   else if(key==='align'){if(!ALIGN.includes(value))return false;C.align=value}

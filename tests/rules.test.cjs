@@ -1305,10 +1305,11 @@ test('lowering class levels prunes choices that are no longer available', () => 
 
 test('race and subrace changes clear incompatible racial spell selections', () => {
   const c = character();
-  c.race = 'elf';c.subrace = 'high';c.racialSpells = { highelf: 'fire_bolt', highelfAbility: 'int' };
+  c.race = 'elf';c.subrace = 'high';c.bg = 'criminal';c.extraLangs = ['Драконий'];c.racialSpells = { highelf: 'fire_bolt', highelfAbility: 'int' };
   api.setChar(c);
   assert.equal(api.setCharacterField('subrace', 'wood'), true);
   assert.deepEqual({ ...c.racialSpells }, {});
+  assert.deepEqual(Array.from(c.extraLangs), []);
   assert.equal(api.validCharacter(c), true);
   assert.equal(api.setCharacterField('subrace', 'high'), true);
   assert.equal(api.setCharacterRacialSpell('highelf', 'fire_bolt'), true);
