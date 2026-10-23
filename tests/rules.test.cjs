@@ -39,6 +39,7 @@ globalThis.api = {
   setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
   setCharacterAbilityMethod, setCharacterStandardAbility, stepCharacterPointAbility, setCharacterManualAbility, setCharacterRaceAsiMode, setCharacterRaceAsi, toggleCharacterHalfElfAbility, setCharacterAsiType, setCharacterAsiFeat, setCharacterAsiFeatBonus, setCharacterAsiValues, resetCharacterSkillChoices, toggleCharacterRaceSkill, toggleCharacterClassSkill, toggleCharacterExpertise,
   setCharacterEquipmentMode, setCharacterEquipmentChoice, setCharacterGold, setCharacterAttunement, priceToGold, addCharacterItem, buyCharacterItem, sellCharacterItem, removeCharacterItem, toggleCharacterEquipItem, toggleCharacterWieldWeapon, setCharacterWeaponGrip, applyCharacterStartingKit,
+  setCharacterGameField, changeCharacterHp, setCharacterFullHp, setCharacterDeathSaves, toggleCharacterTracker, reduceCharacterHitDiceUsed, spendCharacterHitDie, shortRestCharacter, longRestCharacter,
   setSpellQuery, setSpellFilter,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
@@ -1058,6 +1059,42 @@ test('warlock pact slots have a single resource tracker', () => {
   const game = api.renderGame();
   assert.match(game, /data-res="pact"/);
   assert.doesNotMatch(game, /pactPips/);
+});
+
+test('game tracker changes are handled in the state layer', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 3, sub: 'evocation' }];
+  c.game.hpCur = 5;
+  c.game.hpTemp = 3;
+  api.setChar(c);
+  assert.equal(api.changeCharacterHp(4, false), true);
+  assert.equal(c.game.hpTemp, 0);
+  assert.equal(c.game.hpCur, 4);
+  assert.equal(api.setCharacterGameField('exh', 9), true);
+  assert.equal(c.game.exh, 6);
+  assert.equal(api.setCharacterGameField('notes', 'test'), true);
+  assert.equal(c.game.notes, 'test');
+  assert.equal(api.setCharacterDeathSaves('dsOk', 8), true);
+  assert.equal(c.game.dsOk, 3);
+  assert.equal(api.toggleCharacterTracker('slot', 0, 2), true);
+  assert.equal(c.game.slotsUsed[0], 3);
+  assert.equal(api.toggleCharacterTracker('slot', 0, 2), true);
+  assert.equal(c.game.slotsUsed[0], 2);
+  assert.equal(api.toggleCharacterTracker('resource', 'invalid', 0), false);
+
+  c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }];
+  c.game.hpCur = 1;
+  c.game.hdUsed = 0;
+  c.game.hdUsedByClass = { fighter: 0 };
+  api.setChar(c);
+  const result = api.spendCharacterHitDie('fighter', 10);
+  assert.equal(result.hitDie, 10);
+  assert.equal(result.healing >= 1, true);
+  assert.equal(c.game.hdUsedByClass.fighter, 1);
+  api.reduceCharacterHitDiceUsed();
+  assert.equal(c.game.hdUsedByClass.fighter, 0);
+  api.setCharacterFullHp();
+  assert.equal(c.game.hpCur, api.maxHp());
 });
 
 test('short rest preserves ordinary spell slots and restores pact slots', () => {

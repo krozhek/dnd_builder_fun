@@ -259,3 +259,68 @@ function applyCharacterStartingKit(){
   });
   const armor=C.inventory.find(item=>item.type==='armor');if(armor)armor.equipped=true;
 }
+function setCharacterGameField(field,value){
+  const game=C.game;
+  if(field==='hpTemp'){const n=Number(value);if(!Number.isFinite(n))return false;game.hpTemp=Math.max(0,n)}
+  else if(field==='insp')game.insp=!!value;
+  else if(field==='exh'){const n=Number(value);if(!Number.isFinite(n))return false;game.exh=Math.min(6,Math.max(0,n))}
+  else if(field==='conditions'||field==='notes')game[field]=String(value);
+  else return false;
+  return true;
+}
+function changeCharacterHp(amount,healing){
+  const game=C.game,mhp=maxHp();if(!Number.isFinite(amount)||amount<=0)return false;
+  if(healing)game.hpCur=Math.min(mhp,(game.hpCur??mhp)+amount);
+  else{
+    let damage=amount;
+    const temporary=Math.min(game.hpTemp||0,damage);game.hpTemp=Math.max(0,(game.hpTemp||0)-temporary);damage-=temporary;
+    game.hpCur=Math.max(0,(game.hpCur??mhp)-damage);
+  }
+  return true;
+}
+function setCharacterFullHp(){C.game.hpCur=maxHp()}
+function setCharacterDeathSaves(kind,value){if(!['dsOk','dsFail'].includes(kind)||!Number.isInteger(value))return false;C.game[kind]=Math.max(0,Math.min(3,value));return true}
+function toggleCharacterTracker(kind,id,index){
+  if(!Number.isInteger(index)||index<0)return false;
+  let used,max;
+  if(kind==='slot'){
+    max=(spellSlots()||[])[id];if(!Number.isInteger(max)||index>=max)return false;
+    C.game.slotsUsed=C.game.slotsUsed||{};used=C.game.slotsUsed[id]||0;C.game.slotsUsed[id]=used===index+1?index:index+1;
+  }else if(kind==='pact'){
+    max=pactSlots()?.count;if(!max||index>=max)return false;
+    used=C.game.pactUsed||0;C.game.pactUsed=used===index+1?index:index+1;
+  }else if(kind==='resource'){
+    const resource=classResources().find(item=>item.id===id);if(!resource||index>=Math.min(resource.max,30))return false;
+    C.game.resources=C.game.resources||{};used=C.game.resources[id]||0;C.game.resources[id]=used===index+1?index:index+1;
+  }else return false;
+  return true;
+}
+function reduceCharacterHitDiceUsed(){
+  const used=syncHitDice();
+  for(const characterClass of [...C.classes].reverse())if(used[characterClass.cls]){used[characterClass.cls]--;break}
+  C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,count)=>sum+count,0);
+}
+function spendCharacterHitDie(cls,roll){
+  const used=syncHitDice(),characterClass=C.classes.find(item=>item.cls===cls);
+  if(!characterClass||used[cls]>=characterClass.lvl)return {error:'Все кости хитов этого класса потрачены'};
+  const hitDie=CLASSES[cls].hd;if(!Number.isInteger(roll)||roll<1||roll>hitDie)return {error:'Некорректный бросок кости хитов'};
+  used[cls]++;C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,count)=>sum+count,0);
+  const healing=Math.max(1,roll+am('con'));C.game.hpCur=Math.min(maxHp(),(C.game.hpCur??maxHp())+healing);
+  return {healing,hitDie};
+}
+function shortRestCharacter(){
+  const game=C.game;game.pactUsed=0;
+  if(game.resources){
+    for(const id of ['pact','ki','secondwind','surge','wildshape','channel','luck'])if(game.resources[id]!=null)game.resources[id]=0;
+    if(game.resources.insp!=null&&C.classes.find(c=>c.cls==='bard'&&c.lvl>=5))game.resources.insp=0;
+    if(C.classes.some(c=>c.cls==='sorcerer'&&c.lvl>=20)&&game.resources.sorc!=null)game.resources.sorc=Math.max(0,game.resources.sorc-4);
+  }
+}
+function longRestCharacter(){
+  const game=C.game;game.hpCur=maxHp();game.hpTemp=0;
+  const used=syncHitDice(),remaining=Math.min(Object.values(used).reduce((sum,count)=>sum+count,0),Math.max(1,Math.floor(totalLvl()/2)));
+  let recover=remaining;
+  for(const characterClass of C.classes){const restored=Math.min(used[characterClass.cls]||0,recover);used[characterClass.cls]-=restored;recover-=restored}
+  game.hdUsedByClass=used;game.hdUsed=Object.values(used).reduce((sum,count)=>sum+count,0);
+  game.slotsUsed={};game.pactUsed=0;game.resources={};game.dsOk=0;game.dsFail=0;
+}

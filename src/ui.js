@@ -775,35 +775,34 @@ function attacksHtml(){
 function renderGame(){
   const g=C.game;
   const mh=maxHp();
-  if(g.hpCur==null)g.hpCur=mh;
   const slots=spellSlots();
   const res=classResources();
   return `<div class="page"><h1>Игровой режим</h1>
   <div class="grid two">
     <div class="card">
       <h3>Хиты</h3>
-      <div class="hp-big"><b>${esc(g.hpCur)}</b><span class="muted">/ ${mh}</span></div>
+      <div class="hp-big"><b>${esc(g.hpCur??mh)}</b><span class="muted">/ ${mh}</span></div>
       <div class="row gap wrap">
         <input type="number" id="hpDelta" placeholder="±" style="width:80px">
         <button class="btn danger" onclick="chgHp(-1)">Урон</button>
         <button class="btn ok" onclick="chgHp(1)">Лечение</button>
-        <button class="btn ghost" onclick="C.game.hpCur=maxHp();persist();render()">Полное</button>
+        <button class="btn ghost" onclick="setFullHp()">Полное</button>
       </div>
-      <label>Временные хиты<input type="number" min="0" value="${esc(g.hpTemp||0)}" onchange="C.game.hpTemp=+this.value||0;persist();render()"></label>
+      <label>Временные хиты<input type="number" min="0" value="${esc(g.hpTemp||0)}" onchange="setGameField('hpTemp',this.value,true)"></label>
       <div class="row gap wrap" style="margin-top:8px">
         <span>Кости хитов: <b>${hitDiceStr()}</b></span>
         ${C.classes.length>1?`<label>Кость класса<select id="hdClass">${C.classes.map(c=>`<option value="${c.cls}">${CLASSES[c.cls].name} · к${CLASSES[c.cls].hd} (${hitDiceUsedByClass()[c.cls]||0}/${c.lvl})</option>`).join('')}</select></label>`:''}
         <span class="muted">потрачено: ${esc(g.hdUsed||0)} / ${totalLvl()}</span>
         <button class="btn sm" onclick="spendHd()">Потратить кость</button>
-        <button class="btn sm ghost" onclick="C.game.hdUsed=Math.max(0,(C.game.hdUsed||0)-1);persist();render()">−1</button>
+        <button class="btn sm ghost" onclick="reduceHitDice()">−1</button>
       </div>
       <h4>Спасброски от смерти</h4>
       <div class="row gap">
-        <span>Успехи: ${[0,1,2].map(i=>`<span class="pip${g.dsOk>i?' on':''}" onclick="C.game.dsOk=${g.dsOk>i?i:i+1};persist();render()"></span>`).join('')}</span>
-        <span>Провалы: ${[0,1,2].map(i=>`<span class="pip fail${g.dsFail>i?' on':''}" onclick="C.game.dsFail=${g.dsFail>i?i:i+1};persist();render()"></span>`).join('')}</span>
+        <span>Успехи: ${[0,1,2].map(i=>`<span class="pip${g.dsOk>i?' on':''}" onclick="setDeathSave('dsOk',${g.dsOk>i?i:i+1})"></span>`).join('')}</span>
+        <span>Провалы: ${[0,1,2].map(i=>`<span class="pip fail${g.dsFail>i?' on':''}" onclick="setDeathSave('dsFail',${g.dsFail>i?i:i+1})"></span>`).join('')}</span>
       </div>
-      <label class="chk"><input type="checkbox" ${g.insp?'checked':''} onchange="C.game.insp=this.checked;persist()"> Вдохновение</label>
-      <label>Истощение (0–6)<input type="number" min="0" max="6" value="${esc(g.exh||0)}" onchange="C.game.exh=Math.min(6,Math.max(0,+this.value||0));persist();render()"></label>
+      <label class="chk"><input type="checkbox" ${g.insp?'checked':''} onchange="setGameField('insp',this.checked)"> Вдохновение</label>
+      <label>Истощение (0–6)<input type="number" min="0" max="6" value="${esc(g.exh||0)}" onchange="setGameField('exh',this.value,true)"></label>
     </div>
     <div class="card">
       <h3>Ячейки заклинаний</h3>
@@ -814,7 +813,7 @@ function renderGame(){
       </div>
       <h3>Ресурсы класса</h3>
       ${res.length?res.map(r=>`<div class="slot-row"><b>${r.name}</b><span class="pips" data-res="${r.id}"></span></div>`).join(''):'<p class="muted">Нет расходуемых ресурсов</p>'}
-      <label>Состояния<input value="${esc(g.conditions||'')}" placeholder="отравлен, оглушён…" oninput="C.game.conditions=this.value;persist()"></label>
+      <label>Состояния<input value="${esc(g.conditions||'')}" placeholder="отравлен, оглушён…" oninput="setGameField('conditions',this.value)"></label>
     </div>
   </div>
   <div class="card">
@@ -839,7 +838,7 @@ function renderGame(){
     </div>
     <div id="diceLog" class="dice-log"></div>
   </div>
-  <div class="card"><h3>Заметки</h3><textarea rows="4" oninput="C.game.notes=this.value;persist()">${esc(g.notes||'')}</textarea></div>
+  <div class="card"><h3>Заметки</h3><textarea rows="4" oninput="setGameField('notes',this.value)">${esc(g.notes||'')}</textarea></div>
   </div>`;
 }
 function drawGameTrackers(){
@@ -849,12 +848,12 @@ function drawGameTrackers(){
     if(!n)return;
     const used=(g.slotsUsed||{})[i]||0;
     const el=document.getElementById('slotPips'+i);
-    if(el)el.innerHTML=Array.from({length:n},(_,k)=>`<span class="pip${k<used?' on':''}" onclick="useSlot(${i},${k},${n})"></span>`).join('');
+    if(el)el.innerHTML=Array.from({length:n},(_,k)=>`<span class="pip${k<used?' on':''}" onclick="useSlot(${i},${k})"></span>`).join('');
   });
   const pact=pactSlots();
   if(pact){
     const el=document.getElementById('pactPips');
-    if(el)el.innerHTML=Array.from({length:pact.count},(_,k)=>`<span class="pip${k<(g.pactUsed||0)?' on':''}" onclick="C.game.pactUsed=(C.game.pactUsed===${k+1}?${k}:${k+1});persist();drawGameTrackers()"></span>`).join('');
+    if(el)el.innerHTML=Array.from({length:pact.count},(_,k)=>`<span class="pip${k<(g.pactUsed||0)?' on':''}" onclick="usePactSlot(${k})"></span>`).join('');
   }
   classResources().forEach(r=>{
     const el=document.querySelector(`[data-res="${r.id}"]`);
@@ -864,55 +863,26 @@ function drawGameTrackers(){
     }
   });
 }
-function useSlot(i,k,n){C.game.slotsUsed=C.game.slotsUsed||{};C.game.slotsUsed[i]=(C.game.slotsUsed[i]===k+1)?k:k+1;persist();drawGameTrackers()}
-function useRes(id,k){C.game.resources=C.game.resources||{};C.game.resources[id]=(C.game.resources[id]===k+1)?k:k+1;persist();drawGameTrackers()}
+function useSlot(i,k){if(toggleCharacterTracker('slot',i,k)){persist();drawGameTrackers()}}
+function usePactSlot(k){if(toggleCharacterTracker('pact','pact',k)){persist();drawGameTrackers()}}
+function useRes(id,k){if(toggleCharacterTracker('resource',id,k)){persist();drawGameTrackers()}}
+function setGameField(field,value,rerender=false){if(setCharacterGameField(field,value)){persist();if(rerender)render()}}
+function setFullHp(){setCharacterFullHp();persist();render()}
+function setDeathSave(kind,value){if(setCharacterDeathSaves(kind,value)){persist();render()}}
+function reduceHitDice(){reduceCharacterHitDiceUsed();persist();render()}
 function chgHp(sign){
-  const d=+($('#hpDelta').value)||0;if(!d)return;
-  const g=C.game, mh=maxHp();
-  if(sign<0){
-    let dmg=d;
-    if(g.hpTemp>0){const t=Math.min(g.hpTemp,dmg);g.hpTemp-=t;dmg-=t}
-    g.hpCur=Math.max(0,g.hpCur-dmg);
-  }else g.hpCur=Math.min(mh,g.hpCur+d);
-  persist();render();
+  const amount=+($('#hpDelta').value)||0;if(!amount)return;
+  if(changeCharacterHp(amount,sign>0)){persist();render()}
 }
 function spendHd(selectedClass){
-  const g=C.game,used=syncHitDice(),cls=selectedClass||$('#hdClass')?.value||C.classes[0].cls,c=C.classes.find(x=>x.cls===cls);
-  if(!c||used[cls]>=c.lvl){alert('Все кости хитов этого класса потрачены');return}
-  used[cls]++;g.hdUsedByClass=used;g.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
-  const hd=CLASSES[cls].hd,heal=Math.floor(Math.random()*hd)+1+am('con');
-  g.hpCur=Math.min(maxHp(),(g.hpCur??maxHp())+Math.max(1,heal));
-  logRoll('Кость хитов к'+hd+': +'+Math.max(1,heal)+' хитов');
-  persist();render();
+  const cls=selectedClass||$('#hdClass')?.value||C.classes[0].cls,hitDie=CLASSES[cls]?.hd;
+  const result=spendCharacterHitDie(cls,Math.floor(Math.random()*hitDie)+1);
+  if(result.error){alert(result.error);return}
+  logRoll('Кость хитов к'+result.hitDie+': +'+result.healing+' хитов');persist();render();
 }
-function shortRest(){
-  const g=C.game;
-  g.pactUsed=0;
-  // колдун восстанавливает ячейки договора на коротком отдыхе
-  if(g.resources){
-    if(g.resources.pact!=null)g.resources.pact=0;
-    if(g.resources.ki!=null)g.resources.ki=0;
-    if(g.resources.insp!=null&&C.classes.find(c=>c.cls==='bard'&&c.lvl>=5))g.resources.insp=0;
-    if(g.resources.secondwind!=null)g.resources.secondwind=0;
-    if(g.resources.surge!=null)g.resources.surge=0;
-    if(g.resources.wildshape!=null)g.resources.wildshape=0;
-    if(g.resources.channel!=null)g.resources.channel=0;
-    const sorc=C.classes.find(c=>c.cls==='sorcerer'&&c.lvl>=20);
-    if(sorc&&g.resources.sorc!=null)g.resources.sorc=Math.max(0,g.resources.sorc-4);
-    g.resources.luck=0;
-  }
-  persist();render();
-}
-function longRest(){
-  const g=C.game;
-  g.hpCur=maxHp();g.hpTemp=0;
-  const used=syncHitDice(),remaining=Math.min(Object.values(used).reduce((sum,n)=>sum+n,0),Math.max(1,Math.floor(totalLvl()/2)));
-  let recover=remaining;
-  for(const c of C.classes){const restored=Math.min(used[c.cls]||0,recover);used[c.cls]-=restored;recover-=restored}
-  g.hdUsedByClass=used;g.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
-  g.slotsUsed={};g.pactUsed=0;g.resources={};g.dsOk=0;g.dsFail=0;
-  persist();render();
-}
+function shortRest(){shortRestCharacter();persist();render()}
+function longRest(){longRestCharacter();persist();render()}
+
 function rollDice(n,d,m,label){
   const rolls=Array.from({length:n},()=>Math.floor(Math.random()*d)+1);
   const sum=rolls.reduce((a,b)=>a+b,0)+m;
