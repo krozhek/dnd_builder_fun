@@ -47,11 +47,13 @@ function warnStorage(){
 }
 function saveLib(replaceCorrupt=false){
   if(STORAGE_CORRUPT&&!replaceCorrupt){warnStorage();return false}
+  if(!Array.isArray(LIB)||!hasUniqueCharacterIds(LIB)||!LIB.every(c=>validCharacter(c,false)))return false;
   if(!writeStorage(LS_KEY,JSON.stringify(LIB))){if(replaceCorrupt)STORAGE_WARNING_SHOWN=false;warnStorage();return false}
   STORAGE_CORRUPT=false;STORAGE_WARNING_SHOWN=false;return true;
 }
 function persist(){
   if(!C)return;
+  if(!validCharacter(C,false)){alert('Персонаж содержит некорректные данные и не был сохранён.');return false}
   if(STORAGE_CORRUPT){warnStorage();return}
   C.updated=Date.now();
   const i=LIB.findIndex(c=>c.id===C.id);

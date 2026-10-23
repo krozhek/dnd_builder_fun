@@ -45,7 +45,7 @@ globalThis.api = {
   shortRest, longRest, spendHd, drawGameTrackers, syncHitDice, hitDiceUsedByClass,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
-  addClass, changeClass, changeLvl, removeClass, changeRace, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
+  addClass, changeClass, changeLvl, changeSub, removeClass, changeRace, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -873,6 +873,23 @@ test('class changes remove obsolete proficiencies and class-specific choices', (
   assert.equal(Object.keys(c.asi).length, 1);
   api.changeLvl(0, 2);
   assert.equal(Object.keys(c.asi).length, 0);
+  api.setRenderFn(oldRender);
+});
+
+test('subclass and level changes prune spells that are no longer available', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 5, sub: 'fiend' }];
+  c.spellsKnown.warlock = ['fireball'];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.changeSub(0, 'archfey');
+  assert.deepEqual(Array.from(c.spellsKnown.warlock), []);
+  c.classes[0] = { cls: 'ranger', lvl: 5, sub: 'hunter' };
+  c.spellsKnown.ranger = ['hunters_mark', 'speak_with_animals'];
+  api.setChar(c);
+  api.changeLvl(0, 1);
+  assert.deepEqual(Array.from(c.spellsKnown.ranger), []);
   api.setRenderFn(oldRender);
 });
 

@@ -100,6 +100,7 @@ function delChar(id){
   LIB=LIB.filter(c=>c.id!==id);saveLib();render();
 }
 function exportJson(){
+  if(!validCharacter(C)){alert('Исправьте некорректные значения персонажа перед экспортом.');return}
   const blob=new Blob([JSON.stringify(C,null,1)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -107,6 +108,7 @@ function exportJson(){
   a.click();URL.revokeObjectURL(a.href);
 }
 function exportLibrary(){
+  if(!LIB.every(c=>validCharacter(c))){alert('В библиотеке есть некорректный персонаж; резервная копия не создана.');return}
   const backup={format:'dnd-builder-backup',version:1,exportedAt:new Date().toISOString(),characters:LIB};
   const blob=new Blob([JSON.stringify(backup,null,1)],{type:'application/json'});
   const a=document.createElement('a');
@@ -444,6 +446,24 @@ function clearClassSelections(cls){
   if(cls==='warlock'){delete C.choices.pactBoon;delete C.choices.invocations;C.arcanum={}}
 }
 function pruneExpertise(){C.expertise=(C.expertise||[]).filter(id=>profSkills().includes(id))}
+function pruneClassSpells(cls){
+  const caster=C.classes.find(c=>c.cls===cls);if(!caster)return 0;
+  let removed=0;
+  const valid=(id,kind)=>{
+    const spell=SPELLS.find(s=>s.id===id);
+    return spell&&spellClassAllowed(caster,id)&&(kind==='cantrip'?spell.lvl===0:spell.lvl>0&&spell.lvl<=classMaxSpellLevel(caster))&&!(kind==='prepared'&&cls==='wizard'&&!(C.spellbook||[]).includes(id));
+  };
+  for(const [field,kind] of [['cantrips','cantrip'],['spellsKnown','known'],['spellsPrepared','prepared']]){
+    const old=C[field][cls]||[],limit=kind==='cantrip'?cantripLimit(cls):kind==='known'?knownLimit(cls):['cleric','druid','paladin','wizard'].includes(cls)?prepLimit(cls):0,kept=[];
+    for(const id of old){if(!valid(id,kind)||kept.length>=limit||kind==='known'&&!thirdCasterSpellSelectionsValid(caster,[...kept,id]))continue;kept.push(id)}
+    removed+=old.length-kept.length;C[field][cls]=kept;
+  }
+  if(cls==='wizard'){
+    const old=C.spellbook||[];C.spellbook=old.filter(id=>valid(id,'known'));removed+=old.length-C.spellbook.length;
+    const kept=C.spellsPrepared.wizard||[];C.spellsPrepared.wizard=kept.filter(id=>C.spellbook.includes(id));
+  }
+  return removed;
+}
 function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];C.racialSpells={};if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
 function changeBackground(v){C.bg=v;C.choices.backgroundTools=[];C.extraLangs=[];persist();render()}
 function changeClass(i,v){
@@ -463,9 +483,20 @@ function changeLvl(i,v){
   const used=syncHitDice();
   C.classes[i].lvl=lvl;used[C.classes[i].cls]=Math.min(used[C.classes[i].cls]||0,lvl);
   C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
-  pruneAsiChoices();persist();render()
+  const removed=pruneClassSpells(C.classes[i].cls);pruneAsiChoices();
+  if(removed)alert(`Удалено недоступных заклинаний: ${removed}.`);
+  persist();render()
 }
-function changeSub(i,v){C.classes[i].sub=v;persist();render()}
+function changeSub(i,v){
+  const c=C.classes[i];if(!c||c.sub===v)return;
+  c.sub=v;
+  if(c.cls==='druid'&&v!=='land')delete C.choices.druidLand;
+  if(c.cls==='sorcerer'&&v!=='draconic')delete C.choices.draconicType;
+  if(c.cls==='fighter'&&v!=='champion')delete C.choices.fightingStyles?.championExtra;
+  const removed=pruneClassSpells(c.cls);
+  if(removed)alert(`Удалено заклинаний, недоступных для нового подкласса: ${removed}.`);
+  persist();render()
+}
 function addClass(){
   if(totalLvl()>=20){alert('Общий уровень персонажа уже равен 20.');return}
   const used=C.classes.map(c=>c.cls),available=Object.keys(CLASSES).filter(k=>!used.includes(k));
