@@ -50,6 +50,7 @@ globalThis.api = {
   attacksHtml,
   shortRest, longRest, spendHd, drawGameTrackers, syncHitDice, hitDiceUsedByClass,
   renderSheet2024,
+  foundryActorData, foundrySpellItem,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
   addClass, changeClass, changeLvl, changeSub, removeClass, changeRace, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
@@ -69,6 +70,67 @@ function character() {
 test('offline HTML is generated from the modular source files', () => {
   execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'build.cjs'), '--check']);
 });
+
+test('Foundry 12 / dnd5e 3.3.1 export carries actor data, classes, spells, and equipment', () => {
+  const c = character();
+  c.name = 'Мира';
+  c.classes = [{ cls: 'wizard', lvl: 3, sub: 'evocation' }];
+  c.cantrips.wizard = ['fire_bolt'];
+  c.spellbook = ['mage_armor'];
+  c.spellsPrepared.wizard = ['mage_armor'];
+  c.inventory = [
+    { type: 'weapon', id: 'quarterstaff', qty: 1, wielded: true },
+    { type: 'armor', id: 'leather', qty: 1, equipped: true },
+    { type: 'gear', id: 'spellbook', qty: 1 },
+  ];
+  c.game.hpCur = 15;
+  c.game.slotsUsed = { 0: 1 };
+  c.gold = 10.56;
+  c.appearance.age = '120 лет';
+  api.setChar(c);
+
+  const actor = api.foundryActorData();
+  assert.equal(actor.type, 'character');
+  assert.equal(actor.system.abilities.dex.value, api.abil('dex'));
+  assert.equal(actor.system.attributes.hp.value, 15);
+  assert.equal(actor.system.currency.gp, 10);
+  assert.equal(actor.system.currency.sp, 5);
+  assert.equal(actor.system.currency.cp, 6);
+  assert.equal(actor.system.details.age, '120 лет');
+  assert.equal(actor.system.spells.spell1.value, actor.system.spells.spell1.override - 1);
+  assert.equal(actor.system.skills.prc.ability, 'wis');
+  assert.equal(actor.system.details.originalClass, actor.items.find(item => item.type === 'class')._id);
+  assert.equal(actor.items.find(item => item.type === 'class').system.spellcasting.progression, 'full');
+  assert.ok(actor.items.some(item => item.type === 'subclass' && item.system.classIdentifier === 'wizard'));
+  const fireBolt = actor.items.find(item => item.type === 'spell' && item.name === 'Огненный снаряд');
+  assert.equal(fireBolt.system.school, 'evo');
+  assert.ok(fireBolt.system.properties.includes('vocal'));
+  assert.ok(actor.items.some(item => item.type === 'spell' && item.name === 'Доспехи мага' && item.system.preparation.prepared));
+  const staff = actor.items.find(item => item.type === 'weapon');
+  assert.equal(staff.system.damage.parts[0].join(','), '1d6,bludgeoning');
+  assert.ok(actor.items.some(item => item.type === 'equipment' && item.system.equipped));
+  assert.ok(actor.items.some(item => item.type === 'loot' && item.name === 'Книга заклинаний'));
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(actor)));
+});
+
+test('Foundry spell conversion maps every catalog entry to known dnd5e 3.3.1 enums', () => {
+  const schools = new Set(['abj', 'con', 'div', 'enc', 'evo', 'ill', 'nec', 'trs']);
+  const modes = new Set(['prepared', 'pact', 'always', 'atwill', 'innate', 'ritual']);
+  const durations = new Set(['inst', 'perm', 'disp', 'dstr', 'spec', 'turn', 'round', 'minute', 'hour', 'day', 'month', 'year']);
+  for (const spell of api.SPELLS) {
+    const item = api.foundrySpellItem(spell, 'wizard', 'prepared', false);
+    assert.ok(schools.has(item.system.school), spell.id);
+    assert.ok(modes.has(item.system.preparation.mode), spell.id);
+    assert.ok(durations.has(item.system.duration.units), spell.id);
+    assert.ok(Array.isArray(item.system.properties), spell.id);
+  }
+});
+
+test('Foundry export HTML action is wired to the character toolbar', () => {
+  assert.match(script, /onclick="exportFoundryJson\(\)"/);
+  assert.ok(script.includes('foundry-v12-dnd5e-3.3.1'));
+});
+
 
 test('proficiency bonus and modifiers follow total character level', () => {
   const c = character();

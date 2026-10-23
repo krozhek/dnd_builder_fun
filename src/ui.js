@@ -24,6 +24,7 @@ function render(){
     <div class="top-actions">
       <button class="btn ghost" id="themeBtn" onclick="toggleTheme()"></button>
       ${C?`<button class="btn ghost" onclick="exportJson()">⬇ JSON</button>
+      <button class="btn ghost" onclick="exportFoundryJson()" title="Foundry VTT 12 · dnd5e 3.3.1">⬇ Foundry</button>
       <label class="btn ghost" for="importFile">⬆ Импорт</label><input type="file" id="importFile" accept=".json" hidden onchange="importJson(this)">`:''}
     </div>
   </header>`;
