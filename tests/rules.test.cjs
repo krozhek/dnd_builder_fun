@@ -36,6 +36,7 @@ globalThis.api = {
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, hasUniqueCharacterIds,
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
+  setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
   setSpellQuery, setSpellFilter,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
@@ -710,6 +711,32 @@ test('spell search filters rows and hides empty spell levels', () => {
   assert.equal(acid.hidden, false);
   assert.equal(mageArmor.hidden, false);
   assert.equal(dom.empty.hidden, true);
+});
+
+test('spell selections and wizard book changes are owned by the state layer', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 3, sub: 'evocation' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterSpellbook('shield', true), true);
+  assert.equal(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 6, 'shield', true), '');
+  assert.deepEqual(Array.from(c.spellbook), ['shield']);
+  assert.deepEqual(Array.from(c.spellsPrepared.wizard), ['shield']);
+  assert.match(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 6, 'cure_wounds', true), /недоступно/);
+  assert.equal(api.setCharacterSpellbook('shield', false), true);
+  assert.deepEqual(Array.from(c.spellsPrepared.wizard), []);
+
+  c.classes = [{ cls: 'warlock', lvl: 11, sub: 'fiend' }];
+  c.race = 'astralelf';
+  api.setChar(c);
+  assert.equal(api.setCharacterArcanum(6, 'true_seeing'), true);
+  assert.equal(c.arcanum[6], 'true_seeing');
+  assert.equal(api.setCharacterArcanum(6, 'wish'), false);
+  assert.equal(api.setCharacterRacialSpell('astralelf', 'light'), true);
+  assert.equal(c.racialSpells.astralelf, 'light');
+  assert.equal(c.racialSpells.astralelfAbility, 'wis');
+  assert.equal(api.setCharacterRacialSpell('astralelf', 'fireball'), false);
+  assert.equal(api.setCharacterRacialSpellAbility('astralelf', 'cha'), true);
+  assert.equal(c.racialSpells.astralelfAbility, 'cha');
 });
 
 test('spell filters combine class access, circle, ritual, concentration, and text search', () => {

@@ -579,8 +579,9 @@ function racialSpellEntries(){
   }
   return entries;
 }
-function setRacialSpell(key,id){const choice=racialCantripChoices().find(c=>c.key===key);if(!choice||!choice.spells.some(s=>s.id===id))return;C.racialSpells=C.racialSpells||{};C.racialSpells[key]=id;if(choice.defaultAbility&&!C.racialSpells[key+'Ability'])C.racialSpells[key+'Ability']=choice.defaultAbility;persist();render()}
-function setRacialSpellAbility(key,ability){const choice=racialCantripChoices().find(c=>c.key===key);if(!choice||!choice.abilities?.includes(ability))return;C.racialSpells=C.racialSpells||{};C.racialSpells[key+'Ability']=ability;persist();render()}
+function setRacialSpell(key,id){if(setCharacterRacialSpell(key,id)){persist();render()}}
+function setRacialSpellAbility(key,ability){if(setCharacterRacialSpellAbility(key,ability)){persist();render()}}
+function setArcanum(level,id){if(setCharacterArcanum(level,id)){persist();render()}}
 function renderRacialSpells(){
   const choices=racialCantripChoices(),entries=racialSpellEntries();if(!choices.length&&!entries.length)return '';
   const abilityName=id=>ABIL_RU_FULL[id]||id;
@@ -639,7 +640,7 @@ function renderCasterBlock(c){
     if(cls==='warlock'&&c.lvl>=11){
       const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;
       const cur=C.arcanum[arcLvl];
-      head+=`<label>Мистический арканум (${arcLvl} круг)<select onchange="C.arcanum['${arcLvl}']=this.value;persist();render()"><option value="">—</option>${SPELLS.filter(s=>s.lvl===arcLvl&&s.cls.includes('warlock')).map(s=>`<option value="${s.id}"${cur===s.id?' selected':''}>${s.ru}</option>`).join('')}</select></label>`;
+      head+=`<label>Мистический арканум (${arcLvl} круг)<select onchange="setArcanum(${arcLvl},this.value)"><option value="">—</option>${SPELLS.filter(s=>s.lvl===arcLvl&&s.cls.includes('warlock')).map(s=>`<option value="${s.id}"${cur===s.id?' selected':''}>${s.ru}</option>`).join('')}</select></label>`;
     }
   }
   return head+'</div>';
@@ -680,14 +681,8 @@ function spellPicker(cls,lvl,sel,limit,store,bonusIds=[]){
     </div>`}).join('')}</div></details>`;
 }
 function toggleSpell(store,cls,limit,id,on){
-  C[store][cls]=C[store][cls]||[];
-  const arr=C[store][cls];
-  if(on){
-    const caster=C.classes.find(c=>c.cls===cls);
-    if(store==='spellsKnown'&&caster&&spellTypeOf(caster)==='third'&&!thirdCasterSpellSelectionsValid(caster,[...arr,id])){alert('Для этого заклинания нет свободного выбора вне ограниченных школ.');render();return}
-    const freeIds=store==='spellsKnown'&&cls==='ranger'?new Set(primalAwarenessSpells().map(s=>s.id)):null,count=freeIds?arr.filter(x=>!freeIds.has(x)).length:arr.length;if(count>=limit){alert('Лимит: '+limit);render();return}arr.push(id)
-  }
-  else C[store][cls]=arr.filter(x=>x!==id);
+  const error=setCharacterSpellSelection(store,cls,limit,id,on);
+  if(error){alert(error);render();return}
   persist();render();
 }
 function renderWizardSpells(c,maxLvl){
@@ -709,11 +704,7 @@ function renderWizardSpells(c,maxLvl){
   return h;
 }
 function toggleSpellbook(id,on){
-  C.spellbook=C.spellbook||[];
-  if(on)C.spellbook.push(id);else{
-    C.spellbook=C.spellbook.filter(x=>x!==id);
-    C.spellsPrepared.wizard=(C.spellsPrepared.wizard||[]).filter(x=>x!==id);
-  }
+  if(!setCharacterSpellbook(id,on))return;
   persist();render();
 }
 function spellNameClick(event,id){event.preventDefault();event.stopPropagation();openSpellModal(id)}

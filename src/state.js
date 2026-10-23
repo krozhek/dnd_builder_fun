@@ -82,6 +82,50 @@ function addCharacterClass(){
   if(!cls)return available.length?multiclassRequirementError(available[0]):'Все классы уже добавлены.';
   C.classes.push({cls,lvl:1,sub:CLASSES[cls].sub||''});return '';
 }
+function setCharacterArcanum(level,id){
+  const warlock=C.classes.find(c=>c.cls==='warlock');
+  const maxLevel=warlock?.lvl>=17?9:warlock?.lvl>=15?8:warlock?.lvl>=13?7:warlock?.lvl>=11?6:0;
+  if(!warlock||level!==maxLevel||id&&!SPELLS.some(s=>s.id===id&&s.lvl===level&&s.cls.includes('warlock')))return false;
+  if(id)C.arcanum[level]=id;else delete C.arcanum[level];
+  return true;
+}
+function setCharacterSpellSelection(store,cls,limit,id,on){
+  if(!['cantrips','spellsKnown','spellsPrepared'].includes(store))return 'Недопустимый список заклинаний.';
+  const caster=C.classes.find(c=>c.cls===cls),spell=SPELLS.find(s=>s.id===id);
+  if(!caster||!spell||spell.lvl>classMaxSpellLevel(caster)||!spellClassAllowed(caster,id)||store==='cantrips'&&spell.lvl!==0||store!=='cantrips'&&spell.lvl===0||!spellsForClass(cls,spell.lvl).some(s=>s.id===id)||store==='spellsPrepared'&&cls==='wizard'&&!(C.spellbook||[]).includes(id))return 'Это заклинание недоступно классу.';
+  const arr=C[store][cls]||[];
+  if(on){
+    if(arr.includes(id))return '';
+    if(store==='spellsKnown'&&spellTypeOf(caster)==='third'&&!thirdCasterSpellSelectionsValid(caster,[...arr,id]))return 'Для этого заклинания нет свободного выбора вне ограниченных школ.';
+    const freeIds=store==='spellsKnown'&&cls==='ranger'?new Set(primalAwarenessSpells().map(s=>s.id)):null,count=freeIds?arr.filter(x=>!freeIds.has(x)).length:arr.length;
+    if(count>=limit)return 'Лимит: '+limit;
+    C[store][cls]=[...arr,id];
+  }else C[store][cls]=arr.filter(x=>x!==id);
+  return '';
+}
+function setCharacterSpellbook(id,on){
+  const caster=C.classes.find(c=>c.cls==='wizard'),spell=SPELLS.find(s=>s.id===id);
+  if(!caster||!spell||!spellClassAllowed(caster,id)||spell.lvl===0||spell.lvl>classMaxSpellLevel(caster))return false;
+  const book=C.spellbook||[];
+  if(on){if(!book.includes(id))C.spellbook=[...book,id]}
+  else{
+    C.spellbook=book.filter(x=>x!==id);
+    C.spellsPrepared.wizard=(C.spellsPrepared.wizard||[]).filter(x=>x!==id);
+  }
+  return true;
+}
+function setCharacterRacialSpell(key,id){
+  const choice=racialCantripChoices().find(c=>c.key===key);
+  if(!choice||!choice.spells.some(s=>s.id===id))return false;
+  C.racialSpells=C.racialSpells||{};C.racialSpells[key]=id;
+  if(choice.defaultAbility&&!C.racialSpells[key+'Ability'])C.racialSpells[key+'Ability']=choice.defaultAbility;
+  return true;
+}
+function setCharacterRacialSpellAbility(key,ability){
+  const choice=racialCantripChoices().find(c=>c.key===key);
+  if(!choice||!choice.abilities?.includes(ability))return false;
+  C.racialSpells=C.racialSpells||{};C.racialSpells[key+'Ability']=ability;return true;
+}
 function removeCharacterClass(index){
   if(C.classes.length<=1||!C.classes[index])return false;
   const cls=C.classes[index].cls;
