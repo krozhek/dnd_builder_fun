@@ -1161,6 +1161,52 @@ test('warlock Mystic Arcanum supports all unlocked spell circles and prunes them
   api.setRenderFn(oldRender);
 });
 
+test('lowering class levels prunes choices that are no longer available', () => {
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  let c = character();
+  c.classes = [{ cls: 'ranger', lvl: 7, sub: 'hunter' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterHunterChoice(3, 'colossus'), true);
+  assert.equal(api.setCharacterHunterChoice(7, 'escape'), true);
+  api.changeLvl(0, 4);
+  assert.equal(c.choices.hunter_3, 'colossus');
+  assert.equal(c.choices.hunter_7, undefined);
+
+  c = character();
+  c.classes = [{ cls: 'druid', lvl: 2, sub: 'land' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterChoice('druidLand', 'forest'), true);
+  api.changeLvl(0, 1);
+  assert.equal(c.choices.druidLand, undefined);
+
+  c = character();
+  c.classes = [{ cls: 'fighter', lvl: 10, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterFightingStyle('championExtra', 'archery'), '');
+  api.changeLvl(0, 9);
+  assert.equal(c.choices.fightingStyles.championExtra, undefined);
+
+  c = character();
+  c.classes = [{ cls: 'sorcerer', lvl: 17, sub: 'draconic' }];
+  api.setChar(c);
+  for (const option of ['careful', 'distant', 'empowered', 'extended']) assert.equal(api.toggleCharacterMetamagic(option, 4, true), '');
+  api.changeLvl(0, 9);
+  assert.deepEqual(Array.from(c.choices.metamagic), ['careful', 'distant']);
+
+  c = character();
+  c.classes = [{ cls: 'warlock', lvl: 4, sub: 'fiend' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterChoice('pactBoon', 'talisman'), true);
+  assert.equal(api.toggleCharacterInvocation('armor', 2, true), '');
+  assert.equal(api.toggleCharacterInvocation('beast', 2, true), '');
+  api.changeLvl(0, 1);
+  assert.equal(c.choices.pactBoon, undefined);
+  assert.deepEqual(Array.from(c.choices.invocations), []);
+  assert.doesNotMatch(api.renderClass(), /Талисман договора/);
+  api.setRenderFn(oldRender);
+});
+
 test('race changes clear incompatible racial spell selections', () => {
   const c = character();
   c.race = 'elf';c.subrace = 'high';c.racialSpells = { highelf: 'fire_bolt', highelfAbility: 'int' };

@@ -2248,14 +2248,14 @@ function discardClassHitDice(cls){
   const used=syncHitDice(),count=used[cls]||0;
   delete used[cls];C.game.hdUsedByClass=used;C.game.hdUsed=Math.max(0,C.game.hdUsed-count);
 }
-function clearHunterChoices(){for(const key of Object.keys(C.choices))if(/^hunter_\d+$/.test(key))delete C.choices[key]}
+function pruneHunterChoices(maxLevel=0){for(const key of Object.keys(C.choices)){const match=/^hunter_(\d+)$/.exec(key);if(match&&+match[1]>maxLevel)delete C.choices[key]}}
 function clearClassSelections(cls){
   for(const key of ['classSkills','cantrips','spellsKnown','spellsPrepared'])delete C[key]?.[cls];
   delete C.choices.classTools?.[cls];delete C.choices.fightingStyles?.[cls];delete C.choices.tashaFeatures?.[cls];
   if(cls==='wizard')C.spellbook=[];
   if(cls==='ranger'){
     delete C.choices.favoredEnemy;delete C.choices.favoredTerrain;delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;
-    clearHunterChoices();
+    pruneHunterChoices();
   }
   if(cls==='druid')delete C.choices.druidLand;
   if(cls==='sorcerer'){delete C.choices.draconicType;delete C.choices.metamagic}
@@ -2301,20 +2301,35 @@ function setCharacterClass(index,cls){
   if(previous==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
   pruneExpertise();return '';
 }
+function pruneClassLevelChoices(characterClass){
+  const {cls,lvl,sub}=characterClass;
+  if(cls==='ranger')pruneHunterChoices(lvl);
+  if(cls==='druid'&&sub==='land'&&lvl<2)delete C.choices.druidLand;
+  if(cls==='fighter'&&sub==='champion'&&lvl<10)delete C.choices.fightingStyles?.championExtra;
+  if(cls==='sorcerer'){
+    const max=lvl>=17?4:lvl>=10?3:lvl>=3?2:0;
+    if(max)C.choices.metamagic=(C.choices.metamagic||[]).slice(0,max);else delete C.choices.metamagic;
+  }
+  if(cls==='warlock'){
+    if(lvl<3)delete C.choices.pactBoon;
+    C.choices.invocations=(C.choices.invocations||[]).slice(0,TABLES.warlock.invocations[lvl-1]||0);
+    C.arcanum=Object.fromEntries(Object.entries(C.arcanum||{}).filter(([spellLevel])=>arcanumLevels(lvl).includes(+spellLevel)));
+  }
+}
 function setCharacterLevel(index,value){
   const current=C.classes[index],level=Number(value);
   if(!current||!Number.isInteger(level)||level<1||level>20||totalLvl()-current.lvl+level>20)return {error:'Общий уровень персонажа не может превышать 20.'};
   const used=syncHitDice();current.lvl=level;
   used[current.cls]=Math.min(used[current.cls]||0,level);
   C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
-  if(current.cls==='warlock')C.arcanum=Object.fromEntries(Object.entries(C.arcanum||{}).filter(([spellLevel])=>arcanumLevels(level).includes(+spellLevel)));
+  pruneClassLevelChoices(current);
   const removed=pruneClassSpells(current.cls);pruneAsiChoices();return {removed};
 }
 function setCharacterSubclass(index,subclass){
   const current=C.classes[index];if(!current||current.sub===subclass)return null;
   if(subclass&&SUBCLASSES[subclass]?.cls!==current.cls)return null;
   current.sub=subclass;
-  if(current.cls==='ranger'&&subclass!=='hunter')clearHunterChoices();
+  if(current.cls==='ranger')pruneHunterChoices(subclass==='hunter'?current.lvl:0);
   if(current.cls==='druid'&&subclass!=='land')delete C.choices.druidLand;
   if(current.cls==='sorcerer'&&subclass!=='draconic')delete C.choices.draconicType;
   if(current.cls==='fighter'&&subclass!=='champion')delete C.choices.fightingStyles?.championExtra;
