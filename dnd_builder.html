@@ -2326,7 +2326,11 @@ function pruneWarlockInvocations(){
   C.choices.invocations=(C.choices.invocations||[]).filter(id=>!invocationPrerequisiteError(id,warlock)).slice(0,max);
 }
 function pruneClassLevelChoices(characterClass){
-  const {cls,lvl,sub}=characterClass;
+  const {cls,lvl,sub}=characterClass,selected=(C.choices.tashaFeatures||{})[cls]||[];
+  if(selected.length){
+    const eligible=selected.filter(id=>(TASHA_FEATURES[cls]||[]).some(([option,required])=>option===id&&required<=lvl));
+    if(eligible.length)C.choices.tashaFeatures[cls]=eligible;else delete C.choices.tashaFeatures[cls];
+  }
   if(cls==='ranger')pruneHunterChoices(lvl);
   if(cls==='druid'&&sub==='land'&&lvl<2)delete C.choices.druidLand;
   if(cls==='fighter'&&sub==='champion'&&lvl<10)delete C.choices.fightingStyles?.championExtra;

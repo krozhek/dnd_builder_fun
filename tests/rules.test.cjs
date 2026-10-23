@@ -1224,6 +1224,15 @@ test('lowering class levels prunes choices that are no longer available', () => 
   assert.equal(c.choices.hunter_7, undefined);
 
   c = character();
+  c.classes = [{ cls: 'barbarian', lvl: 7, sub: 'berserk' }];
+  c.choices.tashaFeatures = { barbarian: ['primal_knowledge', 'instinctive_pounce'] };
+  api.setChar(c);
+  api.changeLvl(0, 6);
+  assert.deepEqual(Array.from(c.choices.tashaFeatures.barbarian), ['primal_knowledge']);
+  api.changeLvl(0, 7);
+  assert.deepEqual(Array.from(c.choices.tashaFeatures.barbarian), ['primal_knowledge']);
+
+  c = character();
   c.classes = [{ cls: 'druid', lvl: 2, sub: 'land' }];
   api.setChar(c);
   assert.equal(api.setCharacterChoice('druidLand', 'forest'), true);
