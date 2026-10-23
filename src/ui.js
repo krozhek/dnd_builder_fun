@@ -385,11 +385,11 @@ function renderSkills(){
       return `<div class="card"><h3>Навыки класса «${cl.name}» — выбрано ${picks.length}/${skillCount}</h3>
       ${skillCount||picks.length?`<div class="row gap wrap">${free.map(s=>{
         const n=SKILLS.find(x=>x[0]===s)[1];
-        return `<label class="chk"><input type="checkbox" ${picks.includes(s)?'checked':''} onchange="toggleClassSkill('${c.cls}',${skillCount},'${s}',this.checked)"> ${n}</label>`}).join('')}</div>`:'<p class="muted small">Мультиклассирование в этот класс не даёт выбора навыков.</p>'}
+        return `<label class="chk"><input type="checkbox" ${picks.includes(s)?'checked':''} onchange="toggleClassSkill('${c.cls}','${s}',this.checked)"> ${n}</label>`}).join('')}</div>`:'<p class="muted small">Мультиклассирование в этот класс не даёт выбора навыков.</p>'}
       ${picks.length<skillCount?`<div class="warn small">выберите ещё ${skillCount-picks.length}</div>`:picks.length>skillCount?`<div class="warn small">уберите ${picks.length-skillCount} лишних навыка</div>`:''}</div>`}).join('')}
     ${expertAv>0?`<div class="card"><h3>Компетентность (удвоенный бонус мастерства)</h3>
       <p class="hint">Доступно: ${expertAv}, выбрано: ${expertSelected.length}</p>
-      <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${expertSelected.includes(s)?'checked':''}${deftExplorerSkill()===s?' disabled':''} onchange="toggleExpertise('${s}',${expertAv},this.checked)"> ${SKILLS.find(x=>x[0]===s)?.[1]||esc(s)}${deftExplorerSkill()===s?' (Искусный исследователь)':''}</label>`).join('')}</div></div>`:''}
+      <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${expertSelected.includes(s)?'checked':''}${deftExplorerSkill()===s?' disabled':''} onchange="toggleExpertise('${s}',this.checked)"> ${SKILLS.find(x=>x[0]===s)?.[1]||esc(s)}${deftExplorerSkill()===s?' (Искусный исследователь)':''}</label>`).join('')}</div></div>`:''}
     <div class="card"><h3>Итоговые модификаторы</h3>
     <table class="tbl"><tr><th>Навык</th><th>Хар-ка</th><th>Мод.</th></tr>
     ${SKILLS.map(([id,n,a])=>{const p=profSkills().includes(id),e=expertiseSkills().includes(id);
@@ -410,8 +410,8 @@ function resetSkillChoices(){
   resetCharacterSkillChoices();persist();render();
 }
 function toggleRaceSkill(id,on){const error=toggleCharacterRaceSkill(id,on);if(error){alert(error);render();return}persist();render()}
-function toggleClassSkill(cls,max,id,on){const error=toggleCharacterClassSkill(cls,max,id,on);if(error){alert(error);render();return}persist();render()}
-function toggleExpertise(id,max,on){const error=toggleCharacterExpertise(id,max,on);if(error){alert(error);render();return}persist();render()}
+function toggleClassSkill(cls,id,on){const error=toggleCharacterClassSkill(cls,id,on);if(error){alert(error);render();return}persist();render()}
+function toggleExpertise(id,on){const error=toggleCharacterExpertise(id,on);if(error){alert(error);render();return}persist();render()}
 // ================= Вкладка Класс =================
 function updateTashaChoice(cls,change){
   const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
@@ -470,16 +470,16 @@ function warlockChoices(c){
     <option value="tome"${C.choices.pactBoon==='tome'?' selected':''}>Гримуар договора: 3 заговора любых классов</option>
     <option value="talisman"${C.choices.pactBoon==='talisman'?' selected':''}>Талисман договора (Таша): носитель добавляет к4 к проверкам</option></select></label>`:''}
   ${c.lvl>=2?`<div class="hint">Мистические откровения: ${inv.length}/${invMax}</div>
-  <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''} onchange="toggleInvocation('${id}',${invMax},this.checked)"> ${d}</label>`).join('')}</div>`:''}`;
+  <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''} onchange="toggleInvocation('${id}',this.checked)"> ${d}</label>`).join('')}</div>`:''}`;
 }
-function toggleInvocation(id,max,on){const error=toggleCharacterInvocation(id,max,on);if(error){alert(error);render();return}persist();render()}
+function toggleInvocation(id,on){const error=toggleCharacterInvocation(id,on);if(error){alert(error);render();return}persist();render()}
 function sorcererChoices(c){
   const max=c.lvl>=17?4:c.lvl>=10?3:2;
   const sel=C.choices.metamagic||[];
   return `<div class="hint">Метамагия: ${sel.length}/${max}</div>
-  <div class="row gap wrap col-list">${METAMAGIC.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${sel.includes(id)?'checked':''} onchange="toggleMetamagic('${id}',${max},this.checked)"> ${d}</label>`).join('')}</div>`;
+  <div class="row gap wrap col-list">${METAMAGIC.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${sel.includes(id)?'checked':''} onchange="toggleMetamagic('${id}',this.checked)"> ${d}</label>`).join('')}</div>`;
 }
-function toggleMetamagic(id,max,on){const error=toggleCharacterMetamagic(id,max,on);if(error){alert(error);render();return}persist();render()}
+function toggleMetamagic(id,on){const error=toggleCharacterMetamagic(id,on);if(error){alert(error);render();return}persist();render()}
 
 // ================= Вкладка Заклинания =================
 const LVL_NAMES=['Заговоры','1 круг','2 круг','3 круг','4 круг','5 круг','6 круг','7 круг','8 круг','9 круг'];

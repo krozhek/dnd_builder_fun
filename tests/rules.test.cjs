@@ -366,10 +366,22 @@ test('class skill choices use the starting or multiclass progression', () => {
   c2.classSkills.bard = ['arcana', 'history', 'perception'];
   api.setChar(c2);
   assert.match(api.renderSkills(), /Мультиклассирование в этот класс не даёт выбора навыков/);
+  assert.match(api.toggleCharacterClassSkill('bard', 'performance', true), /Максимум 3/);
 
   c.classSkills.bard.push('nature');
   api.setChar(c);
   assert.ok(api.characterReadiness().some(i => i.tab === 'skills' && i.text.includes('Бард: уберите лишние навыки')));
+
+  const c3 = character();
+  c3.classes = [{ cls: 'rogue', lvl: 1, sub: 'thief' }];
+  c3.classSkills.rogue = ['acrobatics', 'stealth', 'perception'];
+  c3.expertise = ['acrobatics'];
+  api.setChar(c3);
+  assert.match(api.renderSkills(), /toggleExpertise\('acrobatics',this\.checked\)/);
+  assert.equal(api.toggleCharacterExpertise('acrobatics', true), '');
+  assert.equal(api.toggleCharacterExpertise('stealth', true), '');
+  assert.match(api.toggleCharacterExpertise('perception', true), /Максимум 2/);
+  assert.deepEqual(Array.from(c3.expertise), ['acrobatics', 'stealth']);
 });
 
 test('multiclass prerequisites check the new and existing classes', () => {
@@ -947,12 +959,12 @@ test('ability, feat, and proficiency choices are mutated through the state layer
   assert.equal(api.setCharacterAsiFeatBonus(0, 'invalid'), false);
 
   assert.equal(api.toggleCharacterRaceSkill('arcana', true), '');
-  assert.equal(api.toggleCharacterClassSkill('rogue', 4, 'acrobatics', true), '');
-  assert.equal(api.toggleCharacterExpertise('arcana', 2, true), '');
+  assert.equal(api.toggleCharacterClassSkill('rogue', 'acrobatics', true), '');
+  assert.equal(api.toggleCharacterExpertise('arcana', true), '');
   assert.deepEqual(Array.from(c.raceSkills), ['arcana']);
   assert.deepEqual(Array.from(c.classSkills.rogue), ['acrobatics']);
   assert.deepEqual(Array.from(c.expertise), ['arcana']);
-  assert.match(api.toggleCharacterExpertise('stealth', 2, true), /только для навыка/);
+  assert.match(api.toggleCharacterExpertise('stealth', true), /только для навыка/);
 });
 
 test('ability methods enforce legal scores and the 27-point budget', () => {
@@ -1190,7 +1202,7 @@ test('lowering class levels prunes choices that are no longer available', () => 
   c = character();
   c.classes = [{ cls: 'sorcerer', lvl: 17, sub: 'draconic' }];
   api.setChar(c);
-  for (const option of ['careful', 'distant', 'empowered', 'extended']) assert.equal(api.toggleCharacterMetamagic(option, 4, true), '');
+  for (const option of ['careful', 'distant', 'empowered', 'extended']) assert.equal(api.toggleCharacterMetamagic(option, true), '');
   api.changeLvl(0, 9);
   assert.deepEqual(Array.from(c.choices.metamagic), ['careful', 'distant']);
 
@@ -1198,8 +1210,8 @@ test('lowering class levels prunes choices that are no longer available', () => 
   c.classes = [{ cls: 'warlock', lvl: 4, sub: 'fiend' }];
   api.setChar(c);
   assert.equal(api.setCharacterChoice('pactBoon', 'talisman'), true);
-  assert.equal(api.toggleCharacterInvocation('armor', 2, true), '');
-  assert.equal(api.toggleCharacterInvocation('beast', 2, true), '');
+  assert.equal(api.toggleCharacterInvocation('armor', true), '');
+  assert.equal(api.toggleCharacterInvocation('beast', true), '');
   api.changeLvl(0, 1);
   assert.equal(c.choices.pactBoon, undefined);
   assert.deepEqual(Array.from(c.choices.invocations), []);
@@ -1867,15 +1879,16 @@ test('class feature and proficiency choices are handled by the state layer', () 
 
   c.classes = [{ cls: 'warlock', lvl: 2, sub: 'fiend' }];
   api.setChar(c);
-  assert.equal(api.toggleCharacterInvocation('armor', 1, true), '');
-  assert.match(api.toggleCharacterInvocation('beast', 1, true), /Максимум/);
-  assert.equal(api.toggleCharacterInvocation('invalid', 2, true).includes('Недоступное'), true);
+  assert.equal(api.toggleCharacterInvocation('armor', true), '');
+  assert.equal(api.toggleCharacterInvocation('beast', true), '');
+  assert.match(api.toggleCharacterInvocation('beguiling', true), /Максимум/);
+  assert.equal(api.toggleCharacterInvocation('invalid', true).includes('Недоступное'), true);
 
   c.classes = [{ cls: 'sorcerer', lvl: 3, sub: 'wildsorc' }];
   api.setChar(c);
-  assert.equal(api.toggleCharacterMetamagic('careful', 2, true), '');
-  assert.equal(api.toggleCharacterMetamagic('distant', 2, true), '');
-  assert.match(api.toggleCharacterMetamagic('empowered', 2, true), /Максимум/);
+  assert.equal(api.toggleCharacterMetamagic('careful', true), '');
+  assert.equal(api.toggleCharacterMetamagic('distant', true), '');
+  assert.match(api.toggleCharacterMetamagic('empowered', true), /Максимум/);
 });
 
 test('Tasha Canny language and tool alternatives count toward readiness and character sheets', () => {

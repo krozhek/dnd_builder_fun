@@ -194,15 +194,19 @@ function toggleCharacterRaceSkill(id,on){
   else C.raceSkills=C.raceSkills.filter(skill=>skill!==id);
   return '';
 }
-function toggleCharacterClassSkill(cls,max,id,on){
+function toggleCharacterClassSkill(cls,id,on){
+  const index=C.classes.findIndex(characterClass=>characterClass.cls===cls),definition=CLASSES[cls];
+  if(index<0||!definition)return 'Неизвестный класс.';
+  const max=classSkillChoiceCount(index,cls);
   C.classSkills[cls]=C.classSkills[cls]||[];
-  if(on){if(!SKILLS.some(([skill])=>skill===id))return 'Неизвестный навык.';if(profSkills().includes(id))return 'Навык уже выбран из другого источника';if(C.classSkills[cls].length>=max)return 'Максимум '+max;C.classSkills[cls].push(id)}
+  if(on){if(!definition.skillList.includes(id))return 'Неизвестный навык.';if(profSkills().includes(id))return 'Навык уже выбран из другого источника';if(C.classSkills[cls].length>=max)return 'Максимум '+max;C.classSkills[cls].push(id)}
   else C.classSkills[cls]=C.classSkills[cls].filter(skill=>skill!==id);
   return '';
 }
-function toggleCharacterExpertise(id,max,on){
+function toggleCharacterExpertise(id,on){
+  const max=expertiseAvailable();
   C.expertise=C.expertise||[];
-  if(on){if(!profSkills().includes(id))return 'Компетентность доступна только для навыка, которым вы владеете.';if(deftExplorerSkill()===id)return '';if(expertiseSkills().length>=max)return 'Максимум '+max;C.expertise.push(id)}
+  if(on){if(C.expertise.includes(id)||deftExplorerSkill()===id)return '';if(!profSkills().includes(id))return 'Компетентность доступна только для навыка, которым вы владеете.';if(expertiseSkills().length>=max)return 'Максимум '+max;C.expertise.push(id)}
   else C.expertise=C.expertise.filter(skill=>skill!==id);
   return '';
 }
@@ -327,16 +331,18 @@ function setCharacterFightingStyle(key,value){
   if(value&&activeFightingStyleKeys().some(other=>other!==key&&styles[other]===value))return 'Боевой стиль уже выбран.';
   C.choices.fightingStyles=C.choices.fightingStyles||{};if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];return '';
 }
-function toggleCharacterInvocation(id,max,on){
-  if(!C.classes.some(characterClass=>characterClass.cls==='warlock'&&characterClass.lvl>=2)||!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
-  const selected=C.choices.invocations||[];
+function toggleCharacterInvocation(id,on){
+  const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock');
+  if(!warlock||warlock.lvl<2||!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
+  const max=TABLES.warlock.invocations[warlock.lvl-1]||0,selected=C.choices.invocations||[];
   if(on){if(selected.includes(id))return '';if(selected.length>=max)return 'Максимум '+max;C.choices.invocations=[...selected,id]}
   else C.choices.invocations=selected.filter(option=>option!==id);
   return '';
 }
-function toggleCharacterMetamagic(id,max,on){
-  if(!C.classes.some(characterClass=>characterClass.cls==='sorcerer'&&characterClass.lvl>=3)||!METAMAGIC.some(([option])=>option===id))return 'Недоступное умение Метамагии.';
-  const selected=C.choices.metamagic||[];
+function toggleCharacterMetamagic(id,on){
+  const sorcerer=C.classes.find(characterClass=>characterClass.cls==='sorcerer');
+  if(!sorcerer||sorcerer.lvl<3||!METAMAGIC.some(([option])=>option===id))return 'Недоступное умение Метамагии.';
+  const max=sorcerer.lvl>=17?4:sorcerer.lvl>=10?3:2,selected=C.choices.metamagic||[];
   if(on){if(selected.includes(id))return '';if(selected.length>=max)return 'Максимум '+max;C.choices.metamagic=[...selected,id]}
   else C.choices.metamagic=selected.filter(option=>option!==id);
   return '';
