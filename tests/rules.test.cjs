@@ -1125,6 +1125,17 @@ test('subclass and level changes prune spells that are no longer available', () 
   api.setChar(c);
   api.changeLvl(0, 1);
   assert.deepEqual(Array.from(c.spellsKnown.ranger), []);
+  c.classes[0].lvl = 7;
+  assert.equal(api.setCharacterHunterChoice(3, 'colossus'), true);
+  assert.equal(api.setCharacterHunterChoice(7, 'escape'), true);
+  assert.equal(api.setCharacterChoice('favoredEnemy', 'Нежить'), true);
+  assert.equal(api.toggleCharacterTashaFeature('ranger', 'favored_foe', true), true);
+  api.changeSub(0, '');
+  assert.equal(c.choices.hunter_3, undefined);
+  assert.equal(c.choices.hunter_7, undefined);
+  assert.equal(api.setCharacterHunterChoice(3, 'colossus'), false);
+  assert.equal(c.choices.favoredEnemy, 'Нежить');
+  assert.deepEqual(Array.from(c.choices.tashaFeatures.ranger), ['favored_foe']);
   api.setRenderFn(oldRender);
 });
 

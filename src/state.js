@@ -6,13 +6,14 @@ function discardClassHitDice(cls){
   const used=syncHitDice(),count=used[cls]||0;
   delete used[cls];C.game.hdUsedByClass=used;C.game.hdUsed=Math.max(0,C.game.hdUsed-count);
 }
+function clearHunterChoices(){for(const key of Object.keys(C.choices))if(/^hunter_\d+$/.test(key))delete C.choices[key]}
 function clearClassSelections(cls){
   for(const key of ['classSkills','cantrips','spellsKnown','spellsPrepared'])delete C[key]?.[cls];
   delete C.choices.classTools?.[cls];delete C.choices.fightingStyles?.[cls];delete C.choices.tashaFeatures?.[cls];
   if(cls==='wizard')C.spellbook=[];
   if(cls==='ranger'){
     delete C.choices.favoredEnemy;delete C.choices.favoredTerrain;delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;
-    for(const key of Object.keys(C.choices))if(/^hunter_\d+$/.test(key))delete C.choices[key];
+    clearHunterChoices();
   }
   if(cls==='druid')delete C.choices.druidLand;
   if(cls==='sorcerer'){delete C.choices.draconicType;delete C.choices.metamagic}
@@ -70,6 +71,7 @@ function setCharacterSubclass(index,subclass){
   const current=C.classes[index];if(!current||current.sub===subclass)return null;
   if(subclass&&SUBCLASSES[subclass]?.cls!==current.cls)return null;
   current.sub=subclass;
+  if(current.cls==='ranger'&&subclass!=='hunter')clearHunterChoices();
   if(current.cls==='druid'&&subclass!=='land')delete C.choices.druidLand;
   if(current.cls==='sorcerer'&&subclass!=='draconic')delete C.choices.draconicType;
   if(current.cls==='fighter'&&subclass!=='champion')delete C.choices.fightingStyles?.championExtra;
