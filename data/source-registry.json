@@ -26,8 +26,9 @@
   },
   "5e14.ttg.club": {
     "title": "5e14.ttg.club",
-    "kind": "reference site",
-    "status": "mentioned as an input; per-entry attribution is incomplete"
+    "url": "https://5e14.ttg.club/",
+    "kind": "reference and translation site",
+    "status": "reported by maintainer as a source for Russian spell translations; underlying content attribution and redistribution terms are not independently verified"
   },
   "UNATTRIBUTED": {
     "title": "Source not recorded on the individual entry",

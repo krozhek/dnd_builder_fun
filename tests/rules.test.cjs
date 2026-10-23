@@ -37,7 +37,7 @@ globalThis.api = {
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
   setSpellQuery, setSpellFilter,
-  spellPicker, renderWizardSpells, toggleSpell, spellNameClick, SPELLS,
+  spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
   renderMain, renderHome, renderEquip, renderGame, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
@@ -1443,10 +1443,15 @@ test('readiness checklist reports missing race, language, skill, and class choic
   assert.match(html, /не блокируют сохранение и печать/);
 });
 
-test('content source audit reports untagged records without inventing sources', () => {
+test('content source audit separates spell translation from rules attribution', () => {
   const report = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'audit-content-sources.cjs')], { encoding: 'utf8' });
   assert.match(report, /SPELLS\s+319\s+Source not recorded/);
-  assert.match(report, /без источника на записи: 355/);
+  assert.match(report, /Перевод SPELLS\s+374\s+5e14\.ttg\.club/);
+  assert.match(report, /без источника правил\/контента на записи: 355/);
+  assert.ok(api.SPELLS.every(spell => spell.translationSource === '5e14.ttg.club'));
+  assert.equal(api.SPELLS.find(spell => spell.src === 'PHB').src, 'PHB');
+  api.openSpellModal(api.SPELLS[0].id);
+  assert.match(dom.modal.innerHTML, /Источник русского перевода: 5e14\.ttg\.club/);
 });
 
 test('Deft Explorer grants expertise to a selected proficient skill', () => {

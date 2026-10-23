@@ -720,7 +720,7 @@ function spellNameClick(event,id){event.preventDefault();event.stopPropagation()
 function openSpellModal(id){
   const s=SPELLS.find(x=>x.id===id);if(!s)return;
   showModal(`<h2>${esc(s.ru)}</h2><p class="muted">${esc(s.en)}</p>
-  <p><b>${s.lvl===0?'Заговор':s.lvl+' круг'}, ${esc(s.school)}${s.ritual?' (ритуал)':''}</b>${s.src?` <span class="muted small">· Источник: ${s.src}</span>`:''}</p>
+  <p><b>${s.lvl===0?'Заговор':s.lvl+' круг'}, ${esc(s.school)}${s.ritual?' (ритуал)':''}</b>${s.src?` <span class="muted small">· Источник правил: ${esc(s.src)}</span>`:''}${s.translationSource?` <span class="muted small">· Источник русского перевода: ${esc(s.translationSource)}</span>`:''}</p>
   <table class="tbl">
     <tr><td>Время накладывания</td><td>${esc(s.time)}</td></tr>
     <tr><td>Дистанция</td><td>${esc(s.range)}</td></tr>
