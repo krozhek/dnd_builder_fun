@@ -618,13 +618,13 @@ function spellPicker(cls,lvl,sel,limit,store,bonusIds=[]){
     const checked=sel.includes(s.id),bonus=bonusIds.includes(s.id),caster=C.classes.find(c=>c.cls===cls);
     const unavailable=store==='spellsKnown'&&!checked&&caster&&spellTypeOf(caster)==='third'&&!thirdCasterSpellSelectionsValid(caster,[...sel,s.id]);
     return `<div class="spell-row${checked?' picked':''}${bonus?' bonus':''}" data-spell-id="${s.id}" data-search="${spellSearchData(s)}">
-      <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus||unavailable?'disabled':''}${unavailable?' title="Нет свободного выбора для этой школы заклинаний"':''} onchange="toggleSpell('${store}','${cls}',${limit},'${s.id}',this.checked)">
+      <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus||unavailable?'disabled':''}${unavailable?' title="Нет свободного выбора для этой школы заклинаний"':''} onchange="toggleSpell('${store}','${cls}','${s.id}',this.checked)">
       <span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
       <span class="muted small">${esc(s.school)}${s.ritual?' · ритуал':''}</span>
     </div>`}).join('')}</div></details>`;
 }
-function toggleSpell(store,cls,limit,id,on){
-  const error=setCharacterSpellSelection(store,cls,limit,id,on);
+function toggleSpell(store,cls,id,on){
+  const error=setCharacterSpellSelection(store,cls,id,on);
   if(error){alert(error);render();return}
   persist();render();
 }
@@ -640,7 +640,7 @@ function renderWizardSpells(c,maxLvl){
       const inBook=book.includes(s.id), prepped=prep.includes(s.id);
       return `<div class="spell-row${inBook?' picked':''}" data-spell-id="${s.id}" data-search="${spellSearchData(s)}">
         <label class="chk"><input type="checkbox" ${inBook?'checked':''} onchange="toggleSpellbook('${s.id}',this.checked)"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
-        ${inBook?`<label class="chk prep"><input type="checkbox" ${prepped?'checked':''} onchange="toggleSpell('spellsPrepared','wizard',${limit},'${s.id}',this.checked)"> подг.</label>`:'<span class="muted small">не в книге</span>'}
+        ${inBook?`<label class="chk prep"><input type="checkbox" ${prepped?'checked':''} onchange="toggleSpell('spellsPrepared','wizard','${s.id}',this.checked)"> подг.</label>`:'<span class="muted small">не в книге</span>'}
       </div>`}).join('')}</div></details>`;
   }
   h+=`<p class="hint">Подготовлено: ${prep.length}/${limit}. Заговоры выбираются выше, книга и подготовка — здесь.</p>`;

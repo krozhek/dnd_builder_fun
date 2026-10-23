@@ -106,9 +106,9 @@ function setCharacterArcanum(level,id){
   if(id)C.arcanum[level]=id;else delete C.arcanum[level];
   return true;
 }
-function setCharacterSpellSelection(store,cls,limit,id,on){
+function setCharacterSpellSelection(store,cls,id,on){
   if(!['cantrips','spellsKnown','spellsPrepared'].includes(store))return 'Недопустимый список заклинаний.';
-  const caster=C.classes.find(c=>c.cls===cls),spell=SPELLS.find(s=>s.id===id);
+  const caster=C.classes.find(c=>c.cls===cls),spell=SPELLS.find(s=>s.id===id),limit=store==='cantrips'?cantripLimit(cls):store==='spellsKnown'?knownLimit(cls):prepLimit(cls);
   if(!caster||!spell||spell.lvl>classMaxSpellLevel(caster)||!spellClassAllowed(caster,id)||store==='cantrips'&&spell.lvl!==0||store!=='cantrips'&&spell.lvl===0||!spellsForClass(cls,spell.lvl).some(s=>s.id===id)||store==='spellsPrepared'&&cls==='wizard'&&!(C.spellbook||[]).includes(id))return 'Это заклинание недоступно классу.';
   const arr=C[store][cls]||[];
   if(on){

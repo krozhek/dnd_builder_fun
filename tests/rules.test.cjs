@@ -663,7 +663,7 @@ test('third casters enforce school exceptions and Arcane Trickster requires Mage
   const oldRender = api.renderFn;
   api.setRenderFn(() => {});
   alerts.length = 0;
-  api.toggleSpell('spellsKnown', 'fighter', 3, 'disguise_self', true);
+  api.toggleSpell('spellsKnown', 'fighter', 'disguise_self', true);
   assert.deepEqual(Array.from(c.spellsKnown.fighter), ['shield', 'charm_person']);
   assert.match(alerts.at(-1), /нет свободного выбора/);
   api.setRenderFn(oldRender);
@@ -830,12 +830,21 @@ test('spell selections and wizard book changes are owned by the state layer', ()
   c.classes = [{ cls: 'wizard', lvl: 3, sub: 'evocation' }];
   api.setChar(c);
   assert.equal(api.setCharacterSpellbook('shield', true), true);
-  assert.equal(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 6, 'shield', true), '');
+  assert.equal(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 'shield', true), '');
   assert.deepEqual(Array.from(c.spellbook), ['shield']);
   assert.deepEqual(Array.from(c.spellsPrepared.wizard), ['shield']);
-  assert.match(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 6, 'cure_wounds', true), /недоступно/);
+  assert.match(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 'cure_wounds', true), /недоступно/);
   assert.equal(api.setCharacterSpellbook('shield', false), true);
   assert.deepEqual(Array.from(c.spellsPrepared.wizard), []);
+
+  const limited = character();
+  limited.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  limited.bases.manual.int = 10;
+  api.setChar(limited);
+  assert.equal(api.setCharacterSpellbook('shield', true), true);
+  assert.equal(api.setCharacterSpellbook('mage_armor', true), true);
+  assert.equal(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 'shield', true), '');
+  assert.match(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 'mage_armor', true), /Лимит: 1/);
 
   c.classes = [{ cls: 'warlock', lvl: 11, sub: 'fiend' }];
   c.race = 'astralelf';
@@ -1808,7 +1817,7 @@ test('Primal Awareness grants additional spells by ranger level without using th
   api.setChar(c);
   const spellUi = api.renderSpells();
   assert.match(spellUi, /Известные заклинания — 0\/4/);
-  assert.match(spellUi, /type="checkbox" checked disabled onchange="toggleSpell\('spellsKnown','ranger',4,'speak_with_animals',this.checked\)"/);
+  assert.match(spellUi, /type="checkbox" checked disabled onchange="toggleSpell\('spellsKnown','ranger','speak_with_animals',this.checked\)"/);
   assert.doesNotMatch(spellUi, /описание отсутствует в библиотеке/);
 
   c.classes = [{ cls: 'ranger', lvl: 17, sub: 'hunter' }];
