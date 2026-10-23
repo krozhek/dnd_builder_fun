@@ -286,10 +286,10 @@ function speed(){
 function maxHp(){
   let hp=0;
   C.classes.forEach((c,i)=>{
-    const hd=CLASSES[c.cls].hd;
-    // первый уровень первого класса — максимум куба
-    if(i===0){hp+=hd+am('con');for(let l=1;l<c.lvl;l++)hp+=Math.floor(hd/2)+1+am('con')}
-    else{for(let l=0;l<c.lvl;l++)hp+=Math.floor(hd/2)+1+am('con')}
+    const hd=CLASSES[c.cls].hd,con=am('con');
+    // Each level grants at least 1 HP, even with a negative Constitution modifier.
+    if(i===0){hp+=Math.max(1,hd+con);for(let l=1;l<c.lvl;l++)hp+=Math.max(1,Math.floor(hd/2)+1+con)}
+    else{for(let l=0;l<c.lvl;l++)hp+=Math.max(1,Math.floor(hd/2)+1+con)}
   });
   const r=raceOf(),s=subraceOf();
   if(C.race==='dwarf'&&C.subrace==='hill')hp+=totalLvl(); // дварфская выносливость
@@ -558,6 +558,8 @@ function asiPending(){
 }
 function characterReadiness(){
   const issues=[],add=(tab,text,recommended=false)=>issues.push({tab,text,recommended}),r=raceOf(),sub=subraceOf();
+  if(totalLvl()>20)add('main','Общий уровень персонажа не может превышать 20.');
+  if(!validMulticlassCharacter(C))add('main','Исправьте требования к характеристикам для мультиклассирования.');
   if(!validAbilityBases(C))add('abil','Исправьте значения характеристик: соблюдайте правила выбранного метода (покупка очками — максимум 27).');
   if(!validRacialAbilityChoices(C))add('abil','Исправьте недопустимые или повторяющиеся расовые бонусы характеристик.');
   if(!validSkillChoices(C))add('skills','Исправьте недопустимые или повторяющиеся выборы навыков и компетентностей.');

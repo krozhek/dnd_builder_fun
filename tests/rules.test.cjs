@@ -45,7 +45,7 @@ globalThis.api = {
   shortRest, drawGameTrackers,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
-  addClass, changeClass, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
+  addClass, changeClass, changeLvl, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -412,6 +412,34 @@ test('ability scores cap at 20 and Primal Champion adds +4 to Strength and Const
   c.classes[0].cls = 'fighter';
   api.setChar(c);
   assert.equal(api.abil('str'), 20);
+});
+
+test('class level edits cannot exceed character level 20', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 20, sub: 'champion' }];
+  c.bases.manual.str = 15;
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.addClass();
+  assert.equal(api.totalLvl(), 20);
+  api.changeLvl(0, 19);
+  assert.equal(api.totalLvl(), 19);
+  api.addClass();
+  assert.equal(api.totalLvl(), 20);
+  api.changeLvl(0, 20);
+  assert.equal(api.totalLvl(), 20);
+  assert.ok(alerts.some(message => message.includes('не может превышать 20')));
+  api.setRenderFn(oldRender);
+});
+
+test('hit point gains are at least one per level with negative Constitution', () => {
+  const c = character();
+  c.race = 'tiefling';
+  c.classes = [{ cls: 'wizard', lvl: 20, sub: 'evocation' }];
+  c.bases.manual = { str: 10, dex: 10, con: 3, int: 10, wis: 10, cha: 10 };
+  api.setChar(c);
+  assert.equal(api.maxHp(), 21);
 });
 
 test('fighter hit points use maximum first hit die and average thereafter', () => {

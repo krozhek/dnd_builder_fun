@@ -431,9 +431,14 @@ function changeClass(i,v){
   if(previous!==v)delete C.choices.classTools?.[previous];
   persist();render()
 }
-function changeLvl(i,v){C.classes[i].lvl=+v;persist();render()}
+function changeLvl(i,v){
+  const lvl=Number(v),total=totalLvl()-C.classes[i].lvl+lvl;
+  if(!Number.isInteger(lvl)||lvl<1||lvl>20||total>20){alert('Общий уровень персонажа не может превышать 20.');render();return}
+  C.classes[i].lvl=lvl;persist();render()
+}
 function changeSub(i,v){C.classes[i].sub=v;persist();render()}
 function addClass(){
+  if(totalLvl()>=20){alert('Общий уровень персонажа уже равен 20.');return}
   const used=C.classes.map(c=>c.cls),available=Object.keys(CLASSES).filter(k=>!used.includes(k));
   const free=available.find(k=>!multiclassRequirementError(k));
   if(!free){alert(available.length?multiclassRequirementError(available[0]):'Все классы уже добавлены.');return}
