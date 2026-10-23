@@ -121,6 +121,14 @@ function validSkillChoices(ch){
   }finally{C=previous}
 }
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
+function validWarlockInvocations(ch){
+  const selected=ch.choices?.invocations||[],warlock=ch.classes.find(c=>c.cls==='warlock');
+  return Array.isArray(selected)&&new Set(selected).size===selected.length&&(!selected.length||!!warlock&&selected.length<=(TABLES.warlock.invocations[warlock.lvl-1]||0)&&selected.every(id=>{
+    if(!INVOCATIONS.some(([option])=>option===id))return false;
+    const requirement=INVOCATION_PREREQUISITES[id]||{};
+    return warlock.lvl>=Math.max(2,requirement.level||0)&&(!requirement.pact||ch.choices?.pactBoon===requirement.pact);
+  }));
+}
 function validCharacterTransition(ch,previous){
   if(!validCharacter(ch,false)||ch.name.length>100&&ch.name!==previous?.name)return false;
   const checks=[validAbilityBases,validRacialAbilityChoices,validAsiChoices,validMulticlassCharacter,validSkillChoices],current=checks.map(check=>check(ch));
@@ -150,6 +158,7 @@ function validCharacter(ch,enforceRules=true){
   if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
   if(enforceRules&&(!validAbilityBases(ch)||!validRacialAbilityChoices(ch)||!validAsiChoices(ch)||!validMulticlassCharacter(ch)))return false;
   if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||(ch.choices.tashaFeatures!=null&&!stringArrayMap(ch.choices.tashaFeatures))||(ch.choices.classTools!=null&&!stringArrayMap(ch.choices.classTools))||(ch.choices.backgroundTools!=null&&!stringArray(ch.choices.backgroundTools))||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))||!validToolChoices(ch)))return false;
+  if(ch.choices&&(ch.choices.pactBoon!=null&&(!['blade','chain','tome','talisman'].includes(ch.choices.pactBoon)||!ch.classes.some(c=>c.cls==='warlock'&&c.lvl>=3))||!validWarlockInvocations(ch)))return false;
   if(ch.choices&&ch.choices.fightingStyles!=null&&(!isRecord(ch.choices.fightingStyles)||Object.entries(ch.choices.fightingStyles).some(([key,value])=>{
     const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
     return !options||typeof value!=='string'||(value!==''&&!options.some(([id])=>id===value));

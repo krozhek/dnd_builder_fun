@@ -59,6 +59,10 @@ function setCharacterClass(index,cls){
   if(previous==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
   pruneExpertise();return '';
 }
+function pruneWarlockInvocations(){
+  const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock'),max=warlock?TABLES.warlock.invocations[warlock.lvl-1]||0:0;
+  C.choices.invocations=(C.choices.invocations||[]).filter(id=>!invocationPrerequisiteError(id,warlock)).slice(0,max);
+}
 function pruneClassLevelChoices(characterClass){
   const {cls,lvl,sub}=characterClass;
   if(cls==='ranger')pruneHunterChoices(lvl);
@@ -70,7 +74,7 @@ function pruneClassLevelChoices(characterClass){
   }
   if(cls==='warlock'){
     if(lvl<3)delete C.choices.pactBoon;
-    C.choices.invocations=(C.choices.invocations||[]).slice(0,TABLES.warlock.invocations[lvl-1]||0);
+    pruneWarlockInvocations();
     C.arcanum=Object.fromEntries(Object.entries(C.arcanum||{}).filter(([spellLevel])=>arcanumLevels(lvl).includes(+spellLevel)));
   }
 }
@@ -317,7 +321,7 @@ function setCharacterChoice(key,value){
   if(!allowed[key]||value&&!allowed[key].includes(value))return false;
   const available=key==='favoredEnemy'||key==='favoredTerrain'?C.classes.some(characterClass=>characterClass.cls==='ranger'):key==='druidLand'?C.classes.some(characterClass=>characterClass.cls==='druid'&&characterClass.sub==='land'&&characterClass.lvl>=2):key==='draconicType'?C.classes.some(characterClass=>characterClass.cls==='sorcerer'&&characterClass.sub==='draconic'):C.classes.some(characterClass=>characterClass.cls==='warlock'&&characterClass.lvl>=3);
   if(!available)return false;
-  if(value)C.choices[key]=value;else delete C.choices[key];return true;
+  if(value)C.choices[key]=value;else delete C.choices[key];if(key==='pactBoon')pruneWarlockInvocations();return true;
 }
 function setCharacterHunterChoice(level,id){
   const current=C.classes.find(characterClass=>characterClass.cls==='ranger'),choice=SUBCLASSES[current?.sub]?.choices?.[level];
@@ -332,8 +336,8 @@ function setCharacterFightingStyle(key,value){
   C.choices.fightingStyles=C.choices.fightingStyles||{};if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];return '';
 }
 function toggleCharacterInvocation(id,on){
-  const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock');
-  if(!warlock||warlock.lvl<2||!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
+  const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock'),error=invocationPrerequisiteError(id,warlock);
+  if(error)return error;
   const max=TABLES.warlock.invocations[warlock.lvl-1]||0,selected=C.choices.invocations||[];
   if(on){if(selected.includes(id))return '';if(selected.length>=max)return 'Максимум '+max;C.choices.invocations=[...selected,id]}
   else C.choices.invocations=selected.filter(option=>option!==id);

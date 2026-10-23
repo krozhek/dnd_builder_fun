@@ -1182,6 +1182,35 @@ test('warlock Mystic Arcanum supports all unlocked spell circles and prunes them
   api.setRenderFn(oldRender);
 });
 
+test('warlock invocations enforce pact and level prerequisites', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 3, sub: 'fiend' }];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  assert.match(api.toggleCharacterInvocation('book', true), /Договор «Гримуара»/);
+  assert.match(api.renderClass(), /Требуется Договор «Гримуара»/);
+  assert.equal(api.setCharacterChoice('pactBoon', 'tome'), true);
+  assert.equal(api.toggleCharacterInvocation('book', true), '');
+  assert.equal(api.setCharacterChoice('pactBoon', 'chain'), true);
+  assert.deepEqual(Array.from(c.choices.invocations), []);
+  assert.equal(api.toggleCharacterInvocation('voice', true), '');
+  assert.match(api.toggleCharacterInvocation('chains', true), /колдун 15 уровня/);
+
+  api.changeLvl(0, 15);
+  assert.equal(api.toggleCharacterInvocation('chains', true), '');
+  assert.equal(api.toggleCharacterInvocation('visions', true), '');
+  assert.equal(api.toggleCharacterInvocation('whispers', true), '');
+  assert.equal(api.setCharacterChoice('pactBoon', 'blade'), true);
+  assert.equal(api.toggleCharacterInvocation('life', true), '');
+  assert.deepEqual(Array.from(c.choices.invocations), ['visions', 'whispers', 'life']);
+  api.changeLvl(0, 14);
+  assert.deepEqual(Array.from(c.choices.invocations), ['whispers', 'life']);
+  assert.equal(api.validCharacter(c), true);
+  assert.equal(api.validCharacter({ ...c, choices: { ...c.choices, invocations: ['chains'] } }), false);
+  api.setRenderFn(oldRender);
+});
+
 test('lowering class levels prunes choices that are no longer available', () => {
   const oldRender = api.renderFn;
   api.setRenderFn(() => {});

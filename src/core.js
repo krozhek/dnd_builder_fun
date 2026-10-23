@@ -423,6 +423,13 @@ function spellClassAllowed(c,id){
 }
 const MYSTIC_ARCANUM_LEVELS=[[11,6],[13,7],[15,8],[17,9]];
 function arcanumLevels(level){return MYSTIC_ARCANUM_LEVELS.filter(([required])=>level>=required).map(([,spellLevel])=>spellLevel)}
+function invocationPrerequisiteError(id,warlock=C.classes.find(c=>c.cls==='warlock')){
+  if(!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
+  const requirement=INVOCATION_PREREQUISITES[id]||{},level=Math.max(2,requirement.level||0);
+  if(!warlock||warlock.lvl<level)return `Требуется колдун ${level} уровня.`;
+  if(requirement.pact&&C.choices.pactBoon!==requirement.pact)return `Требуется Договор «${{blade:'Клинка',chain:'Цепи',tome:'Гримуара'}[requirement.pact]}».`;
+  return '';
+}
 function spellcasterClasses(){return C.classes.filter(c=>spellTypeOf(c))}
 function spellsForClass(cls,lvl){
   const listClass=cls==='fighter'||cls==='rogue'?'wizard':cls,base=SPELLS.filter(s=>s.lvl===lvl&&s.cls.includes(listClass));
@@ -603,7 +610,10 @@ function characterReadiness(){
     if(c.cls==='sorcerer'&&c.sub==='draconic'&&!C.choices.draconicType)add('cls','Выберите тип дракона-прародителя.');
     if(c.cls==='warlock'){
       if(c.lvl>=3&&!C.choices.pactBoon)add('cls','Выберите договорный дар колдуна.');
-      const invMax=TABLES.warlock.invocations[c.lvl-1]||0;if((C.choices.invocations||[]).length<invMax)add('cls',`Выберите мистические откровения: ${(C.choices.invocations||[]).length}/${invMax}.`);
+      const invocations=C.choices.invocations||[],invMax=TABLES.warlock.invocations[c.lvl-1]||0,invalidInvocations=invocations.filter(id=>invocationPrerequisiteError(id));
+      if(invalidInvocations.length)add('cls','Замените мистические откровения, требования которых не выполнены.');
+      if(invocations.length>invMax)add('cls',`Удалите лишние мистические откровения: ${invocations.length}/${invMax}.`);
+      else if(invocations.length<invMax)add('cls',`Выберите мистические откровения: ${invocations.length}/${invMax}.`);
       for(const arcLvl of arcanumLevels(c.lvl))if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`);
     }
     if(c.cls==='sorcerer'&&c.lvl>=3){const max=c.lvl>=17?4:c.lvl>=10?3:2;if((C.choices.metamagic||[]).length<max)add('cls',`Выберите приёмы Метамагии: ${(C.choices.metamagic||[]).length}/${max}.`)}

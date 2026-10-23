@@ -470,7 +470,7 @@ function warlockChoices(c){
     <option value="tome"${C.choices.pactBoon==='tome'?' selected':''}>Гримуар договора: 3 заговора любых классов</option>
     <option value="talisman"${C.choices.pactBoon==='talisman'?' selected':''}>Талисман договора (Таша): носитель добавляет к4 к проверкам</option></select></label>`:''}
   ${c.lvl>=2?`<div class="hint">Мистические откровения: ${inv.length}/${invMax}</div>
-  <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''} onchange="toggleInvocation('${id}',this.checked)"> ${d}</label>`).join('')}</div>`:''}`;
+  <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>{const requirement=invocationPrerequisiteError(id);return `<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''}${requirement&&!inv.includes(id)?' disabled':''} onchange="toggleInvocation('${id}',this.checked)"> ${d}${requirement?` <span class="muted small">— ${esc(requirement)}</span>`:''}</label>`}).join('')}</div>`:''}`;
 }
 function toggleInvocation(id,on){const error=toggleCharacterInvocation(id,on);if(error){alert(error);render();return}persist();render()}
 function sorcererChoices(c){

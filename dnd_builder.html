@@ -819,6 +819,7 @@ const FS_NAMES={archery:'Стрельба',defense:'Защита',dueling:'Ду�
 const METAMAGIC=[['careful','Осторожное заклинание: 1 ед. — союзники автоматически преуспевают в спасброске'],['distant','Далёкое заклинание: 1 ед. — двойная дистанция (касание → 30 фт)'],['empowered','Усиленное заклинание: 1 ед. — переброс до Хар костей урона'],['extended','Продлённое заклинание: 1 ед. — двойная длительность (макс 24 ч)'],['heightened','Усиленное давление: 3 ед. — помеха первой цели к спасброску'],['quickened','Быстрое заклинание: 2 ед. — время накладывания бонусным действием'],['subtle','Незаметное заклинание: 1 ед. — без вербального и соматического компонентов'],['twinned','Спаренное заклинание: ед. = кругу — вторая цель (для заклинаний с одной целью)']];
 // Откровения колдуна (SRD)
 const INVOCATIONS=[['armor','Доспех теней: Магическая броня на себя без ячеек (неограниченно)'],['beast','Речь зверей: Разговор с животными без ячеек'],['beguiling','Чарующее влияние: помеха к Обману и Убеждению'],['book','Книга древних тайн (Гримуар): ритуалы из любых книг, 2 ритуальных заклинания 1-го круга'],['chains','Власть над цепью (Цепь): фамильяр усилен'],['eldritch','Магическое зрение: Обнаружение магии без ячеек'],['fiendish','Дьявольское зрение: нормальное зрение в магической тьме (120 фт)'],['gaze','Взгляд двух разумов: чтение поверхностных мыслей'],['life','Глоток жизни: при уроне Отравленным стрелом — временные хиты'],['mask','Маска многих лиц: Маскировка без ячеек'],['misty','Туманные видения: Безмолвный образ без ячеек'],['repelling','Отталкивающий заряд: Эльдрический взрыв отталкивает на 10 фт'],['thief','Вор пяти судеб: Проход сквозь стены... без ячеек'],['visions','Видения далёких миров: Волшебное око без ячеек'],['voice','Голос повелителя цепей (Цепь): связь с фамильяром на любой дистанции'],['whispers','Шёпоты могилы (9 ур.): Заговор с мёртвыми без ячеек']];
+const INVOCATION_PREREQUISITES={book:{pact:'tome'},chains:{pact:'chain',level:15},life:{pact:'blade',level:12},visions:{level:15},voice:{pact:'chain'},whispers:{level:9}};
 
 // Экипировка: оружие SRD [id, название, цена, урон, вес, свойства, тип(рукопашное/дальнобойное), категория(простое/воинское)]
 const WEAPONS=[
@@ -1866,6 +1867,13 @@ function spellClassAllowed(c,id){
 }
 const MYSTIC_ARCANUM_LEVELS=[[11,6],[13,7],[15,8],[17,9]];
 function arcanumLevels(level){return MYSTIC_ARCANUM_LEVELS.filter(([required])=>level>=required).map(([,spellLevel])=>spellLevel)}
+function invocationPrerequisiteError(id,warlock=C.classes.find(c=>c.cls==='warlock')){
+  if(!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
+  const requirement=INVOCATION_PREREQUISITES[id]||{},level=Math.max(2,requirement.level||0);
+  if(!warlock||warlock.lvl<level)return `Требуется колдун ${level} уровня.`;
+  if(requirement.pact&&C.choices.pactBoon!==requirement.pact)return `Требуется Договор «${{blade:'Клинка',chain:'Цепи',tome:'Гримуара'}[requirement.pact]}».`;
+  return '';
+}
 function spellcasterClasses(){return C.classes.filter(c=>spellTypeOf(c))}
 function spellsForClass(cls,lvl){
   const listClass=cls==='fighter'||cls==='rogue'?'wizard':cls,base=SPELLS.filter(s=>s.lvl===lvl&&s.cls.includes(listClass));
@@ -2046,7 +2054,10 @@ function characterReadiness(){
     if(c.cls==='sorcerer'&&c.sub==='draconic'&&!C.choices.draconicType)add('cls','Выберите тип дракона-прародителя.');
     if(c.cls==='warlock'){
       if(c.lvl>=3&&!C.choices.pactBoon)add('cls','Выберите договорный дар колдуна.');
-      const invMax=TABLES.warlock.invocations[c.lvl-1]||0;if((C.choices.invocations||[]).length<invMax)add('cls',`Выберите мистические откровения: ${(C.choices.invocations||[]).length}/${invMax}.`);
+      const invocations=C.choices.invocations||[],invMax=TABLES.warlock.invocations[c.lvl-1]||0,invalidInvocations=invocations.filter(id=>invocationPrerequisiteError(id));
+      if(invalidInvocations.length)add('cls','Замените мистические откровения, требования которых не выполнены.');
+      if(invocations.length>invMax)add('cls',`Удалите лишние мистические откровения: ${invocations.length}/${invMax}.`);
+      else if(invocations.length<invMax)add('cls',`Выберите мистические откровения: ${invocations.length}/${invMax}.`);
       for(const arcLvl of arcanumLevels(c.lvl))if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`);
     }
     if(c.cls==='sorcerer'&&c.lvl>=3){const max=c.lvl>=17?4:c.lvl>=10?3:2;if((C.choices.metamagic||[]).length<max)add('cls',`Выберите приёмы Метамагии: ${(C.choices.metamagic||[]).length}/${max}.`)}
@@ -2198,6 +2209,14 @@ function validSkillChoices(ch){
   }finally{C=previous}
 }
 const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
+function validWarlockInvocations(ch){
+  const selected=ch.choices?.invocations||[],warlock=ch.classes.find(c=>c.cls==='warlock');
+  return Array.isArray(selected)&&new Set(selected).size===selected.length&&(!selected.length||!!warlock&&selected.length<=(TABLES.warlock.invocations[warlock.lvl-1]||0)&&selected.every(id=>{
+    if(!INVOCATIONS.some(([option])=>option===id))return false;
+    const requirement=INVOCATION_PREREQUISITES[id]||{};
+    return warlock.lvl>=Math.max(2,requirement.level||0)&&(!requirement.pact||ch.choices?.pactBoon===requirement.pact);
+  }));
+}
 function validCharacterTransition(ch,previous){
   if(!validCharacter(ch,false)||ch.name.length>100&&ch.name!==previous?.name)return false;
   const checks=[validAbilityBases,validRacialAbilityChoices,validAsiChoices,validMulticlassCharacter,validSkillChoices],current=checks.map(check=>check(ch));
@@ -2227,6 +2246,7 @@ function validCharacter(ch,enforceRules=true){
   if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
   if(enforceRules&&(!validAbilityBases(ch)||!validRacialAbilityChoices(ch)||!validAsiChoices(ch)||!validMulticlassCharacter(ch)))return false;
   if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||(ch.choices.tashaFeatures!=null&&!stringArrayMap(ch.choices.tashaFeatures))||(ch.choices.classTools!=null&&!stringArrayMap(ch.choices.classTools))||(ch.choices.backgroundTools!=null&&!stringArray(ch.choices.backgroundTools))||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))||!validToolChoices(ch)))return false;
+  if(ch.choices&&(ch.choices.pactBoon!=null&&(!['blade','chain','tome','talisman'].includes(ch.choices.pactBoon)||!ch.classes.some(c=>c.cls==='warlock'&&c.lvl>=3))||!validWarlockInvocations(ch)))return false;
   if(ch.choices&&ch.choices.fightingStyles!=null&&(!isRecord(ch.choices.fightingStyles)||Object.entries(ch.choices.fightingStyles).some(([key,value])=>{
     const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
     return !options||typeof value!=='string'||(value!==''&&!options.some(([id])=>id===value));
@@ -2301,6 +2321,10 @@ function setCharacterClass(index,cls){
   if(previous==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
   pruneExpertise();return '';
 }
+function pruneWarlockInvocations(){
+  const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock'),max=warlock?TABLES.warlock.invocations[warlock.lvl-1]||0:0;
+  C.choices.invocations=(C.choices.invocations||[]).filter(id=>!invocationPrerequisiteError(id,warlock)).slice(0,max);
+}
 function pruneClassLevelChoices(characterClass){
   const {cls,lvl,sub}=characterClass;
   if(cls==='ranger')pruneHunterChoices(lvl);
@@ -2312,7 +2336,7 @@ function pruneClassLevelChoices(characterClass){
   }
   if(cls==='warlock'){
     if(lvl<3)delete C.choices.pactBoon;
-    C.choices.invocations=(C.choices.invocations||[]).slice(0,TABLES.warlock.invocations[lvl-1]||0);
+    pruneWarlockInvocations();
     C.arcanum=Object.fromEntries(Object.entries(C.arcanum||{}).filter(([spellLevel])=>arcanumLevels(lvl).includes(+spellLevel)));
   }
 }
@@ -2559,7 +2583,7 @@ function setCharacterChoice(key,value){
   if(!allowed[key]||value&&!allowed[key].includes(value))return false;
   const available=key==='favoredEnemy'||key==='favoredTerrain'?C.classes.some(characterClass=>characterClass.cls==='ranger'):key==='druidLand'?C.classes.some(characterClass=>characterClass.cls==='druid'&&characterClass.sub==='land'&&characterClass.lvl>=2):key==='draconicType'?C.classes.some(characterClass=>characterClass.cls==='sorcerer'&&characterClass.sub==='draconic'):C.classes.some(characterClass=>characterClass.cls==='warlock'&&characterClass.lvl>=3);
   if(!available)return false;
-  if(value)C.choices[key]=value;else delete C.choices[key];return true;
+  if(value)C.choices[key]=value;else delete C.choices[key];if(key==='pactBoon')pruneWarlockInvocations();return true;
 }
 function setCharacterHunterChoice(level,id){
   const current=C.classes.find(characterClass=>characterClass.cls==='ranger'),choice=SUBCLASSES[current?.sub]?.choices?.[level];
@@ -2574,8 +2598,8 @@ function setCharacterFightingStyle(key,value){
   C.choices.fightingStyles=C.choices.fightingStyles||{};if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];return '';
 }
 function toggleCharacterInvocation(id,on){
-  const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock');
-  if(!warlock||warlock.lvl<2||!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
+  const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock'),error=invocationPrerequisiteError(id,warlock);
+  if(error)return error;
   const max=TABLES.warlock.invocations[warlock.lvl-1]||0,selected=C.choices.invocations||[];
   if(on){if(selected.includes(id))return '';if(selected.length>=max)return 'Максимум '+max;C.choices.invocations=[...selected,id]}
   else C.choices.invocations=selected.filter(option=>option!==id);
@@ -3312,7 +3336,7 @@ function warlockChoices(c){
     <option value="tome"${C.choices.pactBoon==='tome'?' selected':''}>Гримуар договора: 3 заговора любых классов</option>
     <option value="talisman"${C.choices.pactBoon==='talisman'?' selected':''}>Талисман договора (Таша): носитель добавляет к4 к проверкам</option></select></label>`:''}
   ${c.lvl>=2?`<div class="hint">Мистические откровения: ${inv.length}/${invMax}</div>
-  <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''} onchange="toggleInvocation('${id}',this.checked)"> ${d}</label>`).join('')}</div>`:''}`;
+  <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>{const requirement=invocationPrerequisiteError(id);return `<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''}${requirement&&!inv.includes(id)?' disabled':''} onchange="toggleInvocation('${id}',this.checked)"> ${d}${requirement?` <span class="muted small">— ${esc(requirement)}</span>`:''}</label>`}).join('')}</div>`:''}`;
 }
 function toggleInvocation(id,on){const error=toggleCharacterInvocation(id,on);if(error){alert(error);render();return}persist();render()}
 function sorcererChoices(c){
