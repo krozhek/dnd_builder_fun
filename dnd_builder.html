@@ -2565,7 +2565,11 @@ function applyCharacterStartingKit(){
   const armor=C.inventory.find(item=>item.type==='armor');if(armor)armor.equipped=true;
 }
 function setCharacterField(key,value){
-  if(key==='subrace'){if(value&&!RACES[C.race]?.subs?.[value])return false;C.subrace=value}
+  if(key==='subrace'){
+    if(value&&!RACES[C.race]?.subs?.[value])return false;
+    C.subrace=value;
+    if(C.race==='elf'&&value!=='high'&&C.racialSpells){delete C.racialSpells.highelf;delete C.racialSpells.highelfAbility}
+  }
   else if(key==='dragonColor'){if(!['black','blue','brass','bronze','copper','gold','green','red','silver','white'].includes(value))return false;C.dragonColor=value}
   else if(key==='align'){if(!ALIGN.includes(value))return false;C.align=value}
   else if(key==='size'){if(!['Крошечный','Маленький','Средний','Большой','Огромный'].includes(value))return false;C.size=value}
