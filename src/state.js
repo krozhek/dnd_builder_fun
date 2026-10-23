@@ -19,7 +19,10 @@ function clearClassSelections(cls){
   if(cls==='sorcerer'){delete C.choices.draconicType;delete C.choices.metamagic}
   if(cls==='warlock'){delete C.choices.pactBoon;delete C.choices.invocations;C.arcanum={}}
 }
-function pruneExpertise(){C.expertise=(C.expertise||[]).filter(id=>profSkills().includes(id))}
+function pruneExpertise(){
+  const max=expertiseAvailable()-(deftExplorerActive()?1:0);
+  C.expertise=(C.expertise||[]).filter(id=>profSkills().includes(id)&&id!==deftExplorerSkill()).slice(0,max);
+}
 function pruneClassSpells(cls){
   const caster=C.classes.find(c=>c.cls===cls);if(!caster)return 0;
   let removed=0;
@@ -88,7 +91,7 @@ function setCharacterLevel(index,value){
   const used=syncHitDice();current.lvl=level;
   used[current.cls]=Math.min(used[current.cls]||0,level);
   C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
-  pruneClassLevelChoices(current);
+  pruneClassLevelChoices(current);pruneExpertise();
   const removed=pruneClassSpells(current.cls);pruneAsiChoices();return {removed};
 }
 function setCharacterSubclass(index,subclass){
