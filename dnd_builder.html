@@ -1429,7 +1429,19 @@ const STD_SET=[15,14,13,12,10,8];
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
 
-const CHARACTER_SCHEMA=4;
+function calculateMaxHp(classes, constitutionModifier, bonus = 0) {
+  const rolled = classes.reduce((hp, cls, index) => {
+    const firstLevel = index === 0 ? cls.hitDie : Math.floor(cls.hitDie / 2) + 1;
+    return hp + Math.max(1, firstLevel + constitutionModifier)
+      + (cls.level - 1) * Math.max(1, Math.floor(cls.hitDie / 2) + 1 + constitutionModifier);
+  }, 0);
+  return Math.max(1, rolled + bonus);
+}
+
+function calculateMovementSpeed({ base, monkBonus = 0, barbarianBonus = 0, rovingBonus = 0, mobileBonus = 0, heavyArmorPenalty = 0 }) {
+  return base + monkBonus + barbarianBonus + rovingBonus + mobileBonus - heavyArmorPenalty;
+}
+const CHARACTER_SCHEMA=5;
 const MAX_PORTRAIT_DATA=200000;
 function newChar(){
   const ab={};ABILS.forEach(([k])=>ab[k]=10);
@@ -1484,7 +1496,12 @@ function saveLib(replaceCorrupt=false){
 }
 function persist(){
   if(!C)return;
-  if(!validCharacter(C,false)){alert('Персонаж содержит некорректные данные и не был сохранён.');return false}
+  if(!validCharacter(C,false)){
+    const previous=LIB.find(c=>c.id===C.id);
+    if(previous){C=migrate(JSON.parse(JSON.stringify(previous)));render()}
+    alert('Некорректное изменение отменено; восстановлено последнее сохранённое состояние.');
+    return false;
+  }
   if(STORAGE_CORRUPT){warnStorage();return}
   C.updated=Date.now();
   const i=LIB.findIndex(c=>c.id===C.id);
@@ -1500,6 +1517,16 @@ function openChar(id){
   TAB='main';
   render();
 }
+const SCHEMA_MIGRATIONS={
+  4:character=>{
+    const used={...(character.game.hdUsedByClass||{})};
+    if(!Object.keys(used).length){
+      let remaining=Math.max(0,Math.floor(character.game.hdUsed||0));
+      for(const cls of character.classes){const count=Math.min(cls.lvl,remaining);if(count)used[cls.cls]=count;remaining-=count}
+    }
+    return {...character,game:{...character.game,hdUsedByClass:used}};
+  }
+};
 function migrate(ch){
   const d=newChar();
   const m={...d,...Object.fromEntries(Object.entries(ch).filter(([key])=>Object.hasOwn(d,key)))};
@@ -1527,6 +1554,11 @@ function migrate(ch){
   m.choices.fightingStyles=styles;
   delete m.choices.fightingStyle;delete m.choices.fightingStyle2;
   if(typeof m.id!=='string'||!m.id)m.id=uid();
+  let version=Number.isInteger(ch.schemaVersion)?ch.schemaVersion:1;
+  while(version<CHARACTER_SCHEMA){
+    if(SCHEMA_MIGRATIONS[version])Object.assign(m,SCHEMA_MIGRATIONS[version](m));
+    version++;
+  }
   m.schemaVersion=CHARACTER_SCHEMA;
   return m;
 }
@@ -1712,15 +1744,15 @@ function rovingActive(){
 }
 function speed(){
   const s=subraceOf(),armor=equippedArmor(),armorData=armor&&ARMORS.find(a=>a[0]===armor.id),heavy=armorData?.[8]==='heavy';
-  let value=(s&&s.speed)||raceOf().speed||30;
-  const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&monk.lvl>=2&&!armor&&!hasShield())value+=10+Math.floor((monk.lvl-2)/4)*5;
-  const barbarian=C.classes.find(c=>c.cls==='barbarian');
-  if(barbarian&&barbarian.lvl>=5&&!heavy)value+=10;
-  if(rovingActive())value+=5;
-  if(hasFeat('mobile'))value+=10;
-  if(heavy&&armorData[5]&&abil('str')<armorData[5])value-=10;
-  return value;
+  const monk=C.classes.find(c=>c.cls==='monk'),barbarian=C.classes.find(c=>c.cls==='barbarian');
+  return calculateMovementSpeed({
+    base:(s&&s.speed)||raceOf().speed||30,
+    monkBonus:monk&&monk.lvl>=2&&!armor&&!hasShield()?10+Math.floor((monk.lvl-2)/4)*5:0,
+    barbarianBonus:barbarian&&barbarian.lvl>=5&&!heavy?10:0,
+    rovingBonus:rovingActive()?5:0,
+    mobileBonus:hasFeat('mobile')?10:0,
+    heavyArmorPenalty:heavy&&armorData[5]&&abil('str')<armorData[5]?10:0,
+  });
 }
 function speedText(){
   const walking=speed();
@@ -1729,18 +1761,12 @@ function speedText(){
 
 // хиты
 function maxHp(){
-  let hp=0;
-  C.classes.forEach((c,i)=>{
-    const hd=CLASSES[c.cls].hd,con=am('con');
-    // Each level grants at least 1 HP, even with a negative Constitution modifier.
-    if(i===0){hp+=Math.max(1,hd+con);for(let l=1;l<c.lvl;l++)hp+=Math.max(1,Math.floor(hd/2)+1+con)}
-    else{for(let l=0;l<c.lvl;l++)hp+=Math.max(1,Math.floor(hd/2)+1+con)}
-  });
-  const r=raceOf(),s=subraceOf();
-  if(C.race==='dwarf'&&C.subrace==='hill')hp+=totalLvl(); // дварфская выносливость
-  if(C.classes.find(c=>c.cls==='sorcerer'&&c.sub==='draconic'))hp+=C.classes.find(c=>c.cls==='sorcerer').lvl;
-  if(hasFeat('tough'))hp+=2*totalLvl();
-  return Math.max(1,hp);
+  let bonus=0;
+  if(C.race==='dwarf'&&C.subrace==='hill')bonus+=totalLvl();
+  const draconic=C.classes.find(c=>c.cls==='sorcerer'&&c.sub==='draconic');
+  if(draconic)bonus+=draconic.lvl;
+  if(hasFeat('tough'))bonus+=2*totalLvl();
+  return calculateMaxHp(C.classes.map(c=>({level:c.lvl,hitDie:CLASSES[c.cls].hd})),am('con'),bonus);
 }
 function hitDiceUsedByClass(){
   const g=C.game||{},used={};
@@ -2081,124 +2107,6 @@ function renderReadiness(){
   const rows=[...required,...recommended].map(i=>`<li>${i.recommended?'Рекомендуется: ':''}<button class="btn ghost sm" onclick="setTab('${i.tab}')">${esc(i.text)}</button></li>`).join('');
   return `<div class="card"><h3>Проверка заполнения</h3>${issues.length?`<p class="warn">Незавершённых выборов: ${required.length}${recommended.length?` · рекомендаций: ${recommended.length}`:''}</p><ul>${rows}</ul><p class="muted small">Это подсказки: они не блокируют сохранение и печать.</p>`:'<p class="ok-t">Обязательные выборы заполнены.</p>'}</div>`;
 }
-// ================= Рендер интерфейса =================
-const TABS=[['home','Герои'],['main','Основное'],['abil','Характеристики'],['skills','Навыки','Здесь выбираются владения навыками (от класса, расы, предыстории) и компетентность плута/барда.\nКаждое владение добавляет бонус мастерства к проверкам навыка, меняет модификаторы в быстрых проверках (Игра) и на листе персонажа.'],['cls','Класс'],['spells','Заклинания'],['equip','Снаряжение'],['game','Игра'],['sheet','Лист']];
-function setTab(t){TAB=t;render();window.scrollTo(0,0)}
-function setField(k,v){C[k]=v;persist()}
-function setText(k,v){C[k]=v;persist()} // без ререндера
-function setNested(k,sub,v){C[k][sub]=v;persist()}
-function setChoice(k,v){C.choices[k]=v;persist();render()}
-function toggleTheme(){THEME=THEME==='dark'?'light':'dark';writeStorage(LS_THEME,THEME);applyTheme()}
-function applyTheme(){document.documentElement.dataset.theme=THEME;const b=$('#themeBtn');if(b)b.textContent=THEME==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема'}
-
-function render(){
-  applyTheme();
-  const app=$('#app');
-  if(!app.dataset.characterActions){
-    app.addEventListener('click',event=>{
-      const button=event.target.closest('[data-character-action]');if(!button)return;
-      const {characterAction:action,characterId:id}=button.dataset;
-      if(action==='open')openChar(id);else if(action==='duplicate')dupChar(id);else if(action==='delete')delChar(id);
-    });
-    app.dataset.characterActions='bound';
-  }
-  if(!C){TAB='home'}
-  let h=`<header class="topbar">
-    <div class="brand" onclick="goHome()">⚔️ <b>D&D 5e 2014</b> · Конструктор персонажей</div>
-    <div class="top-actions">
-      <button class="btn ghost" id="themeBtn" onclick="toggleTheme()"></button>
-      ${C?`<button class="btn ghost" onclick="exportJson()">⬇ JSON</button>
-      <label class="btn ghost" for="importFile">⬆ Импорт</label><input type="file" id="importFile" accept=".json" hidden onchange="importJson(this)">`:''}
-    </div>
-  </header>`;
-  if(C){
-    h+=`<nav class="tabs">${TABS.map(([id,name,tip])=>{
-      if(id==='home')return '';
-      const dis=(id==='game'||id==='sheet')&&!C.classes.length?' disabled':'';
-      return `<button class="tab${TAB===id?' active':''}${dis}"${tip?` data-tip="${tip}"`:''} onclick="setTab('${id}')">${name}</button>`}).join('')}
-      <span class="tab-char">${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}</span>
-    </nav>`;
-  }
-  h+='<main id="main" class="tab-'+TAB+'">'+renderTab()+'</main>';
-  const openDet=[...document.querySelectorAll('details.spell-lvl[open],details.shop-sec[open]')].map(d=>d.dataset.key);
-  app.innerHTML=h;
-  applyTheme();
-  if(TAB==='spells')filterSpellRows();
-  openDet.forEach(k=>{const d=document.querySelector(`details[data-key="${k}"]`);if(d)d.open=true});
-  if(TAB==='game')drawGameTrackers();
-}
-function goHome(){persist();C=null;TAB='home';render()}
-
-function renderTab(){
-  switch(TAB){
-    case 'home':return renderHome();
-    case 'main':return renderMain();
-    case 'abil':return renderAbil();
-    case 'skills':return renderSkills();
-    case 'cls':return renderClass();
-    case 'spells':return renderSpells();
-    case 'equip':return renderEquip();
-    case 'game':return renderGame();
-    case 'sheet':return renderSheet();
-  }
-  return '';
-}
-
-// ---------- Библиотека ----------
-function renderHome(){
-  const cards=LIB.map(c=>{
-    const cls=(c.classes||[]).map(x=>`${CLASSES[x.cls]?CLASSES[x.cls].name:x.cls} ${x.lvl}`).join(' / ');
-    const race=RACES[c.race]?RACES[c.race].name:(c.race||'—');
-    return `<div class="card char-card">
-      <div class="char-card-name">${esc(c.name)}</div>
-      <div class="muted">${esc(race)} · ${esc(cls)}</div>
-      <div class="muted small">изменён: ${new Date(c.updated||c.created).toLocaleString('ru')}</div>
-      <div class="row gap wrap">
-        <button class="btn" data-character-action="open" data-character-id="${esc(c.id)}">Открыть</button>
-        <button class="btn ghost" data-character-action="duplicate" data-character-id="${esc(c.id)}">Дублировать</button>
-        <button class="btn danger ghost" data-character-action="delete" data-character-id="${esc(c.id)}">Удалить</button>
-      </div>
-    </div>`}).join('');
-  return `<div class="page">
-    <h1>Мои герои</h1>
-    <div class="row gap wrap">
-      <button class="btn primary" onclick="createChar()">＋ Новый персонаж</button>
-      <button class="btn ghost" onclick="exportLibrary()" ${LIB.length?'':'disabled'}>⬇ Резервная копия</button>
-      <label class="btn" for="importFile2">⬆ Импорт персонажа / копии</label><input type="file" id="importFile2" accept=".json" hidden onchange="importJson(this)">
-    </div>
-    <div class="grid cards">${cards||'<p class="muted">Пока пусто. Создайте первого героя!</p>'}</div>
-    <footer class="foot muted small">D&D 5e (2014) · SRD 5.1 и дополнительные материалы PHB/«Котла Таши»/AAG · источники: README · Работает офлайн, данные хранятся в браузере</footer>
-  </div>`;
-}
-function createChar(){C=newChar();persist();TAB='main';render()}
-function dupChar(id){
-  const f=LIB.find(c=>c.id===id);if(!f)return;
-  const copy=JSON.parse(JSON.stringify(f));
-  copy.id=uid();copy.name=f.name+' (копия)';copy.updated=Date.now();
-  LIB.push(copy);saveLib();render();
-}
-function delChar(id){
-  const f=LIB.find(c=>c.id===id);
-  if(!confirm('Удалить персонажа «'+(f?f.name:'')+'»?'))return;
-  LIB=LIB.filter(c=>c.id!==id);saveLib();render();
-}
-function exportJson(){
-  if(!validCharacter(C)){alert('Исправьте некорректные значения персонажа перед экспортом.');return}
-  const blob=new Blob([JSON.stringify(C,null,1)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=(C.name||'character').replace(/[\\/:*?"<>|]/g,'_')+'.json';
-  a.click();URL.revokeObjectURL(a.href);
-}
-function exportLibrary(){
-  if(!LIB.every(c=>validCharacter(c))){alert('В библиотеке есть некорректный персонаж; резервная копия не создана.');return}
-  const backup={format:'dnd-builder-backup',version:1,exportedAt:new Date().toISOString(),characters:LIB};
-  const blob=new Blob([JSON.stringify(backup,null,1)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`dnd-builder-backup-${new Date().toISOString().slice(0,10)}.json`;
-  a.click();URL.revokeObjectURL(a.href);
-}
 function isRecord(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
 function hasUnsafeKeys(value){
   const pending=[value];
@@ -2356,6 +2264,124 @@ function validCharacter(ch,enforceRules=true){
   if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean')||(i.wielded!=null&&typeof i.wielded!=='boolean')||(i.grip!=null&&!['one-handed','two-handed'].includes(i.grip))||(i.type==='weapon'&&i.wielded&&i.qty>1))))return false;
   if(enforceRules&&!validSkillChoices(ch))return false;
   return true;
+}
+// ================= Рендер интерфейса =================
+const TABS=[['home','Герои'],['main','Основное'],['abil','Характеристики'],['skills','Навыки','Здесь выбираются владения навыками (от класса, расы, предыстории) и компетентность плута/барда.\nКаждое владение добавляет бонус мастерства к проверкам навыка, меняет модификаторы в быстрых проверках (Игра) и на листе персонажа.'],['cls','Класс'],['spells','Заклинания'],['equip','Снаряжение'],['game','Игра'],['sheet','Лист']];
+function setTab(t){TAB=t;render();window.scrollTo(0,0)}
+function setField(k,v){C[k]=v;persist()}
+function setText(k,v){C[k]=v;persist()} // без ререндера
+function setNested(k,sub,v){C[k][sub]=v;persist()}
+function setChoice(k,v){C.choices[k]=v;persist();render()}
+function toggleTheme(){THEME=THEME==='dark'?'light':'dark';writeStorage(LS_THEME,THEME);applyTheme()}
+function applyTheme(){document.documentElement.dataset.theme=THEME;const b=$('#themeBtn');if(b)b.textContent=THEME==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема'}
+
+function render(){
+  applyTheme();
+  const app=$('#app');
+  if(!app.dataset.characterActions){
+    app.addEventListener('click',event=>{
+      const button=event.target.closest('[data-character-action]');if(!button)return;
+      const {characterAction:action,characterId:id}=button.dataset;
+      if(action==='open')openChar(id);else if(action==='duplicate')dupChar(id);else if(action==='delete')delChar(id);
+    });
+    app.dataset.characterActions='bound';
+  }
+  if(!C){TAB='home'}
+  let h=`<header class="topbar">
+    <div class="brand" onclick="goHome()">⚔️ <b>D&D 5e 2014</b> · Конструктор персонажей</div>
+    <div class="top-actions">
+      <button class="btn ghost" id="themeBtn" onclick="toggleTheme()"></button>
+      ${C?`<button class="btn ghost" onclick="exportJson()">⬇ JSON</button>
+      <label class="btn ghost" for="importFile">⬆ Импорт</label><input type="file" id="importFile" accept=".json" hidden onchange="importJson(this)">`:''}
+    </div>
+  </header>`;
+  if(C){
+    h+=`<nav class="tabs">${TABS.map(([id,name,tip])=>{
+      if(id==='home')return '';
+      const dis=(id==='game'||id==='sheet')&&!C.classes.length?' disabled':'';
+      return `<button class="tab${TAB===id?' active':''}${dis}"${tip?` data-tip="${tip}"`:''} onclick="setTab('${id}')">${name}</button>`}).join('')}
+      <span class="tab-char">${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}</span>
+    </nav>`;
+  }
+  h+='<main id="main" class="tab-'+TAB+'">'+renderTab()+'</main>';
+  const openDet=[...document.querySelectorAll('details.spell-lvl[open],details.shop-sec[open]')].map(d=>d.dataset.key);
+  app.innerHTML=h;
+  applyTheme();
+  if(TAB==='spells')filterSpellRows();
+  openDet.forEach(k=>{const d=document.querySelector(`details[data-key="${k}"]`);if(d)d.open=true});
+  if(TAB==='game')drawGameTrackers();
+}
+function goHome(){persist();C=null;TAB='home';render()}
+
+function renderTab(){
+  switch(TAB){
+    case 'home':return renderHome();
+    case 'main':return renderMain();
+    case 'abil':return renderAbil();
+    case 'skills':return renderSkills();
+    case 'cls':return renderClass();
+    case 'spells':return renderSpells();
+    case 'equip':return renderEquip();
+    case 'game':return renderGame();
+    case 'sheet':return renderSheet();
+  }
+  return '';
+}
+
+// ---------- Библиотека ----------
+function renderHome(){
+  const cards=LIB.map(c=>{
+    const cls=(c.classes||[]).map(x=>`${CLASSES[x.cls]?CLASSES[x.cls].name:x.cls} ${x.lvl}`).join(' / ');
+    const race=RACES[c.race]?RACES[c.race].name:(c.race||'—');
+    return `<div class="card char-card">
+      <div class="char-card-name">${esc(c.name)}</div>
+      <div class="muted">${esc(race)} · ${esc(cls)}</div>
+      <div class="muted small">изменён: ${new Date(c.updated||c.created).toLocaleString('ru')}</div>
+      <div class="row gap wrap">
+        <button class="btn" data-character-action="open" data-character-id="${esc(c.id)}">Открыть</button>
+        <button class="btn ghost" data-character-action="duplicate" data-character-id="${esc(c.id)}">Дублировать</button>
+        <button class="btn danger ghost" data-character-action="delete" data-character-id="${esc(c.id)}">Удалить</button>
+      </div>
+    </div>`}).join('');
+  return `<div class="page">
+    <h1>Мои герои</h1>
+    <div class="row gap wrap">
+      <button class="btn primary" onclick="createChar()">＋ Новый персонаж</button>
+      <button class="btn ghost" onclick="exportLibrary()" ${LIB.length?'':'disabled'}>⬇ Резервная копия</button>
+      <label class="btn" for="importFile2">⬆ Импорт персонажа / копии</label><input type="file" id="importFile2" accept=".json" hidden onchange="importJson(this)">
+    </div>
+    <div class="grid cards">${cards||'<p class="muted">Пока пусто. Создайте первого героя!</p>'}</div>
+    <footer class="foot muted small">D&D 5e (2014) · SRD 5.1 и дополнительные материалы PHB/«Котла Таши»/AAG · источники: README · Работает офлайн, данные хранятся в браузере</footer>
+  </div>`;
+}
+function createChar(){C=newChar();persist();TAB='main';render()}
+function dupChar(id){
+  const f=LIB.find(c=>c.id===id);if(!f)return;
+  const copy=JSON.parse(JSON.stringify(f));
+  copy.id=uid();copy.name=f.name+' (копия)';copy.updated=Date.now();
+  LIB.push(copy);saveLib();render();
+}
+function delChar(id){
+  const f=LIB.find(c=>c.id===id);
+  if(!confirm('Удалить персонажа «'+(f?f.name:'')+'»?'))return;
+  LIB=LIB.filter(c=>c.id!==id);saveLib();render();
+}
+function exportJson(){
+  if(!validCharacter(C)){alert('Исправьте некорректные значения персонажа перед экспортом.');return}
+  const blob=new Blob([JSON.stringify(C,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=(C.name||'character').replace(/[\\/:*?"<>|]/g,'_')+'.json';
+  a.click();URL.revokeObjectURL(a.href);
+}
+function exportLibrary(){
+  if(!LIB.every(c=>validCharacter(c))){alert('В библиотеке есть некорректный персонаж; резервная копия не создана.');return}
+  const backup={format:'dnd-builder-backup',version:1,exportedAt:new Date().toISOString(),characters:LIB};
+  const blob=new Blob([JSON.stringify(backup,null,1)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`dnd-builder-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();URL.revokeObjectURL(a.href);
 }
 function importJson(inp){
   const f=inp.files[0];if(!f)return;

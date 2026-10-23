@@ -32,7 +32,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, speedText, rovingActive, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
+  newChar, migrate, calculateMaxHp, calculateMovementSpeed, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, speedText, rovingActive, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, hasUniqueCharacterIds,
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
@@ -47,6 +47,8 @@ globalThis.api = {
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
   addClass, changeClass, changeLvl, changeSub, removeClass, changeRace, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
+  get character() { return C; },
+  persist,
 };`, context);
 const api = context.api;
 
@@ -453,6 +455,12 @@ test('hit point gains are at least one per level with negative Constitution', ()
   assert.equal(api.maxHp(), 21);
 });
 
+test('pure rule calculators cover hit points and movement without reading character state', () => {
+  assert.equal(api.calculateMaxHp([{ level: 20, hitDie: 6 }], -4), 21);
+  assert.equal(api.calculateMaxHp([{ level: 2, hitDie: 10 }, { level: 1, hitDie: 6 }], 0), 20);
+  assert.equal(api.calculateMovementSpeed({ base: 30, rovingBonus: 5, heavyArmorPenalty: 10 }), 25);
+});
+
 test('fighter hit points use maximum first hit die and average thereafter', () => {
   const c = character();
   c.classes = [{ cls: 'fighter', lvl: 3, sub: 'champion' }];
@@ -816,6 +824,22 @@ test('import rejects invalid skill choices but storage can still open old drafts
   storageData.delete('dnd5e2014_chars_v1');
 });
 
+test('persist rolls back malformed state to the last saved character', () => {
+  const c = character();
+  c.name = 'Saved';
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.persist();
+  c.classes[0].lvl = 21;
+  alerts.length = 0;
+  assert.equal(api.persist(), false);
+  assert.equal(api.character.name, 'Saved');
+  assert.equal(api.character.classes[0].lvl, 1);
+  assert.match(alerts.at(-1), /изменение отменено/);
+  api.setRenderFn(oldRender);
+});
+
 test('hit dice use the selected multiclass hit die and track expenditure per class', () => {
   const c = character();
   c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];
@@ -955,6 +979,23 @@ test('backup libraries require unique character ids', () => {
   assert.equal(api.hasUniqueCharacterIds([{}, {}]), true);
 });
 
+test('schema migrations assign legacy spent hit dice to class levels and upgrade to v5', () => {
+  const legacy = character();
+  legacy.schemaVersion = 4;
+  legacy.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];
+  legacy.game.hdUsed = 2;
+  delete legacy.game.hdUsedByClass;
+  const migrated = api.migrate(legacy);
+  assert.equal(migrated.schemaVersion, 5);
+  assert.deepEqual({ ...migrated.game.hdUsedByClass }, { fighter: 1, wizard: 1 });
+
+  legacy.schemaVersion = 3;
+  legacy.game.hdUsed = 1;
+  const older = api.migrate(legacy);
+  assert.equal(older.schemaVersion, 5);
+  assert.deepEqual({ ...older.game.hdUsedByClass }, { fighter: 1 });
+});
+
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {
   const c = character();
   assert.equal(api.validCharacter(c), true);
@@ -993,7 +1034,7 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(legacy.race, 'human');
   assert.equal(legacy.bg, 'soldier');
   assert.equal(legacy.abilityMethod, 'standard');
-  assert.equal(legacy.schemaVersion, 4);
+  assert.equal(legacy.schemaVersion, 5);
   assert.equal(Object.hasOwn(legacy, 'injected'), false);
   assert.ok(Array.isArray(legacy.extraLangs));
   assert.ok(legacy.racialSpells && typeof legacy.racialSpells === 'object');

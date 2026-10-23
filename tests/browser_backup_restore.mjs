@@ -200,9 +200,11 @@ try {
     const profs=weaponProf('longbow')&&!weaponProf('rapier')&&toolProficiencies().includes('Лютня')&&toolProficiencies().includes('Игровой набор (кости)');
     TAB='equip';render();const equip=document.querySelector('#main').innerText;
     TAB='cls';render();const cls=document.querySelector('#main').innerText;
-    return {profs,toolPicker:!!toolPicker,backgroundChoice:main.includes('Игровой набор (1 на выбор)'),armorWarning:equip.includes('нельзя накладывать заклинания'),multiclassArmor:cls.includes('Доспехи: лёгкие')};
+    C.classes[0].lvl=20;persist();
+    const rollback=C.name==='Rules E2E'&&totalLvl()===2;
+    return {profs,toolPicker:!!toolPicker,backgroundChoice:main.includes('Игровой набор (1 на выбор)'),armorWarning:equip.includes('нельзя накладывать заклинания'),multiclassArmor:cls.includes('Доспехи: лёгкие'),rollback};
   })()`);
-  if (!rulesSmoke.profs || !rulesSmoke.toolPicker || !rulesSmoke.backgroundChoice || !rulesSmoke.armorWarning || !rulesSmoke.multiclassArmor) throw new Error(`Proficiency UI smoke test failed: ${JSON.stringify(rulesSmoke)}`);
+  if (!rulesSmoke.profs || !rulesSmoke.toolPicker || !rulesSmoke.backgroundChoice || !rulesSmoke.armorWarning || !rulesSmoke.multiclassArmor || !rulesSmoke.rollback) throw new Error(`Proficiency UI smoke test failed: ${JSON.stringify(rulesSmoke)}`);
 
   const corruptLibrary = '{damaged-local-library';
   await evaluate(`localStorage.setItem('dnd5e2014_chars_v1',${JSON.stringify(corruptLibrary)})`);

@@ -1,4 +1,4 @@
-const CHARACTER_SCHEMA=4;
+const CHARACTER_SCHEMA=5;
 const MAX_PORTRAIT_DATA=200000;
 function newChar(){
   const ab={};ABILS.forEach(([k])=>ab[k]=10);
@@ -53,7 +53,12 @@ function saveLib(replaceCorrupt=false){
 }
 function persist(){
   if(!C)return;
-  if(!validCharacter(C,false)){alert('Персонаж содержит некорректные данные и не был сохранён.');return false}
+  if(!validCharacter(C,false)){
+    const previous=LIB.find(c=>c.id===C.id);
+    if(previous){C=migrate(JSON.parse(JSON.stringify(previous)));render()}
+    alert('Некорректное изменение отменено; восстановлено последнее сохранённое состояние.');
+    return false;
+  }
   if(STORAGE_CORRUPT){warnStorage();return}
   C.updated=Date.now();
   const i=LIB.findIndex(c=>c.id===C.id);
@@ -69,6 +74,16 @@ function openChar(id){
   TAB='main';
   render();
 }
+const SCHEMA_MIGRATIONS={
+  4:character=>{
+    const used={...(character.game.hdUsedByClass||{})};
+    if(!Object.keys(used).length){
+      let remaining=Math.max(0,Math.floor(character.game.hdUsed||0));
+      for(const cls of character.classes){const count=Math.min(cls.lvl,remaining);if(count)used[cls.cls]=count;remaining-=count}
+    }
+    return {...character,game:{...character.game,hdUsedByClass:used}};
+  }
+};
 function migrate(ch){
   const d=newChar();
   const m={...d,...Object.fromEntries(Object.entries(ch).filter(([key])=>Object.hasOwn(d,key)))};
@@ -96,6 +111,11 @@ function migrate(ch){
   m.choices.fightingStyles=styles;
   delete m.choices.fightingStyle;delete m.choices.fightingStyle2;
   if(typeof m.id!=='string'||!m.id)m.id=uid();
+  let version=Number.isInteger(ch.schemaVersion)?ch.schemaVersion:1;
+  while(version<CHARACTER_SCHEMA){
+    if(SCHEMA_MIGRATIONS[version])Object.assign(m,SCHEMA_MIGRATIONS[version](m));
+    version++;
+  }
   m.schemaVersion=CHARACTER_SCHEMA;
   return m;
 }
@@ -281,15 +301,15 @@ function rovingActive(){
 }
 function speed(){
   const s=subraceOf(),armor=equippedArmor(),armorData=armor&&ARMORS.find(a=>a[0]===armor.id),heavy=armorData?.[8]==='heavy';
-  let value=(s&&s.speed)||raceOf().speed||30;
-  const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&monk.lvl>=2&&!armor&&!hasShield())value+=10+Math.floor((monk.lvl-2)/4)*5;
-  const barbarian=C.classes.find(c=>c.cls==='barbarian');
-  if(barbarian&&barbarian.lvl>=5&&!heavy)value+=10;
-  if(rovingActive())value+=5;
-  if(hasFeat('mobile'))value+=10;
-  if(heavy&&armorData[5]&&abil('str')<armorData[5])value-=10;
-  return value;
+  const monk=C.classes.find(c=>c.cls==='monk'),barbarian=C.classes.find(c=>c.cls==='barbarian');
+  return calculateMovementSpeed({
+    base:(s&&s.speed)||raceOf().speed||30,
+    monkBonus:monk&&monk.lvl>=2&&!armor&&!hasShield()?10+Math.floor((monk.lvl-2)/4)*5:0,
+    barbarianBonus:barbarian&&barbarian.lvl>=5&&!heavy?10:0,
+    rovingBonus:rovingActive()?5:0,
+    mobileBonus:hasFeat('mobile')?10:0,
+    heavyArmorPenalty:heavy&&armorData[5]&&abil('str')<armorData[5]?10:0,
+  });
 }
 function speedText(){
   const walking=speed();
@@ -298,18 +318,12 @@ function speedText(){
 
 // хиты
 function maxHp(){
-  let hp=0;
-  C.classes.forEach((c,i)=>{
-    const hd=CLASSES[c.cls].hd,con=am('con');
-    // Each level grants at least 1 HP, even with a negative Constitution modifier.
-    if(i===0){hp+=Math.max(1,hd+con);for(let l=1;l<c.lvl;l++)hp+=Math.max(1,Math.floor(hd/2)+1+con)}
-    else{for(let l=0;l<c.lvl;l++)hp+=Math.max(1,Math.floor(hd/2)+1+con)}
-  });
-  const r=raceOf(),s=subraceOf();
-  if(C.race==='dwarf'&&C.subrace==='hill')hp+=totalLvl(); // дварфская выносливость
-  if(C.classes.find(c=>c.cls==='sorcerer'&&c.sub==='draconic'))hp+=C.classes.find(c=>c.cls==='sorcerer').lvl;
-  if(hasFeat('tough'))hp+=2*totalLvl();
-  return Math.max(1,hp);
+  let bonus=0;
+  if(C.race==='dwarf'&&C.subrace==='hill')bonus+=totalLvl();
+  const draconic=C.classes.find(c=>c.cls==='sorcerer'&&c.sub==='draconic');
+  if(draconic)bonus+=draconic.lvl;
+  if(hasFeat('tough'))bonus+=2*totalLvl();
+  return calculateMaxHp(C.classes.map(c=>({level:c.lvl,hitDie:CLASSES[c.cls].hd})),am('con'),bonus);
 }
 function hitDiceUsedByClass(){
   const g=C.game||{},used={};
