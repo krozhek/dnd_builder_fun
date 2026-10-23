@@ -1708,8 +1708,7 @@ function initiative(){
   return bonus;
 }
 function rovingActive(){
-  const armor=equippedArmor(),data=armor&&ARMORS.find(a=>a[0]===armor.id);
-  return C.classes.some(c=>c.cls==='ranger'&&c.lvl>=6&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer'))&&data?.[8]!=='heavy';
+  return C.classes.some(c=>c.cls==='ranger'&&c.lvl>=6&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer'));
 }
 function speed(){
   const s=subraceOf(),armor=equippedArmor(),armorData=armor&&ARMORS.find(a=>a[0]===armor.id),heavy=armorData?.[8]==='heavy';

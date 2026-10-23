@@ -626,9 +626,9 @@ test('speed includes monk, barbarian, and Deft Explorer bonuses with armor condi
   assert.match(api.speedText(), /лазание\/плавание 35 фт/);
   c.inventory = [{ type: 'armor', id: 'chainmail', qty: 1, equipped: true }];
   api.setChar(c);
-  assert.equal(api.speed(), 20); // no Roving in heavy armor; insufficient STR reduces speed
-  assert.equal(api.rovingActive(), false);
-  assert.doesNotMatch(api.speedText(), /лазание\/плавание/);
+  assert.equal(api.speed(), 25); // STR 11 < chainmail requirement 13; Roving still grants +5 ft
+  assert.equal(api.rovingActive(), true);
+  assert.match(api.speedText(), /лазание\/плавание 25 фт/);
 });
 
 test('armor class includes Dexterity and an equipped shield', () => {
