@@ -223,6 +223,7 @@ function validSkillChoices(ch){
   try{
     C=ch;
     const validIds=new Set(SKILLS.map(([id])=>id)),map=ch.classSkills||{},racePicks=ch.raceSkills||[],racial=raceOf(),prof=new Set([...bgSkills(),...(racial.skillProf||[])]);
+    if(Object.keys(map).some(cls=>!ch.classes.some(c=>c.cls===cls)))return false;
     if(Object.values(map).some(picks=>new Set(picks).size!==picks.length||picks.some(id=>!validIds.has(id))))return false;
     if(racePicks.length>(racial.skillChoice||0)||new Set(racePicks).size!==racePicks.length||racePicks.some(id=>!validIds.has(id)||prof.has(id)))return false;
     racePicks.forEach(id=>prof.add(id));
@@ -264,6 +265,8 @@ function validCharacter(ch,enforceRules=true){
   })))return false;
   if(ch.racialSpells&&!validRacialSpellChoices(ch))return false;
   if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)||['hpCur','hpTemp','hdUsed','pactUsed','dsOk','dsFail','exh'].some(key=>ch.game[key]!=null&&(!Number.isFinite(ch.game[key])||ch.game[key]<0))||!['conditions','notes'].every(key=>ch.game[key]==null||typeof ch.game[key]==='string')||ch.game.insp!=null&&typeof ch.game.insp!=='boolean'||Object.values(ch.game.slotsUsed||{}).some(value=>!Number.isFinite(value)||value<0)||Object.values(ch.game.resources||{}).some(value=>!Number.isFinite(value)||value<0)))return false;
+  if(ch.game?.hdUsedByClass!=null&&(!isRecord(ch.game.hdUsedByClass)||Object.entries(ch.game.hdUsedByClass).some(([cls,count])=>!ch.classes.some(c=>c.cls===cls)||!Number.isInteger(count)||count<0||count>ch.classes.find(c=>c.cls===cls).lvl)))return false;
+  if(ch.game&&(ch.game.hdUsed||0)>ch.classes.reduce((sum,c)=>sum+c.lvl,0))return false;
   if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
   if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean')||(i.wielded!=null&&typeof i.wielded!=='boolean')||(i.grip!=null&&!['one-handed','two-handed'].includes(i.grip))||(i.type==='weapon'&&i.wielded&&i.qty>1))))return false;
   if(enforceRules&&!validSkillChoices(ch))return false;
@@ -420,21 +423,47 @@ function setPortraitFile(input){
   image.src=url;
 }
 function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
-function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
+function pruneAsiChoices(){
+  const need=C.classes.reduce((total,c)=>total+CLASSES[c.cls].asiLvls.filter(level=>level<=c.lvl).length,0);
+  for(const key of Object.keys(C.asi||{})){const match=/^asi(\d+)$/.exec(key);if(!match||+match[1]>=need)delete C.asi[key]}
+}
+function discardClassHitDice(cls){
+  const used=syncHitDice(),count=used[cls]||0;
+  delete used[cls];C.game.hdUsedByClass=used;C.game.hdUsed=Math.max(0,C.game.hdUsed-count);
+}
+function clearClassSelections(cls){
+  for(const key of ['classSkills','cantrips','spellsKnown','spellsPrepared'])delete C[key]?.[cls];
+  delete C.choices.classTools?.[cls];delete C.choices.fightingStyles?.[cls];delete C.choices.tashaFeatures?.[cls];
+  if(cls==='wizard')C.spellbook=[];
+  if(cls==='ranger'){
+    delete C.choices.favoredEnemy;delete C.choices.favoredTerrain;delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;
+    for(const key of Object.keys(C.choices))if(/^hunter_\d+$/.test(key))delete C.choices[key];
+  }
+  if(cls==='druid')delete C.choices.druidLand;
+  if(cls==='sorcerer'){delete C.choices.draconicType;delete C.choices.metamagic}
+  if(cls==='warlock'){delete C.choices.pactBoon;delete C.choices.invocations;C.arcanum={}}
+}
+function pruneExpertise(){C.expertise=(C.expertise||[]).filter(id=>profSkills().includes(id))}
+function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];C.racialSpells={};if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
 function changeBackground(v){C.bg=v;C.choices.backgroundTools=[];C.extraLangs=[];persist();render()}
 function changeClass(i,v){
   if(C.classes.some((c,j)=>j!==i&&c.cls===v)){alert('Этот класс уже добавлен.');render();return}
   const error=C.classes.length>1?multiclassRequirementError(v,i):'';
   if(error){alert(error);render();return}
   const previous=C.classes[i].cls;
-  C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';
-  if(previous!==v)delete C.choices.classTools?.[previous];
-  persist();render()
+  if(previous===v)return;
+  discardClassHitDice(previous);C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';
+  clearClassSelections(previous);pruneAsiChoices();
+  if(previous==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
+  pruneExpertise();persist();render()
 }
 function changeLvl(i,v){
   const lvl=Number(v),total=totalLvl()-C.classes[i].lvl+lvl;
   if(!Number.isInteger(lvl)||lvl<1||lvl>20||total>20){alert('Общий уровень персонажа не может превышать 20.');render();return}
-  C.classes[i].lvl=lvl;persist();render()
+  const used=syncHitDice();
+  C.classes[i].lvl=lvl;used[C.classes[i].cls]=Math.min(used[C.classes[i].cls]||0,lvl);
+  C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
+  pruneAsiChoices();persist();render()
 }
 function changeSub(i,v){C.classes[i].sub=v;persist();render()}
 function addClass(){
@@ -444,7 +473,12 @@ function addClass(){
   if(!free){alert(available.length?multiclassRequirementError(available[0]):'Все классы уже добавлены.');return}
   C.classes.push({cls:free,lvl:1,sub:CLASSES[free].sub||''});persist();render()
 }
-function removeClass(i){delete C.choices.classTools?.[C.classes[i].cls];C.classes.splice(i,1);persist();render()}
+function removeClass(i){
+  const cls=C.classes[i]?.cls;if(!cls)return;
+  discardClassHitDice(cls);C.classes.splice(i,1);clearClassSelections(cls);pruneAsiChoices();
+  if(cls==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
+  pruneExpertise();persist();render()
+}
 function subclassOpts(c){
   return Object.entries(SUBCLASSES).filter(([,s])=>s.cls===c.cls)
     .map(([id,s])=>`<option value="${id}"${c.sub===id?' selected':''}>${s.name}${s.src?' ('+s.src+')':''}</option>`).join('');
@@ -1059,7 +1093,7 @@ function renderGame(){
   const g=C.game;
   const mh=maxHp();
   if(g.hpCur==null)g.hpCur=mh;
-  const slots=spellSlots(), pact=pactSlots();
+  const slots=spellSlots();
   const res=classResources();
   return `<div class="page"><h1>Игровой режим</h1>
   <div class="grid two">
@@ -1075,6 +1109,7 @@ function renderGame(){
       <label>Временные хиты<input type="number" min="0" value="${esc(g.hpTemp||0)}" onchange="C.game.hpTemp=+this.value||0;persist();render()"></label>
       <div class="row gap wrap" style="margin-top:8px">
         <span>Кости хитов: <b>${hitDiceStr()}</b></span>
+        ${C.classes.length>1?`<label>Кость класса<select id="hdClass">${C.classes.map(c=>`<option value="${c.cls}">${CLASSES[c.cls].name} · к${CLASSES[c.cls].hd} (${hitDiceUsedByClass()[c.cls]||0}/${c.lvl})</option>`).join('')}</select></label>`:''}
         <span class="muted">потрачено: ${esc(g.hdUsed||0)} / ${totalLvl()}</span>
         <button class="btn sm" onclick="spendHd()">Потратить кость</button>
         <button class="btn sm ghost" onclick="C.game.hdUsed=Math.max(0,(C.game.hdUsed||0)-1);persist();render()">−1</button>
@@ -1090,7 +1125,6 @@ function renderGame(){
     <div class="card">
       <h3>Ячейки заклинаний</h3>
       ${slots?`<div class="slots">${slots.map((n,i)=>n?`<div class="slot-row"><b>${i+1} круг</b><span class="pips" id="slotPips${i}"></span></div>`:'').join('')}</div>`:'<p class="muted">Нет ячеек</p>'}
-      ${pact?`<div class="slot-row"><b>Договор (${pact.level} круг)</b><span class="pips" id="pactPips"></span></div>`:''}
       <div class="row gap" style="margin-top:8px">
         <button class="btn sm" onclick="shortRest()">Короткий отдых</button>
         <button class="btn sm primary" onclick="longRest()">Длинный отдых</button>
@@ -1159,13 +1193,11 @@ function chgHp(sign){
   }else g.hpCur=Math.min(mh,g.hpCur+d);
   persist();render();
 }
-function spendHd(){
-  const g=C.game;
-  if((g.hdUsed||0)>=totalLvl()){alert('Все кости хитов потрачены');return}
-  g.hdUsed=(g.hdUsed||0)+1;
-  // берём кость первого класса
-  const hd=CLASSES[C.classes[0].cls].hd;
-  const heal=Math.floor(Math.random()*hd)+1+am('con');
+function spendHd(selectedClass){
+  const g=C.game,used=syncHitDice(),cls=selectedClass||$('#hdClass')?.value||C.classes[0].cls,c=C.classes.find(x=>x.cls===cls);
+  if(!c||used[cls]>=c.lvl){alert('Все кости хитов этого класса потрачены');return}
+  used[cls]++;g.hdUsedByClass=used;g.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
+  const hd=CLASSES[cls].hd,heal=Math.floor(Math.random()*hd)+1+am('con');
   g.hpCur=Math.min(maxHp(),(g.hpCur??maxHp())+Math.max(1,heal));
   logRoll('Кость хитов к'+hd+': +'+Math.max(1,heal)+' хитов');
   persist();render();
@@ -1191,7 +1223,10 @@ function shortRest(){
 function longRest(){
   const g=C.game;
   g.hpCur=maxHp();g.hpTemp=0;
-  g.hdUsed=Math.max(0,(g.hdUsed||0)-Math.floor(totalLvl()/2));
+  const used=syncHitDice(),remaining=Math.min(Object.values(used).reduce((sum,n)=>sum+n,0),Math.max(1,Math.floor(totalLvl()/2)));
+  let recover=remaining;
+  for(const c of C.classes){const restored=Math.min(used[c.cls]||0,recover);used[c.cls]-=restored;recover-=restored}
+  g.hdUsedByClass=used;g.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
   g.slotsUsed={};g.pactUsed=0;g.resources={};g.dsOk=0;g.dsFail=0;
   persist();render();
 }

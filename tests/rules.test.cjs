@@ -42,10 +42,10 @@ globalThis.api = {
   renderMain, renderHome, renderEquip, renderGame, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
   attacksHtml,
-  shortRest, drawGameTrackers,
+  shortRest, longRest, spendHd, drawGameTrackers, syncHitDice, hitDiceUsedByClass,
   renderSheet2024,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
-  addClass, changeClass, changeLvl, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
+  addClass, changeClass, changeLvl, removeClass, changeRace, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
 };`, context);
 const api = context.api;
@@ -814,6 +814,86 @@ test('import rejects invalid skill choices but storage can still open old drafts
   assert.match(api.renderSkills(), /Сбросить выборы навыков/);
   api.setLibrary([]);
   storageData.delete('dnd5e2014_chars_v1');
+});
+
+test('hit dice use the selected multiclass hit die and track expenditure per class', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];
+  c.game.hpCur = 0;
+  c.game.hdUsed = 1;
+  c.game.hdUsedByClass = { fighter: 1 };
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.spendHd('wizard');
+  assert.equal(c.game.hdUsedByClass.fighter, 1);
+  assert.equal(c.game.hdUsedByClass.wizard, 1);
+  assert.equal(c.game.hdUsed, 2);
+  assert.ok(c.game.hpCur >= 1 && c.game.hpCur <= 6);
+  api.setRenderFn(oldRender);
+});
+
+test('long rest restores at least one hit die, choosing the earliest class first', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  c.game.hdUsed = 1;
+  c.game.hdUsedByClass = { fighter: 1 };
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.longRest();
+  assert.equal(c.game.hdUsed, 0);
+
+  c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];
+  c.game.hdUsed = 3;
+  c.game.hdUsedByClass = { fighter: 2, wizard: 1 };
+  api.setChar(c);
+  api.longRest();
+  assert.equal(c.game.hdUsedByClass.fighter, 0);
+  assert.equal(c.game.hdUsedByClass.wizard, 1);
+  assert.equal(c.game.hdUsed, 1);
+  api.setRenderFn(oldRender);
+});
+
+test('class changes remove obsolete proficiencies and class-specific choices', () => {
+  const c = character();
+  c.bg = 'charlatan';
+  c.classes = [{ cls: 'fighter', lvl: 4, sub: 'champion' }];
+  c.classSkills.fighter = ['athletics', 'perception'];
+  c.cantrips.fighter = ['light'];
+  c.asi.asi0 = { type: 'asi', vals: ['str', 'str'] };
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  assert.ok(api.skillMod('athletics') > api.am('str'));
+  api.changeClass(0, 'bard');
+  assert.equal(c.classSkills.fighter, undefined);
+  assert.equal(c.cantrips.fighter, undefined);
+  assert.equal(api.skillMod('athletics'), api.am('str') + Math.floor(api.pb()/2));
+  assert.equal(Object.keys(c.asi).length, 1);
+  api.changeLvl(0, 2);
+  assert.equal(Object.keys(c.asi).length, 0);
+  api.setRenderFn(oldRender);
+});
+
+test('race changes clear incompatible racial spell selections', () => {
+  const c = character();
+  c.race = 'elf';c.subrace = 'high';c.racialSpells = { highelf: 'fire_bolt', highelfAbility: 'int' };
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.changeRace('human');
+  assert.deepEqual({ ...c.racialSpells }, {});
+  api.setRenderFn(oldRender);
+});
+
+test('warlock pact slots have a single resource tracker', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 3, sub: 'fiend' }];
+  api.setChar(c);
+  const game = api.renderGame();
+  assert.match(game, /data-res="pact"/);
+  assert.doesNotMatch(game, /pactPips/);
 });
 
 test('short rest preserves ordinary spell slots and restores pact slots', () => {

@@ -16,7 +16,7 @@ function newChar(){
     choices:{}, // fightingStyle, favoredEnemy, favoredTerrain, hunter{3,7,11,15}, pactBoon, druidLand, metamagic[], invocations[]
     cantrips:{}, spellsKnown:{}, spellsPrepared:{}, spellbook:[], arcanum:{}, racialSpells:{},
     equipChoice:{}, goldMode:'equipment', gold:0, inventory:[], attunement:['','',''],
-    game:{hpCur:null,hpTemp:0,hdUsed:0,slotsUsed:{},pactUsed:0,resources:{},dsOk:0,dsFail:0,conditions:'',notes:'',insp:false,exh:0},
+    game:{hpCur:null,hpTemp:0,hdUsed:0,hdUsedByClass:{},slotsUsed:{},pactUsed:0,resources:{},dsOk:0,dsFail:0,conditions:'',notes:'',insp:false,exh:0},
     personality:{traits:'',ideals:'',bonds:'',flaws:''}, allies:'', backstory:'', goals:'', appearance:{age:'',height:'',weight:'',eyes:'',skin:'',hair:'',details:''}, portrait:'', treasure:'', featuresNotes:'',
     created:Date.now(), updated:Date.now()
   };
@@ -75,6 +75,7 @@ function migrate(ch){
     m.bases[k]={...(k==='standard'?(()=>{const s={};ABILS.forEach(([a],i)=>s[a]=STD_SET[i]);return s})():k==='point'?(()=>{const s={};ABILS.forEach(([a])=>s[a]=8);return s})():(()=>{const s={};ABILS.forEach(([a])=>s[a]=10);return s})()), ...(ch.bases&&ch.bases[k]&&!Array.isArray(ch.bases[k])?ch.bases[k]:{})};
   });
   m.game={...d.game,...(ch.game||{})};
+  m.game.hdUsedByClass=isRecord(ch.game?.hdUsedByClass)?ch.game.hdUsedByClass:{};
   m.personality={...d.personality,...(ch.personality||{})};
   m.appearance={...d.appearance,...(isRecord(ch.appearance)?ch.appearance:{})};
   m.choices={...d.choices,...(isRecord(ch.choices)?ch.choices:{})};
@@ -140,7 +141,7 @@ function raceSkills(){
   if(r.skillChoice)out.push(...(C.raceSkills||[]).slice(0,r.skillChoice));
   return out;
 }
-function classSkills(){let o=[];C.classes.forEach(c=>{o=o.concat(C.classSkills[c.cls]||[])});return [...new Set(o)]}
+function classSkills(){return [...new Set(C.classes.flatMap(c=>C.classSkills[c.cls]||[]))]}
 function classSkillChoiceCount(index,cls){const cl=CLASSES[cls];return index===0?cl.skillCount:(cl.multiclassSkillCount||0)}
 function multiclassRequirementError(cls,skipIndex=-1){
   const existing=C.classes.filter((_,i)=>i!==skipIndex);
@@ -308,6 +309,16 @@ function maxHp(){
   if(C.classes.find(c=>c.cls==='sorcerer'&&c.sub==='draconic'))hp+=C.classes.find(c=>c.cls==='sorcerer').lvl;
   if(hasFeat('tough'))hp+=2*totalLvl();
   return Math.max(1,hp);
+}
+function hitDiceUsedByClass(){
+  const g=C.game||{},used={};
+  C.classes.forEach(c=>used[c.cls]=Math.min(c.lvl,Math.max(0,Math.floor(g.hdUsedByClass?.[c.cls]||0))));
+  let remaining=Math.max(0,Math.floor(g.hdUsed||0)-Object.values(used).reduce((sum,n)=>sum+n,0));
+  for(const c of C.classes){const add=Math.min(c.lvl-used[c.cls],remaining);used[c.cls]+=add;remaining-=add}
+  return used;
+}
+function syncHitDice(){
+  const used=hitDiceUsedByClass();C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);return used;
 }
 function hitDiceStr(){const m={};C.classes.forEach(c=>{const d='к'+CLASSES[c.cls].hd;m[d]=(m[d]||0)+c.lvl});return Object.entries(m).map(([d,n])=>n+d).join(' + ')}
 
@@ -622,7 +633,8 @@ function characterReadiness(){
   if(manualExpertise<manualExpertiseMax)add('skills',`Выберите ещё ${manualExpertiseMax-manualExpertise} компетентности.`);
   const styleChoices=C.choices.fightingStyles||{};
   for(const key of activeFightingStyleKeys())if(!styleChoices[key])add('cls',key==='championExtra'?'Выберите второй боевой стиль (Чемпион 10).':`Выберите боевой стиль для класса «${CLASSES[key].name}».`);
-  const {need}=asiPending();
+  const {need,have}=asiPending();
+  if(have>need)add('abil','Удалите ASI/черты, которые больше не доступны на текущих уровнях классов.');
   for(let i=0;i<need;i++){
     const a=(C.asi||{})['asi'+i];let complete=false;
     if(Array.isArray(a))complete=a.length===2;
