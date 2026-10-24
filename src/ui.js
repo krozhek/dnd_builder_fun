@@ -1,10 +1,9 @@
 // ================= Рендер интерфейса =================
 const TABS=[['home','Герои'],['main','Основное'],['abil','Характеристики'],['skills','Навыки','Здесь выбираются владения навыками (от класса, расы, предыстории) и компетентность плута/барда.\nКаждое владение добавляет бонус мастерства к проверкам навыка, меняет модификаторы в быстрых проверках (Игра) и на листе персонажа.'],['cls','Класс'],['spells','Заклинания'],['equip','Снаряжение'],['game','Игра'],['sheet','Лист']];
 function setTab(t){TAB=t;render();window.scrollTo(0,0)}
-function setField(k,v){C[k]=v;persist()}
-function setText(k,v){C[k]=v;persist()} // без ререндера
-function setNested(k,sub,v){C[k][sub]=v;persist()}
-function setChoice(k,v){C.choices[k]=v;persist();render()}
+function setField(k,v){if(setCharacterField(k,v))persist()}
+function setText(k,v){if(setCharacterField(k,v))persist()} // без ререндера
+function setChoice(k,v){if(setCharacterChoice(k,v)){persist();render()}}
 function toggleTheme(){THEME=THEME==='dark'?'light':'dark';writeStorage(LS_THEME,THEME);applyTheme()}
 function applyTheme(){document.documentElement.dataset.theme=THEME;const b=$('#themeBtn');if(b)b.textContent=THEME==='dark'?'☀️ Светлая тема':'🌙 Тёмная тема'}
 
@@ -25,6 +24,7 @@ function render(){
     <div class="top-actions">
       <button class="btn ghost" id="themeBtn" onclick="toggleTheme()"></button>
       ${C?`<button class="btn ghost" onclick="exportJson()">⬇ JSON</button>
+      <button class="btn ghost" onclick="exportFoundryJson()" title="Foundry VTT 12 · dnd5e 3.3.1">⬇ Foundry</button>
       <label class="btn ghost" for="importFile">⬆ Импорт</label><input type="file" id="importFile" accept=".json" hidden onchange="importJson(this)">`:''}
     </div>
   </header>`;
@@ -100,6 +100,7 @@ function delChar(id){
   LIB=LIB.filter(c=>c.id!==id);saveLib();render();
 }
 function exportJson(){
+  if(!validCharacter(C)){alert('Исправьте некорректные значения персонажа перед экспортом.');return}
   const blob=new Blob([JSON.stringify(C,null,1)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -107,167 +108,13 @@ function exportJson(){
   a.click();URL.revokeObjectURL(a.href);
 }
 function exportLibrary(){
+  if(!LIB.every(c=>validCharacter(c))){alert('В библиотеке есть некорректный персонаж; резервная копия не создана.');return}
   const backup={format:'dnd-builder-backup',version:1,exportedAt:new Date().toISOString(),characters:LIB};
   const blob=new Blob([JSON.stringify(backup,null,1)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
   a.download=`dnd-builder-backup-${new Date().toISOString().slice(0,10)}.json`;
   a.click();URL.revokeObjectURL(a.href);
-}
-function isRecord(value){return !!value&&typeof value==='object'&&!Array.isArray(value)}
-function hasUnsafeKeys(value){
-  const pending=[value];
-  while(pending.length){
-    const item=pending.pop();
-    if(Array.isArray(item)){for(const value of item)pending.push(value);continue}
-    if(isRecord(item))for(const [key,child] of Object.entries(item)){if(['__proto__','constructor','prototype'].includes(key))return true;pending.push(child)}
-  }
-  return false;
-}
-function optionalRecord(value){return value==null||isRecord(value)}
-function stringArray(value,allowBlank=false){return Array.isArray(value)&&value.every(x=>typeof x==='string'||(allowBlank&&(x===null||x==='')))}
-function stringArrayMap(value){return value==null||isRecord(value)&&Object.values(value).every(v=>stringArray(v))}
-function validSpellArray(value){return stringArray(value)&&value.every(id=>SPELL_IDS.has(id))&&new Set(value).size===value.length}
-function validSpellArrayMap(value){return value==null||isRecord(value)&&Object.values(value).every(validSpellArray)}
-function validRacialSpellChoices(ch){
-  const choices={};
-  if(ch.race==='astralelf')choices.astralelf=['dancing_lights','light','sacred_flame'];
-  if(ch.race==='elf'&&ch.subrace==='high')choices.highelf=SPELLS.filter(s=>s.lvl===0&&s.cls.includes('wizard')).map(s=>s.id);
-  return !ch.racialSpells||Object.entries(ch.racialSpells).every(([key,value])=>{
-    if(key==='astralelfAbility')return ch.race==='astralelf'&&['int','wis','cha'].includes(value);
-    if(key==='highelfAbility')return ch.race==='elf'&&ch.subrace==='high'&&value==='int';
-    return Array.isArray(choices[key])&&choices[key].includes(value);
-  });
-}
-function validSpellSelections(ch){
-  const classes=new Map(ch.classes.map(c=>[c.cls,c]));
-  for(const [field,kind] of [['cantrips','cantrip'],['spellsKnown','known'],['spellsPrepared','prepared']]){
-    for(const [cls,ids] of Object.entries(ch[field]||{})){
-      const c=classes.get(cls);if(!c||!ids.length)continue;
-      if(!spellTypeOf(c)||kind==='prepared'&&!['cleric','druid','paladin','wizard'].includes(cls)||kind==='known'&&!classKnownLimit(c))return false;
-      if(ids.some(id=>{
-        const spell=SPELLS.find(s=>s.id===id);
-        return !spell||!spellClassAllowed(c,id)||(kind==='cantrip'?spell.lvl!==0:spell.lvl<1||spell.lvl>classMaxSpellLevel(c))||(kind==='prepared'&&cls==='wizard'&&!(ch.spellbook||[]).includes(id));
-      }))return false;
-      if(kind==='known'&&!thirdCasterSpellSelectionsValid(c,ids))return false;
-    }
-  }
-  const wizard=classes.get('wizard');
-  if((ch.spellbook||[]).length&&wizard&&ch.spellbook.some(id=>{
-    const spell=SPELLS.find(s=>s.id===id);return !spell||spell.lvl<1||spell.lvl>classMaxSpellLevel(wizard)||!spellClassAllowed(wizard,id);
-  }))return false;
-  for(const [level,id] of Object.entries(ch.arcanum||{})){
-    const spell=SPELLS.find(s=>s.id===id),warlock=classes.get('warlock'),maxLevel=warlock?(warlock.lvl>=17?9:warlock.lvl>=15?8:warlock.lvl>=13?7:warlock.lvl>=11?6:0):0;
-    if(!warlock||!spell||+level!==spell.lvl||+level<6||+level>maxLevel||!spellClassAllowed(warlock,id))return false;
-  }
-  return validRacialSpellChoices(ch);
-}
-function validToolChoices(ch){
-  const choices=ch.choices||{},background=backgroundToolChoiceGroups(ch.bg),backgroundPicks=choices.backgroundTools||[];
-  if(backgroundPicks.length>background.choices.length||backgroundPicks.some((value,index)=>value&&!background.choices[index]?.options.includes(value)))return false;
-  for(const [index,c] of ch.classes.entries()){
-    const groups=classToolChoiceGroups(c,index),selected=(choices.classTools||{})[c.cls]||[],count=groups.reduce((n,g)=>n+g.count,0);
-    if(selected.length>count||new Set(selected).size!==selected.length)return false;
-    let offset=0;
-    for(const group of groups){if(selected.slice(offset,offset+group.count).some(value=>!group.options.includes(value)))return false;offset+=group.count}
-  }
-  return true;
-}
-function validAsiChoices(ch){
-  const asi=ch.asi||{},need=ch.classes.reduce((total,c)=>total+CLASSES[c.cls].asiLvls.filter(level=>level<=c.lvl).length,0),abilities=new Set(ABILS.map(([id])=>id));
-  return Object.entries(asi).length<=need&&Object.entries(asi).every(([key,value])=>{
-    const index=/^asi(\d+)$/.exec(key);
-    if(!index||key!==`asi${+index[1]}`||+index[1]>=need)return false;
-    if(Array.isArray(value))return (value.length===0||value.length===2)&&value.every(id=>abilities.has(id));
-    if(!isRecord(value))return false;
-    if(value.type==='asi')return Array.isArray(value.vals)&&(value.vals.length===0||value.vals.length===2)&&value.vals.every(id=>abilities.has(id));
-    if(value.type==='feat'){
-      const feat=FEATS.find(([id])=>id===value.id);
-      return typeof value.id==='string'&&(value.id===''||!!feat)&&(!value.bonus||!!feat?.[3]?.includes(value.bonus))&&(!value.bonus||typeof value.bonus==='string');
-    }
-    return false;
-  });
-}
-function validMulticlassCharacter(ch){
-  if(ch.classes.length<2)return true;
-  const previous=C;
-  try{
-    C=ch;
-    return ch.classes.every((c,index)=>index===0||!multiclassRequirementError(c.cls,index));
-  }finally{C=previous}
-}
-function pointBuySpent(values){return ABILS.reduce((sum,[id])=>sum+(POINT_COST[values[id]??8]??0),0)}
-function validAbilityBases(ch){
-  if(!ch.bases)return true;
-  const method=ch.abilityMethod||'standard',values=ch.bases[method]||{},abilities=new Set(ABILS.map(([id])=>id));
-  if(Object.keys(values).some(id=>!abilities.has(id)))return false;
-  const scores=ABILS.map(([id],index)=>values[id]??(method==='standard'?STD_SET[index]:method==='point'?8:10));
-  if(scores.some(score=>!Number.isInteger(score)))return false;
-  if(method==='standard')return scores.every(score=>STD_SET.includes(score))&&new Set(scores).size===STD_SET.length;
-  if(method==='point')return scores.every(score=>Object.hasOwn(POINT_COST,score))&&pointBuySpent(Object.fromEntries(ABILS.map(([id],index)=>[id,scores[index]])))<=27;
-  return scores.every(score=>score>=3&&score<=18);
-}
-function validRacialAbilityChoices(ch){
-  const abilities=new Set(ABILS.map(([id])=>id)),race=RACES[ch.race]||RACES.human,flexible=ch.raceAsiPicks||[],halfElf=ch.halfElfPicks||[];
-  if(race.flexibleAsi){
-    const mode=ch.raceAsiMode||'two',limit=mode==='three'?3:2;
-    if(!['two','three'].includes(mode)||flexible.length>limit||flexible.some(id=>id!==''&&!abilities.has(id))||new Set(flexible.filter(Boolean)).size!==flexible.filter(Boolean).length)return false;
-  }else if(flexible.some(Boolean))return false;
-  if(race.asiChoice){
-    if(halfElf.length>race.asiChoice.count||halfElf.some(id=>!abilities.has(id)||race.asiChoice.exclude.includes(id))||new Set(halfElf).size!==halfElf.length)return false;
-  }else if(halfElf.length)return false;
-  return true;
-}
-function validSkillChoices(ch){
-  const previous=C;
-  try{
-    C=ch;
-    const validIds=new Set(SKILLS.map(([id])=>id)),map=ch.classSkills||{},racePicks=ch.raceSkills||[],racial=raceOf(),prof=new Set([...bgSkills(),...(racial.skillProf||[])]);
-    if(Object.values(map).some(picks=>new Set(picks).size!==picks.length||picks.some(id=>!validIds.has(id))))return false;
-    if(racePicks.length>(racial.skillChoice||0)||new Set(racePicks).size!==racePicks.length||racePicks.some(id=>!validIds.has(id)||prof.has(id)))return false;
-    racePicks.forEach(id=>prof.add(id));
-    for(const [index,c] of ch.classes.entries()){
-      const picks=map[c.cls]||[],allowed=CLASSES[c.cls].skillList,count=classSkillChoiceCount(index,c.cls);
-      if(picks.length>count||picks.some(id=>!allowed.includes(id)||prof.has(id)))return false;
-      picks.forEach(id=>prof.add(id));
-    }
-    const deftSkill=(ch.choices||{}).deftExplorerSkill,expertise=ch.expertise||[],expertiseLimit=expertiseAvailable()-(deftExplorerActive()?1:0);
-    return (!deftSkill||validIds.has(deftSkill)&&prof.has(deftSkill))&&expertise.length<=expertiseLimit&&new Set(expertise).size===expertise.length&&expertise.every(id=>validIds.has(id)&&prof.has(id)&&id!==deftSkill);
-  }finally{C=previous}
-}
-const CHARACTER_ID_RE=/^[A-Za-z0-9_-]{1,64}$/;
-function validCharacter(ch,enforceRules=true){
-  if(!isRecord(ch)||hasUnsafeKeys(ch)||typeof ch.name!=='string'||enforceRules&&ch.name.length>100||!Array.isArray(ch.classes)||!ch.classes.length)return false;
-  if(ch.id!=null&&ch.id!==''&&(typeof ch.id!=='string'||!CHARACTER_ID_RE.test(ch.id)))return false;
-  if(ch.schemaVersion!=null&&(!Number.isInteger(ch.schemaVersion)||ch.schemaVersion<1||ch.schemaVersion>CHARACTER_SCHEMA))return false;
-  if(ch.classes.some(c=>!isRecord(c)||!CLASSES[c.cls]||!Number.isInteger(c.lvl)||c.lvl<1||c.lvl>20||(c.sub!=null&&(typeof c.sub!=='string'||c.sub!==''&&SUBCLASSES[c.sub]?.cls!==c.cls))))return false;
-  if(ch.classes.reduce((sum,c)=>sum+c.lvl,0)>20||new Set(ch.classes.map(c=>c.cls)).size!==ch.classes.length)return false;
-  if(ch.race!=null&&!RACES[ch.race]||ch.bg!=null&&!BACKGROUNDS[ch.bg]||ch.subrace!=null&&ch.subrace!==''&&!RACES[ch.race]?.subs?.[ch.subrace])return false;
-  if(ch.abilityMethod!=null&&!['standard','point','manual'].includes(ch.abilityMethod))return false;
-  if(ch.xp!=null&&(!Number.isFinite(ch.xp)||ch.xp<0)||ch.gold!=null&&(!Number.isFinite(ch.gold)||ch.gold<0))return false;
-  if(ch.goals!=null&&(typeof ch.goals!=='string'||ch.goals.length>5000))return false;
-  if(ch.portrait!=null&&(typeof ch.portrait!=='string'||ch.portrait.length>MAX_PORTRAIT_DATA||ch.portrait!==''&&!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(ch.portrait)))return false;
-  if(ch.appearance!=null&&(!isRecord(ch.appearance)||Object.entries(ch.appearance).some(([key,value])=>!['age','height','weight','eyes','skin','hair','details'].includes(key)||typeof value!=='string'||value.length>500)))return false;
-  for(const key of ['bases','asi','choices','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice','game','personality','appearance'])if(!optionalRecord(ch[key]))return false;
-  for(const key of ['raceSkills','halfElfPicks','raceAsiPicks','expertise','languages','attunement'])if(ch[key]!=null&&!stringArray(ch[key]))return false;
-  if(ch.extraLangs!=null&&(!stringArray(ch.extraLangs,true)||ch.extraLangs.length>LANGS.length||ch.extraLangs.some(value=>value&&(!LANGS.includes(value)||value.length>32))))return false;
-  if(!stringArrayMap(ch.classSkills)||!validSpellArrayMap(ch.cantrips)||!validSpellArrayMap(ch.spellsKnown)||!validSpellArrayMap(ch.spellsPrepared)||!validSpellSelections(ch))return false;
-  if(ch.spellbook!=null&&!validSpellArray(ch.spellbook))return false;
-  if(ch.arcanum&&Object.values(ch.arcanum).some(id=>!SPELL_IDS.has(id)))return false;
-  if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return false;
-  if(ch.asi&&Object.values(ch.asi).some(v=>!(isRecord(v)||Array.isArray(v))))return false;
-  if(enforceRules&&(!validAbilityBases(ch)||!validRacialAbilityChoices(ch)||!validAsiChoices(ch)||!validMulticlassCharacter(ch)))return false;
-  if(ch.choices&&((ch.choices.metamagic!=null&&!stringArray(ch.choices.metamagic))||(ch.choices.invocations!=null&&!stringArray(ch.choices.invocations))||(ch.choices.tashaFeatures!=null&&!stringArrayMap(ch.choices.tashaFeatures))||(ch.choices.classTools!=null&&!stringArrayMap(ch.choices.classTools))||(ch.choices.backgroundTools!=null&&!stringArray(ch.choices.backgroundTools))||(ch.choices.deftExplorerSkill!=null&&typeof ch.choices.deftExplorerSkill!=='string')||(ch.choices.deftExplorerMode!=null&&!['two_languages','language_tool'].includes(ch.choices.deftExplorerMode))||(ch.choices.deftExplorerTool!=null&&!TOOL_PROFICIENCIES.includes(ch.choices.deftExplorerTool))||!validToolChoices(ch)))return false;
-  if(ch.choices&&ch.choices.fightingStyles!=null&&(!isRecord(ch.choices.fightingStyles)||Object.entries(ch.choices.fightingStyles).some(([key,value])=>{
-    const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
-    return !options||typeof value!=='string'||(value!==''&&!options.some(([id])=>id===value));
-  })))return false;
-  if(ch.racialSpells&&!validRacialSpellChoices(ch))return false;
-  if(ch.game&&(!optionalRecord(ch.game.slotsUsed)||!optionalRecord(ch.game.resources)||['hpCur','hpTemp','hdUsed','pactUsed','dsOk','dsFail','exh'].some(key=>ch.game[key]!=null&&(!Number.isFinite(ch.game[key])||ch.game[key]<0))||!['conditions','notes'].every(key=>ch.game[key]==null||typeof ch.game[key]==='string')||ch.game.insp!=null&&typeof ch.game.insp!=='boolean'||Object.values(ch.game.slotsUsed||{}).some(value=>!Number.isFinite(value)||value<0)||Object.values(ch.game.resources||{}).some(value=>!Number.isFinite(value)||value<0)))return false;
-  if(ch.personality&&Object.values(ch.personality).some(v=>typeof v!=='string'))return false;
-  if(ch.inventory!=null&&(!Array.isArray(ch.inventory)||ch.inventory.some(i=>!isRecord(i)||(i.type!=null&&typeof i.type!=='string')||(i.id!=null&&typeof i.id!=='string')||(i.qty!=null&&(!Number.isFinite(i.qty)||i.qty<0))||(i.equipped!=null&&typeof i.equipped!=='boolean')||(i.wielded!=null&&typeof i.wielded!=='boolean')||(i.grip!=null&&!['one-handed','two-handed'].includes(i.grip))||(i.type==='weapon'&&i.wielded&&i.qty>1))))return false;
-  if(enforceRules&&!validSkillChoices(ch))return false;
-  return true;
 }
 function importJson(inp){
   const f=inp.files[0];if(!f)return;
@@ -298,9 +145,8 @@ function importJson(inp){
 }
 
 // ---------- Основное ----------
-function baseLanguageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
 function languageChoiceCount(){const mode=C.choices.deftExplorerMode;return baseLanguageChoiceCount()+(deftExplorerActive()?(mode==='two_languages'?2:mode==='language_tool'?1:0):0)}
-function setExtraLang(index,value){C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;persist();render()}
+function setExtraLang(index,value){if(setCharacterExtraLanguage(index,value)){persist();render()}}
 function languageChoiceFields(){
   const r=raceOf(),langs=C.extraLangs||[],base=baseLanguageChoiceCount();
   return Array.from({length:languageChoiceCount()},(_,i)=>{
@@ -318,15 +164,8 @@ function classToolChoiceFields(c,index){
     return `<label>${group.label}<select multiple size="${Math.min(4,group.options.length)}" onchange="setClassToolChoices('${c.cls}',this)">${group.options.map(tool=>`<option value="${esc(tool)}"${selected.includes(tool)?' selected':''}>${esc(tool)}</option>`).join('')}</select><span class="muted small">Выбрано ${selected.length}/${count}</span></label>`;
   }).join('');
 }
-function setBackgroundToolChoices(index,select){
-  const groups=backgroundToolChoiceGroups().choices;
-  C.choices.backgroundTools=C.choices.backgroundTools||[];
-  C.choices.backgroundTools[index]=groups[index]?.options.includes(select.value)?select.value:'';persist();render();
-}
-function setClassToolChoices(cls,select){
-  const index=C.classes.findIndex(c=>c.cls===cls),groups=index<0?[]:classToolChoiceGroups(C.classes[index],index),max=groups.reduce((n,g)=>n+g.count,0);
-  C.choices.classTools=C.choices.classTools||{};C.choices.classTools[cls]=[...select.selectedOptions].map(option=>option.value).slice(0,max);persist();render();
-}
+function setBackgroundToolChoices(index,select){if(setCharacterBackgroundTool(index,select.value)){persist();render()}}
+function setClassToolChoices(cls,select){if(setCharacterClassTools(cls,[...select.selectedOptions].map(option=>option.value))){persist();render()}}
 function renderMain(){
   const r=raceOf(), s=subraceOf();
   const raceOpts=Object.entries(RACES).map(([id,x])=>`<option value="${id}"${C.race===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
@@ -367,7 +206,7 @@ function renderMain(){
       <div class="card">
         <h3>Расовые черты${r.src?' ('+r.src+')':''}</h3>
         <ul class="traits">${r.traits.map(t=>`<li>${esc(t)}</li>`).join('')}${s?s.traits.map(t=>`<li>${esc(t)}</li>`).join(''):''}</ul>
-        <div class="muted small">Скорость: ${speed()} фт · Языки: ${[...r.langs,...(C.extraLangs||[]).filter(Boolean)].map(esc).join(', ')||'—'}</div>
+        <div class="muted small">Скорость: ${speedText()} · Языки: ${[...r.langs,...(C.extraLangs||[]).filter(Boolean)].map(esc).join(', ')||'—'}</div>
         <div class="grid two">${languageChoiceFields()}</div>
         ${r.asiChoice?`<div class="hint">Полуэльф: +1 к двум характеристикам (кроме Хар) — выберите на вкладке «Характеристики»</div>`:''}
       </div>
@@ -390,15 +229,16 @@ function renderMain(){
         const names={traits:'Черты характера',ideals:'Идеалы',bonds:'Привязанности',flaws:'Слабости'};
         const sugg=(bg[k]||[]);
         return `<div class="card"><h4>${names[k]}</h4>
-          <textarea rows="3" oninput="C.personality.${k}=this.value;persist()">${esc(C.personality[k]||'')}</textarea>
+          <textarea rows="3" oninput="setPersonality('${k}',this.value)">${esc(C.personality[k]||'')}</textarea>
           ${sugg.length?`<div class="chips">${sugg.map(x=>`<span class="chip" onclick="addPersonality('${k}',this.textContent)">${esc(x)}</span>`).join('')}</div>`:''}
         </div>`}).join('')}
     </div>
   </div>`;
 }
 function updTabChar(){const el=$('.tab-char');if(el)el.innerHTML=`${esc(C.name)} · ${C.classes.map(c=>CLASSES[c.cls].name+' '+c.lvl).join(' / ')} · ${esc(raceOf().name)}`}
-function setAppearance(key,value){if(!['age','height','weight','eyes','skin','hair','details'].includes(key))return;C.appearance=C.appearance||{};C.appearance[key]=value.slice(0,500);persist()}
-function removePortrait(){C.portrait='';persist();render()}
+function setAppearance(key,value){if(setCharacterAppearance(key,value))persist()}
+function setPersonality(key,value){if(setCharacterPersonality(key,value))persist()}
+function removePortrait(){if(setCharacterPortrait('')){persist();render()}}
 function setPortraitFile(input){
   const file=input.files?.[0];if(!file)return;
   if(!file.type.startsWith('image/')||file.size>20*1024*1024){alert('Выберите изображение размером не более 20 МБ.');input.value='';return}
@@ -413,33 +253,29 @@ function setPortraitFile(input){
       for(const quality of [.82,.65,.48]){portrait=canvas.toDataURL('image/jpeg',quality);if(portrait.length<=MAX_PORTRAIT_DATA)break}
       input.value='';
       if(portrait.length>MAX_PORTRAIT_DATA){alert('Не удалось сжать изображение до 150 КБ. Выберите другое.');return}
-      C.portrait=portrait;persist();render();
+      setCharacterPortrait(portrait);persist();render();
     }catch(error){input.value='';alert('Не удалось обработать изображение.')}
   };
   image.onerror=()=>{URL.revokeObjectURL(url);input.value='';alert('Не удалось открыть изображение.')};
   image.src=url;
 }
-function addPersonality(k,v){C.personality[k]=(C.personality[k]?C.personality[k]+'\n':'')+v;persist();render()}
-function changeRace(v){C.race=v;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];if(RACES[v]?.src==='AAG')C.size=RACES[v].size;persist();render()}
-function changeBackground(v){C.bg=v;C.choices.backgroundTools=[];C.extraLangs=[];persist();render()}
-function changeClass(i,v){
-  if(C.classes.some((c,j)=>j!==i&&c.cls===v)){alert('Этот класс уже добавлен.');render();return}
-  const error=C.classes.length>1?multiclassRequirementError(v,i):'';
-  if(error){alert(error);render();return}
-  const previous=C.classes[i].cls;
-  C.classes[i].cls=v;C.classes[i].sub=CLASSES[v].sub||'';
-  if(previous!==v)delete C.choices.classTools?.[previous];
+function addPersonality(k,v){if(addCharacterPersonality(k,v)){persist();render()}}
+function changeRace(v){if(setCharacterRace(v)){persist();render()}}
+function changeBackground(v){if(setCharacterBackground(v)){persist();render()}}
+function changeClass(i,v){const error=setCharacterClass(i,v);if(error){alert(error);render();return}persist();render()}
+function changeLvl(i,v){
+  const result=setCharacterLevel(i,v);
+  if(result.error){alert(result.error);render();return}
+  if(result.removed)alert(`Удалено недоступных заклинаний: ${result.removed}.`);
   persist();render()
 }
-function changeLvl(i,v){C.classes[i].lvl=+v;persist();render()}
-function changeSub(i,v){C.classes[i].sub=v;persist();render()}
-function addClass(){
-  const used=C.classes.map(c=>c.cls),available=Object.keys(CLASSES).filter(k=>!used.includes(k));
-  const free=available.find(k=>!multiclassRequirementError(k));
-  if(!free){alert(available.length?multiclassRequirementError(available[0]):'Все классы уже добавлены.');return}
-  C.classes.push({cls:free,lvl:1,sub:CLASSES[free].sub||''});persist();render()
+function changeSub(i,v){
+  const result=setCharacterSubclass(i,v);if(!result)return;
+  if(result.removed)alert(`Удалено заклинаний, недоступных для нового подкласса: ${result.removed}.`);
+  persist();render()
 }
-function removeClass(i){delete C.choices.classTools?.[C.classes[i].cls];C.classes.splice(i,1);persist();render()}
+function addClass(){const error=addCharacterClass();if(error){alert(error);return}persist();render()}
+function removeClass(i){if(removeCharacterClass(i)){persist();render()}}
 function subclassOpts(c){
   return Object.entries(SUBCLASSES).filter(([,s])=>s.cls===c.cls)
     .map(([id,s])=>`<option value="${id}"${c.sub===id?' selected':''}>${s.name}${s.src?' ('+s.src+')':''}</option>`).join('');
@@ -486,7 +322,7 @@ function renderAbil(){
   return `<div class="page"><h1>Характеристики</h1>
     <div class="card">
       <div class="row gap wrap">
-        ${[['standard','Стандартный набор (15/14/13/12/10/8)'],['point','Покупка очками (27 очков)'],['manual','Ручной ввод (3–18)']].map(([id,n])=>`<button class="btn${method===id?' primary':''}" onclick="C.abilityMethod='${id}';persist();render()">${n}</button>`).join('')}
+        ${[['standard','Стандартный набор (15/14/13/12/10/8)'],['point','Покупка очками (27 очков)'],['manual','Ручной ввод (3–18)']].map(([id,n])=>`<button class="btn${method===id?' primary':''}" onclick="setAbilityMethod('${id}')">${n}</button>`).join('')}
       </div>
       <p class="muted small">У каждого метода — свой сохраняемый набор значений: переключение ничего не сбрасывает.</p>
       ${methodHtml}
@@ -501,32 +337,13 @@ function renderAbil(){
     </div>
   </div>`;
 }
-function setStd(a,v){
-  const B=C.bases.standard;
-  // если значение занято — меняем местами
-  const other=ABILS.map(x=>x[0]).find(k=>k!==a&&B[k]===v);
-  if(other)B[other]=B[a];
-  B[a]=v;persist();render();
-}
-function stepPoint(a,d){
-  const B=C.bases.point,v=(B[a]??8)+d;
-  if(!ABILS.some(([id])=>id===a)||v<8||v>15||d>0&&pointBuySpent(B)-(POINT_COST[B[a]??8]??0)+(POINT_COST[v]??0)>27)return;
-  B[a]=v;persist();render();
-}
-function setManual(a,v){C.bases.manual[a]=Math.max(3,Math.min(18,+v||10));persist();render()}
-function setRaceAsiMode(v){if(!raceOf().flexibleAsi||!['two','three'].includes(v))return;C.raceAsiMode=v;C.raceAsiPicks=[];persist();render()}
-function setRaceAsi(i,v){
-  const count=C.raceAsiMode==='three'?3:2;
-  if(!raceOf().flexibleAsi||!Number.isInteger(i)||i<0||i>=count||v&&(!ABILS.some(([id])=>id===v)||(C.raceAsiPicks||[]).some((id,index)=>index!==i&&id===v)))return;
-  C.raceAsiPicks=C.raceAsiPicks||[];C.raceAsiPicks[i]=v;persist();render();
-}
-function toggleHalfElf(a,on){
-  C.halfElfPicks=C.halfElfPicks||[];
-  const choice=raceOf().asiChoice;
-  if(on){if(!choice||!ABILS.some(([id])=>id===a)||choice.exclude.includes(a)||C.halfElfPicks.includes(a)||C.halfElfPicks.length>=choice.count){alert('Недопустимый бонус характеристики.');render();return}C.halfElfPicks.push(a)}
-  else C.halfElfPicks=C.halfElfPicks.filter(x=>x!==a);
-  persist();render();
-}
+function setStd(a,v){if(setCharacterStandardAbility(a,v)){persist();render()}}
+function stepPoint(a,d){if(stepCharacterPointAbility(a,d)){persist();render()}}
+function setManual(a,v){if(setCharacterManualAbility(a,v)){persist();render()}}
+function setAbilityMethod(method){if(setCharacterAbilityMethod(method)){persist();render()}}
+function setRaceAsiMode(v){if(setCharacterRaceAsiMode(v)){persist();render()}}
+function setRaceAsi(i,v){if(setCharacterRaceAsi(i,v)){persist();render()}}
+function toggleHalfElf(a,on){const error=toggleCharacterHalfElfAbility(a,on);if(error){alert(error);render();return}persist();render()}
 function asiPicker(i){
   const cur=C.asi['asi'+i];
   const isFeat=cur&&cur.type==='feat';
@@ -534,7 +351,7 @@ function asiPicker(i){
   const opts=ABILS.map(([a,n])=>`<option value="${a}"${vals.includes(a)?' selected':''}>${n}</option>`).join('');
   const featOpts=(typeof FEATS!=='undefined'?FEATS:[]).map(([id,n])=>`<option value="${id}"${isFeat&&cur.id===id?' selected':''}>${n}</option>`).join('');
   const featDef=isFeat&&typeof FEATS!=='undefined'?FEATS.find(f=>f[0]===cur.id):null;
-  const bonusOpts=featDef&&featDef[3]?`<label>+1 к<select onchange="C.asi['asi${i}'].bonus=this.value;persist();render()"><option value="">—</option>${featDef[3].map(a=>`<option value="${a}"${cur.bonus===a?' selected':''}>${ABIL_RU_FULL[a]}</option>`).join('')}</select></label>`:'';
+  const bonusOpts=featDef&&featDef[3]?`<label>+1 к<select onchange="setAsiFeatBonus(${i},this.value)"><option value="">—</option>${featDef[3].map(a=>`<option value="${a}"${cur.bonus===a?' selected':''}>${ABIL_RU_FULL[a]}</option>`).join('')}</select></label>`:'';
   return `<div class="asi-row"><div class="row gap wrap"><b>#${i+1}</b>
     <label class="chk"><input type="radio" name="asit${i}" ${!isFeat?'checked':''} onchange="setAsiType(${i},'asi')"> +2 / +1 к характеристикам</label>
     <label class="chk"><input type="radio" name="asit${i}" ${isFeat?'checked':''} onchange="setAsiType(${i},'feat')"> Черта (Котёл Таши)</label></div>
@@ -543,19 +360,10 @@ function asiPicker(i){
     :`<div class="row gap wrap"><select onchange="setAsiFeat(${i},this.value)"><option value="">— выберите черту —</option>${featOpts}</select>${bonusOpts}</div>
     ${featDef?`<p class="hint">${esc(featDef[2])}</p>`:''}`}</div>`;
 }
-function setAsiType(i,t){
-  C.asi['asi'+i]=t==='feat'?{type:'feat',id:'',bonus:''}:{type:'asi',vals:[]};
-  persist();render();
-}
-function setAsiFeat(i,id){
-  C.asi['asi'+i]={type:'feat',id,bonus:''};
-  persist();render();
-}
-function setAsi(i,vals){
-  if(vals.length>2){alert('Не больше двух');render();return}
-  if(vals.length===1)vals=[vals[0],vals[0]]; // +2 к одной
-  C.asi['asi'+i]={type:'asi',vals};persist();render();
-}
+function setAsiType(i,t){if(setCharacterAsiType(i,t)){persist();render()}}
+function setAsiFeat(i,id){if(setCharacterAsiFeat(i,id)){persist();render()}}
+function setAsiFeatBonus(i,ability){if(setCharacterAsiFeatBonus(i,ability)){persist();render()}}
+function setAsi(i,vals){if(vals.length>2){alert('Не больше двух');render();return}if(setCharacterAsiValues(i,vals)){persist();render()}}
 
 // ---------- Навыки ----------
 function renderSkills(){
@@ -577,11 +385,11 @@ function renderSkills(){
       return `<div class="card"><h3>Навыки класса «${cl.name}» — выбрано ${picks.length}/${skillCount}</h3>
       ${skillCount||picks.length?`<div class="row gap wrap">${free.map(s=>{
         const n=SKILLS.find(x=>x[0]===s)[1];
-        return `<label class="chk"><input type="checkbox" ${picks.includes(s)?'checked':''} onchange="toggleClassSkill('${c.cls}',${skillCount},'${s}',this.checked)"> ${n}</label>`}).join('')}</div>`:'<p class="muted small">Мультиклассирование в этот класс не даёт выбора навыков.</p>'}
+        return `<label class="chk"><input type="checkbox" ${picks.includes(s)?'checked':''} onchange="toggleClassSkill('${c.cls}','${s}',this.checked)"> ${n}</label>`}).join('')}</div>`:'<p class="muted small">Мультиклассирование в этот класс не даёт выбора навыков.</p>'}
       ${picks.length<skillCount?`<div class="warn small">выберите ещё ${skillCount-picks.length}</div>`:picks.length>skillCount?`<div class="warn small">уберите ${picks.length-skillCount} лишних навыка</div>`:''}</div>`}).join('')}
     ${expertAv>0?`<div class="card"><h3>Компетентность (удвоенный бонус мастерства)</h3>
       <p class="hint">Доступно: ${expertAv}, выбрано: ${expertSelected.length}</p>
-      <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${expertSelected.includes(s)?'checked':''}${deftExplorerSkill()===s?' disabled':''} onchange="toggleExpertise('${s}',${expertAv},this.checked)"> ${SKILLS.find(x=>x[0]===s)?.[1]||esc(s)}${deftExplorerSkill()===s?' (Искусный исследователь)':''}</label>`).join('')}</div></div>`:''}
+      <div class="row gap wrap">${profSkills().map(s=>`<label class="chk"><input type="checkbox" ${expertSelected.includes(s)?'checked':''}${deftExplorerSkill()===s?' disabled':''} onchange="toggleExpertise('${s}',this.checked)"> ${SKILLS.find(x=>x[0]===s)?.[1]||esc(s)}${deftExplorerSkill()===s?' (Искусный исследователь)':''}</label>`).join('')}</div></div>`:''}
     <div class="card"><h3>Итоговые модификаторы</h3>
     <table class="tbl"><tr><th>Навык</th><th>Хар-ка</th><th>Мод.</th></tr>
     ${SKILLS.map(([id,n,a])=>{const p=profSkills().includes(id),e=expertiseSkills().includes(id);
@@ -599,40 +407,28 @@ function expertiseAvailable(){
 }
 function resetSkillChoices(){
   if(!confirm('Сбросить выборы навыков и компетентностей? Вы сможете выбрать их заново.'))return;
-  C.classSkills={};C.raceSkills=[];C.expertise=[];delete C.choices.deftExplorerSkill;persist();render();
+  resetCharacterSkillChoices();persist();render();
 }
-function toggleRaceSkill(id,on){
-  C.raceSkills=C.raceSkills||[];
-  const max=raceOf().skillChoice||0;
-  if(on){if(!SKILLS.some(s=>s[0]===id)||profSkills().includes(id)){alert('Навык уже выбран из другого источника.');render();return}if(C.raceSkills.length>=max){alert('Максимум '+max);render();return}C.raceSkills.push(id)}
-  else C.raceSkills=C.raceSkills.filter(x=>x!==id);
-  persist();render();
-}
-function toggleClassSkill(cls,max,id,on){
-  C.classSkills[cls]=C.classSkills[cls]||[];
-  if(on){if(profSkills().includes(id)){alert('Навык уже выбран из другого источника');render();return}if(C.classSkills[cls].length>=max){alert('Максимум '+max);render();return}C.classSkills[cls].push(id)}
-  else C.classSkills[cls]=C.classSkills[cls].filter(x=>x!==id);
-  persist();render();
-}
-function toggleExpertise(id,max,on){
-  C.expertise=C.expertise||[];
-  if(on){if(deftExplorerSkill()===id)return;if(expertiseSkills().length>=max){alert('Максимум '+max);render();return}C.expertise.push(id)}
-  else C.expertise=C.expertise.filter(x=>x!==id);
-  persist();render();
-}
+function toggleRaceSkill(id,on){const error=toggleCharacterRaceSkill(id,on);if(error){alert(error);render();return}persist();render()}
+function toggleClassSkill(cls,id,on){const error=toggleCharacterClassSkill(cls,id,on);if(error){alert(error);render();return}persist();render()}
+function toggleExpertise(id,on){const error=toggleCharacterExpertise(id,on);if(error){alert(error);render();return}persist();render()}
 // ================= Вкладка Класс =================
+function updateTashaChoice(cls,change){
+  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
+  if(!change())return;
+  persist();render();
+  if(wasOpen){const details=$(selector);if(details)details.open=true}
+}
+function toggleTashaFeature(cls,id,on){updateTashaChoice(cls,()=>toggleCharacterTashaFeature(cls,id,on))}
+function setDeftExplorerSkill(skill){updateTashaChoice('ranger',()=>setCharacterDeftExplorerSkill(skill))}
+function setDeftExplorerMode(mode){updateTashaChoice('ranger',()=>setCharacterDeftExplorerMode(mode))}
+function setDeftExplorerTool(tool){updateTashaChoice('ranger',()=>setCharacterDeftExplorerTool(tool))}
+function setHunterChoice(level,id){if(setCharacterHunterChoice(level,id)){persist();render()}}
 function availableFightingStyles(key,options){
   const styles=C.choices.fightingStyles||{},used=new Set(activeFightingStyleKeys().filter(other=>other!==key).map(other=>styles[other]).filter(Boolean));
   return options.filter(([id])=>id===styles[key]||!used.has(id));
 }
-function setFightingStyle(key,value){
-  const options=key==='championExtra'?FIGHTING_STYLES.fighter:FIGHTING_STYLES[key];
-  if(!options||!activeFightingStyleKeys().includes(key)||value&&!options.some(([id])=>id===value))return;
-  C.choices.fightingStyles=C.choices.fightingStyles||{};
-  if(value&&activeFightingStyleKeys().some(other=>other!==key&&C.choices.fightingStyles[other]===value)){alert('Боевой стиль уже выбран.');render();return}
-  if(value)C.choices.fightingStyles[key]=value;else delete C.choices.fightingStyles[key];
-  persist();render();
-}
+function setFightingStyle(key,value){const result=setCharacterFightingStyle(key,value);if(result===false)return;if(result){alert(result);render();return}persist();render()}
 function renderClass(){
   return `<div class="page"><h1>Класс и умения</h1>
   ${C.classes.map((c,i)=>{
@@ -653,7 +449,7 @@ function renderClass(){
       ${c.cls==='sorcerer'&&c.lvl>=3?sorcererChoices(c):''}
       ${sub&&sub.choices?Object.entries(sub.choices).map(([lvl,block])=>{
         if(c.lvl<+lvl)return '';
-        return `<label>${block.name} (${lvl} ур.)<select onchange="C.choices['hunter_${lvl}']=this.value;persist();render()"><option value="">—</option>${block.opts.map(([id,d])=>`<option value="${id}"${C.choices['hunter_'+lvl]===id?' selected':''}>${d}</option>`).join('')}</select></label>`}).join(''):''}
+        return `<label>${block.name} (${lvl} ур.)<select onchange="setHunterChoice(${lvl},this.value)"><option value="">—</option>${block.opts.map(([id,d])=>`<option value="${id}"${C.choices['hunter_'+lvl]===id?' selected':''}>${d}</option>`).join('')}</select></label>`}).join(''):''}
       <h4>Умения</h4>
       <ul class="feats">${cl.feats.filter(([l,n])=>l<=c.lvl&&!replaced.includes(n)).map(([l,n,d])=>`<li><b>${l} ур. ${n}.</b> ${esc(d)}</li>`).join('')}
       ${sub?sub.feats.filter(([l])=>l<=c.lvl).map(([l,n,d])=>`<li class="sub-feat"><b>${l} ур. ${n}</b> <span class="tag">${esc(sub.name)}</span><br>${esc(d)}</li>`).join(''):''}
@@ -674,26 +470,16 @@ function warlockChoices(c){
     <option value="tome"${C.choices.pactBoon==='tome'?' selected':''}>Гримуар договора: 3 заговора любых классов</option>
     <option value="talisman"${C.choices.pactBoon==='talisman'?' selected':''}>Талисман договора (Таша): носитель добавляет к4 к проверкам</option></select></label>`:''}
   ${c.lvl>=2?`<div class="hint">Мистические откровения: ${inv.length}/${invMax}</div>
-  <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''} onchange="toggleInvocation('${id}',${invMax},this.checked)"> ${d}</label>`).join('')}</div>`:''}`;
+  <div class="row gap wrap col-list">${INVOCATIONS.map(([id,d])=>{const requirement=invocationPrerequisiteError(id);return `<label class="chk wide"><input type="checkbox" ${inv.includes(id)?'checked':''}${requirement&&!inv.includes(id)?' disabled':''} onchange="toggleInvocation('${id}',this.checked)"> ${d}${requirement?` <span class="muted small">— ${esc(requirement)}</span>`:''}</label>`}).join('')}</div>`:''}`;
 }
-function toggleInvocation(id,max,on){
-  C.choices.invocations=C.choices.invocations||[];
-  if(on){if(C.choices.invocations.length>=max){alert('Максимум '+max);render();return}C.choices.invocations.push(id)}
-  else C.choices.invocations=C.choices.invocations.filter(x=>x!==id);
-  persist();render();
-}
+function toggleInvocation(id,on){const error=toggleCharacterInvocation(id,on);if(error){alert(error);render();return}persist();render()}
 function sorcererChoices(c){
   const max=c.lvl>=17?4:c.lvl>=10?3:2;
   const sel=C.choices.metamagic||[];
   return `<div class="hint">Метамагия: ${sel.length}/${max}</div>
-  <div class="row gap wrap col-list">${METAMAGIC.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${sel.includes(id)?'checked':''} onchange="toggleMetamagic('${id}',${max},this.checked)"> ${d}</label>`).join('')}</div>`;
+  <div class="row gap wrap col-list">${METAMAGIC.map(([id,d])=>`<label class="chk wide"><input type="checkbox" ${sel.includes(id)?'checked':''} onchange="toggleMetamagic('${id}',this.checked)"> ${d}</label>`).join('')}</div>`;
 }
-function toggleMetamagic(id,max,on){
-  C.choices.metamagic=C.choices.metamagic||[];
-  if(on){if(C.choices.metamagic.length>=max){alert('Максимум '+max);render();return}C.choices.metamagic.push(id)}
-  else C.choices.metamagic=C.choices.metamagic.filter(x=>x!==id);
-  persist();render();
-}
+function toggleMetamagic(id,on){const error=toggleCharacterMetamagic(id,on);if(error){alert(error);render();return}persist();render()}
 
 // ================= Вкладка Заклинания =================
 const LVL_NAMES=['Заговоры','1 круг','2 круг','3 круг','4 круг','5 круг','6 круг','7 круг','8 круг','9 круг'];
@@ -737,8 +523,9 @@ function racialSpellEntries(){
   }
   return entries;
 }
-function setRacialSpell(key,id){const choice=racialCantripChoices().find(c=>c.key===key);if(!choice||!choice.spells.some(s=>s.id===id))return;C.racialSpells=C.racialSpells||{};C.racialSpells[key]=id;if(choice.defaultAbility&&!C.racialSpells[key+'Ability'])C.racialSpells[key+'Ability']=choice.defaultAbility;persist();render()}
-function setRacialSpellAbility(key,ability){const choice=racialCantripChoices().find(c=>c.key===key);if(!choice||!choice.abilities?.includes(ability))return;C.racialSpells=C.racialSpells||{};C.racialSpells[key+'Ability']=ability;persist();render()}
+function setRacialSpell(key,id){if(setCharacterRacialSpell(key,id)){persist();render()}}
+function setRacialSpellAbility(key,ability){if(setCharacterRacialSpellAbility(key,ability)){persist();render()}}
+function setArcanum(level,id){if(setCharacterArcanum(level,id)){persist();render()}}
 function renderRacialSpells(){
   const choices=racialCantripChoices(),entries=racialSpellEntries();if(!choices.length&&!entries.length)return '';
   const abilityName=id=>ABIL_RU_FULL[id]||id;
@@ -794,11 +581,10 @@ function renderCasterBlock(c){
     if(cls==='fighter'||cls==='rogue')head+=`<p class="hint">Заклинания из списка волшебника (Мистический рыцарь: преимущественно ограждение и воплощение; Мистический ловкач: очарование и иллюзия).</p>`;
     head+=`<h4>Известные заклинания — ${sel.filter(id=>!additionalIds.includes(id)).length}/${limit}</h4>`;
     for(let l=1;l<=maxLvl;l++)head+=spellPicker(cls,l,sel,limit,'spellsKnown',additionalIds);
-    if(cls==='warlock'&&c.lvl>=11){
-      const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;
+    if(cls==='warlock')head+=arcanumLevels(c.lvl).map(arcLvl=>{
       const cur=C.arcanum[arcLvl];
-      head+=`<label>Мистический арканум (${arcLvl} круг)<select onchange="C.arcanum['${arcLvl}']=this.value;persist();render()"><option value="">—</option>${SPELLS.filter(s=>s.lvl===arcLvl&&s.cls.includes('warlock')).map(s=>`<option value="${s.id}"${cur===s.id?' selected':''}>${s.ru}</option>`).join('')}</select></label>`;
-    }
+      return `<label>Мистический арканум (${arcLvl} круг)<select onchange="setArcanum(${arcLvl},this.value)"><option value="">—</option>${SPELLS.filter(s=>s.lvl===arcLvl&&s.cls.includes('warlock')).map(s=>`<option value="${s.id}"${cur===s.id?' selected':''}>${s.ru}</option>`).join('')}</select></label>`;
+    }).join('');
   }
   return head+'</div>';
 }
@@ -832,20 +618,14 @@ function spellPicker(cls,lvl,sel,limit,store,bonusIds=[]){
     const checked=sel.includes(s.id),bonus=bonusIds.includes(s.id),caster=C.classes.find(c=>c.cls===cls);
     const unavailable=store==='spellsKnown'&&!checked&&caster&&spellTypeOf(caster)==='third'&&!thirdCasterSpellSelectionsValid(caster,[...sel,s.id]);
     return `<div class="spell-row${checked?' picked':''}${bonus?' bonus':''}" data-spell-id="${s.id}" data-search="${spellSearchData(s)}">
-      <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus||unavailable?'disabled':''}${unavailable?' title="Нет свободного выбора для этой школы заклинаний"':''} onchange="toggleSpell('${store}','${cls}',${limit},'${s.id}',this.checked)">
+      <label class="chk"><input type="checkbox" ${checked?'checked':''} ${bonus||unavailable?'disabled':''}${unavailable?' title="Нет свободного выбора для этой школы заклинаний"':''} onchange="toggleSpell('${store}','${cls}','${s.id}',this.checked)">
       <span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
       <span class="muted small">${esc(s.school)}${s.ritual?' · ритуал':''}</span>
     </div>`}).join('')}</div></details>`;
 }
-function toggleSpell(store,cls,limit,id,on){
-  C[store][cls]=C[store][cls]||[];
-  const arr=C[store][cls];
-  if(on){
-    const caster=C.classes.find(c=>c.cls===cls);
-    if(store==='spellsKnown'&&caster&&spellTypeOf(caster)==='third'&&!thirdCasterSpellSelectionsValid(caster,[...arr,id])){alert('Для этого заклинания нет свободного выбора вне ограниченных школ.');render();return}
-    const freeIds=store==='spellsKnown'&&cls==='ranger'?new Set(primalAwarenessSpells().map(s=>s.id)):null,count=freeIds?arr.filter(x=>!freeIds.has(x)).length:arr.length;if(count>=limit){alert('Лимит: '+limit);render();return}arr.push(id)
-  }
-  else C[store][cls]=arr.filter(x=>x!==id);
+function toggleSpell(store,cls,id,on){
+  const error=setCharacterSpellSelection(store,cls,id,on);
+  if(error){alert(error);render();return}
   persist();render();
 }
 function renderWizardSpells(c,maxLvl){
@@ -860,25 +640,21 @@ function renderWizardSpells(c,maxLvl){
       const inBook=book.includes(s.id), prepped=prep.includes(s.id);
       return `<div class="spell-row${inBook?' picked':''}" data-spell-id="${s.id}" data-search="${spellSearchData(s)}">
         <label class="chk"><input type="checkbox" ${inBook?'checked':''} onchange="toggleSpellbook('${s.id}',this.checked)"><span class="spell-name" onclick="spellNameClick(event,'${s.id}')">${esc(s.ru)}</span></label>
-        ${inBook?`<label class="chk prep"><input type="checkbox" ${prepped?'checked':''} onchange="toggleSpell('spellsPrepared','wizard',${limit},'${s.id}',this.checked)"> подг.</label>`:'<span class="muted small">не в книге</span>'}
+        ${inBook?`<label class="chk prep"><input type="checkbox" ${prepped?'checked':''} onchange="toggleSpell('spellsPrepared','wizard','${s.id}',this.checked)"> подг.</label>`:'<span class="muted small">не в книге</span>'}
       </div>`}).join('')}</div></details>`;
   }
   h+=`<p class="hint">Подготовлено: ${prep.length}/${limit}. Заговоры выбираются выше, книга и подготовка — здесь.</p>`;
   return h;
 }
 function toggleSpellbook(id,on){
-  C.spellbook=C.spellbook||[];
-  if(on)C.spellbook.push(id);else{
-    C.spellbook=C.spellbook.filter(x=>x!==id);
-    C.spellsPrepared.wizard=(C.spellsPrepared.wizard||[]).filter(x=>x!==id);
-  }
+  if(!setCharacterSpellbook(id,on))return;
   persist();render();
 }
 function spellNameClick(event,id){event.preventDefault();event.stopPropagation();openSpellModal(id)}
 function openSpellModal(id){
   const s=SPELLS.find(x=>x.id===id);if(!s)return;
   showModal(`<h2>${esc(s.ru)}</h2><p class="muted">${esc(s.en)}</p>
-  <p><b>${s.lvl===0?'Заговор':s.lvl+' круг'}, ${esc(s.school)}${s.ritual?' (ритуал)':''}</b>${s.src?` <span class="muted small">· Источник: ${s.src}</span>`:''}</p>
+  <p><b>${s.lvl===0?'Заговор':s.lvl+' круг'}, ${esc(s.school)}${s.ritual?' (ритуал)':''}</b>${s.src?` <span class="muted small">· Источник правил: ${esc(s.src)}</span>`:''}${s.translationSource?` <span class="muted small">· Источник русского перевода: ${esc(s.translationSource)}</span>`:''}</p>
   <table class="tbl">
     <tr><td>Время накладывания</td><td>${esc(s.time)}</td></tr>
     <tr><td>Дистанция</td><td>${esc(s.range)}</td></tr>
@@ -902,16 +678,16 @@ function renderEquip(){
   return `<div class="page"><h1>Снаряжение</h1>
     <div class="card"><h3>Стартовое снаряжение или золото</h3>
       <div class="row gap">
-        <button class="btn${C.goldMode==='equipment'?' primary':''}" onclick="C.goldMode='equipment';persist();render()">Комплект класса</button>
-        <button class="btn${C.goldMode==='gold'?' primary':''}" onclick="C.goldMode='gold';persist();render()">Покупка за золото</button>
+        <button class="btn${C.goldMode==='equipment'?' primary':''}" onclick="setEquipmentMode('equipment')">Комплект класса</button>
+        <button class="btn${C.goldMode==='gold'?' primary':''}" onclick="setEquipmentMode('gold')">Покупка за золото</button>
       </div>
       ${C.goldMode==='equipment'?C.classes.map(c=>{
         const se=STARTING_EQUIPMENT[c.cls];
         const opts=se?se.choices:null;
         if(!opts)return '';
-        return `<div class="row gap wrap"><b>${CLASSES[c.cls].name}:</b>${opts.map(o=>`<button class="btn sm${C.equipChoice[c.cls]===o.name?' primary':''}" onclick="C.equipChoice['${c.cls}']='${o.name}';persist();render()">${o.name}</button>`).join('')}</div>`}).join('')
+        return `<div class="row gap wrap"><b>${CLASSES[c.cls].name}:</b>${opts.map(o=>`<button class="btn sm${C.equipChoice[c.cls]===o.name?' primary':''}" onclick="setEquipmentChoice('${c.cls}','${o.name}')">${o.name}</button>`).join('')}</div>`}).join('')
       :`<div class="row gap wrap">${C.classes.map(c=>`<span>${CLASSES[c.cls].name}: <b>${STARTING_GOLD[c.cls]}</b> зм <button class="btn sm" onclick="rollGold('${c.cls}')">🎲</button></span>`).join('')}
-        <label>Текущее золото (зм)<input type="number" min="0" value="${C.gold||0}" onchange="C.gold=+this.value||0;persist();render()"></label></div>`}
+        <label>Текущее золото (зм)<input type="number" min="0" value="${C.gold||0}" onchange="setGold(this.value)"></label></div>`}
       ${C.goldMode==='equipment'?`<button class="btn" onclick="applyStartingKit()">Применить комплект в инвентарь</button>`:''}
     </div>
     <div class="grid two">
@@ -932,7 +708,7 @@ function renderEquip(){
       </div>
     </div>
     <div class="card"><h3>Настройка на магические предметы (3 слота)</h3>
-      <div class="grid three">${[0,1,2].map(i=>`<input placeholder="предмет…" value="${esc((C.attunement||[])[i]||'')}" oninput="C.attunement[${i}]=this.value;persist()">`).join('')}</div>
+      <div class="grid three">${[0,1,2].map(i=>`<input placeholder="предмет…" value="${esc((C.attunement||[])[i]||'')}" oninput="setAttunement(${i},this.value)">`).join('')}</div>
     </div>
   </div>`;
 }
@@ -953,88 +729,21 @@ function shopListHtml(q){
   return sec('weapons','🗡 Оружие',wrows)+sec('armors','🛡 Доспехи и щиты',arows)+sec('gear','🎒 Снаряжение и инструменты',grows);
 }
 function renderShop(q){const open=[...document.querySelectorAll('details.shop-sec[open]')].map(d=>d.dataset.key);$('#shopList').innerHTML=shopListHtml(q);open.forEach(k=>{const d=document.querySelector(`details.shop-sec[data-key="${k}"]`);if(d)d.open=true})}
-function priceToGold(p){ // "10 зм"/"5 см"/"1 мм" -> золото
-  const m=String(p).match(/([\d.,]+)\s*(зм|см|мм)/);
-  if(!m)return 0;
-  const v=parseFloat(m[1].replace(',','.'));
-  return m[2]==='зм'?v:m[2]==='см'?v/10:v/100;
-}
-function buyItem(type,id,price){
-  if(C.goldMode==='gold'){
-    const cost=priceToGold(price);
-    if((C.gold||0)<cost){alert('Не хватает золота');return}
-    C.gold=Math.round((C.gold-cost)*100)/100;
-  }
-  addItem(type,id,1);
-  persist();render();
-}
-function addItem(type,id,qty){
-  C.inventory=C.inventory||[];
-  const ex=C.inventory.find(i=>i.type===type&&i.id===id&&i.type!=='armor'&&i.type!=='shield'&&!(type==='weapon'&&i.wielded));
-  if(ex)ex.qty=(ex.qty||1)+qty;else C.inventory.push({type,id,qty,equipped:false});
-}
-function sellItem(i){
-  const it=C.inventory[i];
-  if(it.equipped)it.equipped=false;
-  if(C.goldMode==='gold'){
-    let p=0;
-    if(it.type==='weapon')p=priceToGold((WEAPONS.find(x=>x[0]===it.id)||[])[2]||0);
-    if(it.type==='armor'||it.type==='shield')p=priceToGold((ARMORS.find(x=>x[0]===it.id)||[])[2]||0);
-    if(it.type==='gear')p=priceToGold((GEAR.find(x=>x[0]===it.id)||[])[2]||0);
-    C.gold=Math.round(((C.gold||0)+p/2*(it.qty||1))*100)/100;
-  }
-  if((it.qty||1)>1)it.qty--;else C.inventory.splice(i,1);
-  persist();render();
-}
-function delItem(i){C.inventory.splice(i,1);persist();render()}
-function toggleEquipItem(i){
-  const it=C.inventory[i];
-  if(it.type==='armor')C.inventory.forEach(x=>{if(x.type==='armor')x.equipped=false});
-  if(it.type==='shield')C.inventory.forEach(x=>{if(x.type==='shield')x.equipped=false});
-  it.equipped=!it.equipped;persist();render();
-}
-function toggleWieldWeapon(i){
-  const it=C.inventory[i];if(!it||it.type!=='weapon')return;
-  if(it.wielded)it.wielded=false;
-  else if((it.qty||1)>1){it.qty--;C.inventory.splice(i,0,{...it,qty:1,wielded:true,grip:'one-handed'})}
-  else it.wielded=true;
-  persist();render();
-}
-function setWeaponGrip(i,grip){
-  const it=C.inventory[i],w=it&&WEAPONS.find(x=>x[0]===it.id);
-  if(!w||!w[5].includes('Универсальное')||!['one-handed','two-handed'].includes(grip))return;
-  it.grip=grip;persist();render();
-}
+function buyItem(type,id,price){const error=buyCharacterItem(type,id,priceToGold(price));if(error){alert(error);return}persist();render()}
+function sellItem(index){if(sellCharacterItem(index)){persist();render()}}
+function delItem(index){if(removeCharacterItem(index)){persist();render()}}
+function toggleEquipItem(index){if(toggleCharacterEquipItem(index)){persist();render()}}
+function toggleWieldWeapon(index){if(toggleCharacterWieldWeapon(index)){persist();render()}}
+function setWeaponGrip(index,grip){if(setCharacterWeaponGrip(index,grip)){persist();render()}}
+function setEquipmentMode(mode){if(setCharacterEquipmentMode(mode)){persist();render()}}
+function setEquipmentChoice(cls,name){if(setCharacterEquipmentChoice(cls,name)){persist();render()}}
+function setGold(value){if(setCharacterGold(value)){persist();render()}}
+function setAttunement(index,value){if(setCharacterAttunement(index,value))persist()}
 function applyStartingKit(){
   if(!confirm('Добавить стартовое снаряжение классов в инвентарь?'))return;
-  C.inventory=[];
-  C.classes.forEach(c=>{
-    const choice=(C.equipChoice[c.cls]||'а');
-    const se=STARTING_EQUIPMENT[c.cls];
-    if(!se)return;
-    const opts=se.choices;
-    const chosen=opts.find(o=>o.name===choice)||opts[0];
-    const all=[...(chosen?chosen.items:[]),...(se.defaults||[])];
-    all.forEach(entry=>{
-      const [kind,a,b]=entry;
-      if(kind==='weapon')addItem('weapon',a,typeof b==='number'?b:1);
-      else if(kind==='weaponAny'){ // берём первый подходящий
-        const [cat,melee]=[a.includes('martial')?'martial':'simple',a.includes('melee')];
-        const w=WEAPONS.find(x=>x[7]===cat&&(melee?x[6]==='melee':true));
-        if(w)addItem('weapon',w[0],1);
-      }
-      else if(kind==='armor')addItem('armor',a,1);
-      else if(kind==='shield')addItem('shield','shield',1);
-      else if(kind==='ammo')addItem('gear',a,1);
-      else if(kind==='gear')addItem('gear',a,1);
-      else if(kind==='pack')addItem('pack',a,1);
-      else if(kind==='instrument')addItem('instrument',a,1);
-    });
-  });
-  // надеть первый доспех
-  const arm=C.inventory.find(i=>i.type==='armor');if(arm)arm.equipped=true;
-  persist();render();
+  applyCharacterStartingKit();persist();render();
 }
+
 function attacksHtml(){
   const weapons=(C.inventory||[]).filter(i=>i.type==='weapon');
   const monk=C.classes.find(c=>c.cls==='monk');
@@ -1053,46 +762,45 @@ function attacksHtml(){
 function renderGame(){
   const g=C.game;
   const mh=maxHp();
-  if(g.hpCur==null)g.hpCur=mh;
-  const slots=spellSlots(), pact=pactSlots();
+  const slots=spellSlots();
   const res=classResources();
   return `<div class="page"><h1>Игровой режим</h1>
   <div class="grid two">
     <div class="card">
       <h3>Хиты</h3>
-      <div class="hp-big"><b>${esc(g.hpCur)}</b><span class="muted">/ ${mh}</span></div>
+      <div class="hp-big"><b>${esc(g.hpCur??mh)}</b><span class="muted">/ ${mh}</span></div>
       <div class="row gap wrap">
         <input type="number" id="hpDelta" placeholder="±" style="width:80px">
         <button class="btn danger" onclick="chgHp(-1)">Урон</button>
         <button class="btn ok" onclick="chgHp(1)">Лечение</button>
-        <button class="btn ghost" onclick="C.game.hpCur=maxHp();persist();render()">Полное</button>
+        <button class="btn ghost" onclick="setFullHp()">Полное</button>
       </div>
-      <label>Временные хиты<input type="number" min="0" value="${esc(g.hpTemp||0)}" onchange="C.game.hpTemp=+this.value||0;persist();render()"></label>
+      <label>Временные хиты<input type="number" min="0" value="${esc(g.hpTemp||0)}" onchange="setGameField('hpTemp',this.value,true)"></label>
       <div class="row gap wrap" style="margin-top:8px">
         <span>Кости хитов: <b>${hitDiceStr()}</b></span>
+        ${C.classes.length>1?`<label>Кость класса<select id="hdClass">${C.classes.map(c=>`<option value="${c.cls}">${CLASSES[c.cls].name} · к${CLASSES[c.cls].hd} (${hitDiceUsedByClass()[c.cls]||0}/${c.lvl})</option>`).join('')}</select></label>`:''}
         <span class="muted">потрачено: ${esc(g.hdUsed||0)} / ${totalLvl()}</span>
         <button class="btn sm" onclick="spendHd()">Потратить кость</button>
-        <button class="btn sm ghost" onclick="C.game.hdUsed=Math.max(0,(C.game.hdUsed||0)-1);persist();render()">−1</button>
+        <button class="btn sm ghost" onclick="reduceHitDice()">−1</button>
       </div>
       <h4>Спасброски от смерти</h4>
       <div class="row gap">
-        <span>Успехи: ${[0,1,2].map(i=>`<span class="pip${g.dsOk>i?' on':''}" onclick="C.game.dsOk=${g.dsOk>i?i:i+1};persist();render()"></span>`).join('')}</span>
-        <span>Провалы: ${[0,1,2].map(i=>`<span class="pip fail${g.dsFail>i?' on':''}" onclick="C.game.dsFail=${g.dsFail>i?i:i+1};persist();render()"></span>`).join('')}</span>
+        <span>Успехи: ${[0,1,2].map(i=>`<span class="pip${g.dsOk>i?' on':''}" onclick="setDeathSave('dsOk',${g.dsOk>i?i:i+1})"></span>`).join('')}</span>
+        <span>Провалы: ${[0,1,2].map(i=>`<span class="pip fail${g.dsFail>i?' on':''}" onclick="setDeathSave('dsFail',${g.dsFail>i?i:i+1})"></span>`).join('')}</span>
       </div>
-      <label class="chk"><input type="checkbox" ${g.insp?'checked':''} onchange="C.game.insp=this.checked;persist()"> Вдохновение</label>
-      <label>Истощение (0–6)<input type="number" min="0" max="6" value="${esc(g.exh||0)}" onchange="C.game.exh=Math.min(6,Math.max(0,+this.value||0));persist();render()"></label>
+      <label class="chk"><input type="checkbox" ${g.insp?'checked':''} onchange="setGameField('insp',this.checked)"> Вдохновение</label>
+      <label>Истощение (0–6)<input type="number" min="0" max="6" value="${esc(g.exh||0)}" onchange="setGameField('exh',this.value,true)"></label>
     </div>
     <div class="card">
       <h3>Ячейки заклинаний</h3>
       ${slots?`<div class="slots">${slots.map((n,i)=>n?`<div class="slot-row"><b>${i+1} круг</b><span class="pips" id="slotPips${i}"></span></div>`:'').join('')}</div>`:'<p class="muted">Нет ячеек</p>'}
-      ${pact?`<div class="slot-row"><b>Договор (${pact.level} круг)</b><span class="pips" id="pactPips"></span></div>`:''}
       <div class="row gap" style="margin-top:8px">
         <button class="btn sm" onclick="shortRest()">Короткий отдых</button>
         <button class="btn sm primary" onclick="longRest()">Длинный отдых</button>
       </div>
       <h3>Ресурсы класса</h3>
       ${res.length?res.map(r=>`<div class="slot-row"><b>${r.name}</b><span class="pips" data-res="${r.id}"></span></div>`).join(''):'<p class="muted">Нет расходуемых ресурсов</p>'}
-      <label>Состояния<input value="${esc(g.conditions||'')}" placeholder="отравлен, оглушён…" oninput="C.game.conditions=this.value;persist()"></label>
+      <label>Состояния<input value="${esc(g.conditions||'')}" placeholder="отравлен, оглушён…" oninput="setGameField('conditions',this.value)"></label>
     </div>
   </div>
   <div class="card">
@@ -1117,7 +825,7 @@ function renderGame(){
     </div>
     <div id="diceLog" class="dice-log"></div>
   </div>
-  <div class="card"><h3>Заметки</h3><textarea rows="4" oninput="C.game.notes=this.value;persist()">${esc(g.notes||'')}</textarea></div>
+  <div class="card"><h3>Заметки</h3><textarea rows="4" oninput="setGameField('notes',this.value)">${esc(g.notes||'')}</textarea></div>
   </div>`;
 }
 function drawGameTrackers(){
@@ -1127,12 +835,12 @@ function drawGameTrackers(){
     if(!n)return;
     const used=(g.slotsUsed||{})[i]||0;
     const el=document.getElementById('slotPips'+i);
-    if(el)el.innerHTML=Array.from({length:n},(_,k)=>`<span class="pip${k<used?' on':''}" onclick="useSlot(${i},${k},${n})"></span>`).join('');
+    if(el)el.innerHTML=Array.from({length:n},(_,k)=>`<span class="pip${k<used?' on':''}" onclick="useSlot(${i},${k})"></span>`).join('');
   });
   const pact=pactSlots();
   if(pact){
     const el=document.getElementById('pactPips');
-    if(el)el.innerHTML=Array.from({length:pact.count},(_,k)=>`<span class="pip${k<(g.pactUsed||0)?' on':''}" onclick="C.game.pactUsed=(C.game.pactUsed===${k+1}?${k}:${k+1});persist();drawGameTrackers()"></span>`).join('');
+    if(el)el.innerHTML=Array.from({length:pact.count},(_,k)=>`<span class="pip${k<(g.pactUsed||0)?' on':''}" onclick="usePactSlot(${k})"></span>`).join('');
   }
   classResources().forEach(r=>{
     const el=document.querySelector(`[data-res="${r.id}"]`);
@@ -1142,54 +850,26 @@ function drawGameTrackers(){
     }
   });
 }
-function useSlot(i,k,n){C.game.slotsUsed=C.game.slotsUsed||{};C.game.slotsUsed[i]=(C.game.slotsUsed[i]===k+1)?k:k+1;persist();drawGameTrackers()}
-function useRes(id,k){C.game.resources=C.game.resources||{};C.game.resources[id]=(C.game.resources[id]===k+1)?k:k+1;persist();drawGameTrackers()}
+function useSlot(i,k){if(toggleCharacterTracker('slot',i,k)){persist();drawGameTrackers()}}
+function usePactSlot(k){if(toggleCharacterTracker('pact','pact',k)){persist();drawGameTrackers()}}
+function useRes(id,k){if(toggleCharacterTracker('resource',id,k)){persist();drawGameTrackers()}}
+function setGameField(field,value,rerender=false){if(setCharacterGameField(field,value)){persist();if(rerender)render()}}
+function setFullHp(){setCharacterFullHp();persist();render()}
+function setDeathSave(kind,value){if(setCharacterDeathSaves(kind,value)){persist();render()}}
+function reduceHitDice(){reduceCharacterHitDiceUsed();persist();render()}
 function chgHp(sign){
-  const d=+($('#hpDelta').value)||0;if(!d)return;
-  const g=C.game, mh=maxHp();
-  if(sign<0){
-    let dmg=d;
-    if(g.hpTemp>0){const t=Math.min(g.hpTemp,dmg);g.hpTemp-=t;dmg-=t}
-    g.hpCur=Math.max(0,g.hpCur-dmg);
-  }else g.hpCur=Math.min(mh,g.hpCur+d);
-  persist();render();
+  const amount=+($('#hpDelta').value)||0;if(!amount)return;
+  if(changeCharacterHp(amount,sign>0)){persist();render()}
 }
-function spendHd(){
-  const g=C.game;
-  if((g.hdUsed||0)>=totalLvl()){alert('Все кости хитов потрачены');return}
-  g.hdUsed=(g.hdUsed||0)+1;
-  // берём кость первого класса
-  const hd=CLASSES[C.classes[0].cls].hd;
-  const heal=Math.floor(Math.random()*hd)+1+am('con');
-  g.hpCur=Math.min(maxHp(),(g.hpCur??maxHp())+Math.max(1,heal));
-  logRoll('Кость хитов к'+hd+': +'+Math.max(1,heal)+' хитов');
-  persist();render();
+function spendHd(selectedClass){
+  const cls=selectedClass||$('#hdClass')?.value||C.classes[0].cls,hitDie=CLASSES[cls]?.hd;
+  const result=spendCharacterHitDie(cls,Math.floor(Math.random()*hitDie)+1);
+  if(result.error){alert(result.error);return}
+  logRoll('Кость хитов к'+result.hitDie+': +'+result.healing+' хитов');persist();render();
 }
-function shortRest(){
-  const g=C.game;
-  g.pactUsed=0;
-  // колдун восстанавливает ячейки договора на коротком отдыхе
-  if(g.resources){
-    if(g.resources.pact!=null)g.resources.pact=0;
-    if(g.resources.ki!=null)g.resources.ki=0;
-    if(g.resources.insp!=null&&C.classes.find(c=>c.cls==='bard'&&c.lvl>=5))g.resources.insp=0;
-    if(g.resources.secondwind!=null)g.resources.secondwind=0;
-    if(g.resources.surge!=null)g.resources.surge=0;
-    if(g.resources.wildshape!=null)g.resources.wildshape=0;
-    if(g.resources.channel!=null)g.resources.channel=0;
-    const sorc=C.classes.find(c=>c.cls==='sorcerer'&&c.lvl>=20);
-    if(sorc&&g.resources.sorc!=null)g.resources.sorc=Math.max(0,g.resources.sorc-4);
-    g.resources.luck=0;
-  }
-  persist();render();
-}
-function longRest(){
-  const g=C.game;
-  g.hpCur=maxHp();g.hpTemp=0;
-  g.hdUsed=Math.max(0,(g.hdUsed||0)-Math.floor(totalLvl()/2));
-  g.slotsUsed={};g.pactUsed=0;g.resources={};g.dsOk=0;g.dsFail=0;
-  persist();render();
-}
+function shortRest(){shortRestCharacter();persist();render()}
+function longRest(){longRestCharacter();persist();render()}
+
 function rollDice(n,d,m,label){
   const rolls=Array.from({length:n},()=>Math.floor(Math.random()*d)+1);
   const sum=rolls.reduce((a,b)=>a+b,0)+m;
@@ -1250,7 +930,7 @@ function renderSheet2014(){
       <div class="p14-body">
         <div class="p14-col"><div class="p14-leftsplit"><div class="p14-abilities">${abilityBlocks}</div><div class="p14-col p14-leftside"><div class="pdf-box p14-insp"><span class="pdf-cap">вдохновение</span><div>${game.insp?'●':'○'}</div></div><div class="pdf-box p14-pb"><strong>${fmtMod(pb())}</strong><span class="pdf-cap">бонус владения</span></div><div class="pdf-box p14-saves"><div class="pdf-title">спасброски</div><div class="p14-list">${saveRows}</div></div><div class="pdf-box p14-skills"><div class="pdf-title">навыки</div><div class="p14-list">${skillRows}</div></div></div></div>
           <div class="pdf-box p14-passive"><strong>${passivePerception()}</strong><span>пассивная мудрость (восприятие)</span><div class="pdf-small">Пассивное Расследование: ${passiveInvestigation()}</div></div><div class="pdf-box" style="flex:1"><div class="pdf-title">прочие владения и языки</div><div class="pdf-small"><b>Доспехи:</b> ${armorProficiencyText()}<br><b>Оружие:</b> ${weaponProficiencyText()}<br><b>Инструменты:</b> ${esc([...tools].join(', ')||'—')}<br><b>Языки:</b> ${esc([...new Set(langs)].join(', ')||'—')}</div></div></div>
-        <div class="p14-col"><div class="p14-status"><div class="pdf-box"><span class="pdf-cap">КЗ</span><strong>${armorClass()}</strong></div><div class="pdf-box"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div></div>
+        <div class="p14-col"><div class="p14-status"><div class="pdf-box"><span class="pdf-cap">КЗ</span><strong>${armorClass()}</strong></div><div class="pdf-box"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box"><span class="pdf-cap">скорость</span><strong>${speed()}</strong>${rovingActive()?`<span class="pdf-small">лазание/плавание ${speed()} фт</span>`:''}</div></div>
           <div class="pdf-box p14-hp"><div class="pdf-title">максимум хитов</div><div class="pdf-value">${maxHp()}</div><div class="pdf-small">Кость хитов: ${hitDiceStr()}</div></div>
           <div class="pdf-box p14-currenthp"><div class="pdf-title">текущие хиты</div><div class="pdf-row"><span>текущие</span><b>${esc(game.hpCur!=null?game.hpCur:maxHp())}</b></div><div class="pdf-row"><span>временные</span><b>${esc(game.hpTemp||0)}</b></div><div class="pdf-lines" style="flex:1"></div></div>
           <div class="p14-status p14-dice"><div class="pdf-box"><div class="pdf-title">кости хитов</div><div class="pdf-value">${totalLvl()} · ${hitDiceStr()}</div></div><div class="pdf-box"><div class="pdf-title">спасброски от смерти</div><div class="pdf-small">Успехи ${[0,1,2].map(i=>esc(game.dsOk>i?'●':'○')).join(' ')}<br>Провалы ${[0,1,2].map(i=>esc(game.dsFail>i?'●':'○')).join(' ')}</div></div></div>
@@ -1329,7 +1009,7 @@ function renderSheet2024(){
       </header>
       <div class="p24-body"><div class="p24-col"><div class="pdf-box p24-pb"><span class="pdf-cap">бонус владения</span><strong>${fmtMod(pb())}</strong></div>${ABILS.slice(0,3).map(([id,n])=>ability(id,n)).join('')}<div class="pdf-box"><div class="pdf-title">истощение</div>${Array.from({length:6},(_,i)=>`<span class="p24-check${(game.exh||0)>i?' on':''}" style="display:inline-block;margin:2px 4px"></span>`).join('')}</div><div class="pdf-box"><div class="pdf-title">Героическое вдохновение</div>${game.insp?'●':'○'}</div><div class="pdf-box"><div class="pdf-title">владение снаряжением и умения</div><div class="pdf-small">${profs}</div></div></div>
         <div class="p24-col">${ABILS.slice(3).map(([id,n])=>ability(id,n)).join('')}</div>
-        <div class="p24-col"><div class="p24-minirow p24-overview"><div class="pdf-box p24-mini"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">скорость</span><strong>${speed()}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">п. восприятие</span><strong>${passivePerception()}</strong><span class="pdf-cap">п. расследование ${passiveInvestigation()}</span></div><div class="pdf-box p24-mini"><span class="pdf-cap">состояния</span><strong>${esc(game.conditions||'')}</strong></div></div>
+        <div class="p24-col"><div class="p24-minirow p24-overview"><div class="pdf-box p24-mini"><span class="pdf-cap">инициатива</span><strong>${fmtMod(initiative())}</strong></div><div class="pdf-box p24-mini"><span class="pdf-cap">скорость</span><strong>${speed()}</strong>${rovingActive()?`<span class="pdf-cap">лазание/плавание ${speed()} фт</span>`:''}</div><div class="pdf-box p24-mini"><span class="pdf-cap">п. восприятие</span><strong>${passivePerception()}</strong><span class="pdf-cap">п. расследование ${passiveInvestigation()}</span></div><div class="pdf-box p24-mini"><span class="pdf-cap">состояния</span><strong>${esc(game.conditions||'')}</strong></div></div>
           <div class="pdf-box p24-weapons"><div class="pdf-title">оружие и боевые заговоры</div><table class="p24-table"><tr><th>название</th><th>бонус / сложность</th><th>урон / вид</th><th>заметки</th></tr>${weapons}</table></div><div class="pdf-box p24-features"><div class="pdf-title">умения и способности</div><ul>${features}</ul></div><div class="p24-notegrid"><div class="pdf-box"><div class="pdf-title">атаки и заклинания</div></div><div class="pdf-box"><div class="pdf-title">черты</div><div class="pdf-small">${[...(race.traits||[]),...(sub?.traits||[])].map(esc).join('<br>')||'—'}</div></div></div></div>
       </div>
     </section>

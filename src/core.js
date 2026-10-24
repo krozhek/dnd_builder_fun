@@ -1,4 +1,4 @@
-const CHARACTER_SCHEMA=4;
+const CHARACTER_SCHEMA=5;
 const MAX_PORTRAIT_DATA=200000;
 function newChar(){
   const ab={};ABILS.forEach(([k])=>ab[k]=10);
@@ -16,7 +16,7 @@ function newChar(){
     choices:{}, // fightingStyle, favoredEnemy, favoredTerrain, hunter{3,7,11,15}, pactBoon, druidLand, metamagic[], invocations[]
     cantrips:{}, spellsKnown:{}, spellsPrepared:{}, spellbook:[], arcanum:{}, racialSpells:{},
     equipChoice:{}, goldMode:'equipment', gold:0, inventory:[], attunement:['','',''],
-    game:{hpCur:null,hpTemp:0,hdUsed:0,slotsUsed:{},pactUsed:0,resources:{},dsOk:0,dsFail:0,conditions:'',notes:'',insp:false,exh:0},
+    game:{hpCur:null,hpTemp:0,hdUsed:0,hdUsedByClass:{},slotsUsed:{},pactUsed:0,resources:{},dsOk:0,dsFail:0,conditions:'',notes:'',insp:false,exh:0},
     personality:{traits:'',ideals:'',bonds:'',flaws:''}, allies:'', backstory:'', goals:'', appearance:{age:'',height:'',weight:'',eyes:'',skin:'',hair:'',details:''}, portrait:'', treasure:'', featuresNotes:'',
     created:Date.now(), updated:Date.now()
   };
@@ -47,11 +47,18 @@ function warnStorage(){
 }
 function saveLib(replaceCorrupt=false){
   if(STORAGE_CORRUPT&&!replaceCorrupt){warnStorage();return false}
+  if(!Array.isArray(LIB)||!hasUniqueCharacterIds(LIB)||!LIB.every(c=>validCharacter(c,false)))return false;
   if(!writeStorage(LS_KEY,JSON.stringify(LIB))){if(replaceCorrupt)STORAGE_WARNING_SHOWN=false;warnStorage();return false}
   STORAGE_CORRUPT=false;STORAGE_WARNING_SHOWN=false;return true;
 }
 function persist(){
   if(!C)return;
+  const previous=LIB.find(c=>c.id===C.id);
+  if(!validCharacterTransition(C,previous)){
+    if(previous){C=migrate(JSON.parse(JSON.stringify(previous)));render()}
+    alert('Некорректное изменение отменено; восстановлено последнее сохранённое состояние.');
+    return false;
+  }
   if(STORAGE_CORRUPT){warnStorage();return}
   C.updated=Date.now();
   const i=LIB.findIndex(c=>c.id===C.id);
@@ -67,6 +74,17 @@ function openChar(id){
   TAB='main';
   render();
 }
+// ponytail: legacy versions share migrate()'s normalization; add a version step only when a schema change needs a distinct transform.
+const SCHEMA_MIGRATIONS={
+  4:character=>{
+    const used={...(character.game.hdUsedByClass||{})};
+    if(!Object.keys(used).length){
+      let remaining=Math.max(0,Math.floor(character.game.hdUsed||0));
+      for(const cls of character.classes){const count=Math.min(cls.lvl,remaining);if(count)used[cls.cls]=count;remaining-=count}
+    }
+    return {...character,game:{...character.game,hdUsedByClass:used}};
+  }
+};
 function migrate(ch){
   const d=newChar();
   const m={...d,...Object.fromEntries(Object.entries(ch).filter(([key])=>Object.hasOwn(d,key)))};
@@ -75,6 +93,7 @@ function migrate(ch){
     m.bases[k]={...(k==='standard'?(()=>{const s={};ABILS.forEach(([a],i)=>s[a]=STD_SET[i]);return s})():k==='point'?(()=>{const s={};ABILS.forEach(([a])=>s[a]=8);return s})():(()=>{const s={};ABILS.forEach(([a])=>s[a]=10);return s})()), ...(ch.bases&&ch.bases[k]&&!Array.isArray(ch.bases[k])?ch.bases[k]:{})};
   });
   m.game={...d.game,...(ch.game||{})};
+  m.game.hdUsedByClass=isRecord(ch.game?.hdUsedByClass)?ch.game.hdUsedByClass:{};
   m.personality={...d.personality,...(ch.personality||{})};
   m.appearance={...d.appearance,...(isRecord(ch.appearance)?ch.appearance:{})};
   m.choices={...d.choices,...(isRecord(ch.choices)?ch.choices:{})};
@@ -93,6 +112,11 @@ function migrate(ch){
   m.choices.fightingStyles=styles;
   delete m.choices.fightingStyle;delete m.choices.fightingStyle2;
   if(typeof m.id!=='string'||!m.id)m.id=uid();
+  let version=Number.isInteger(ch.schemaVersion)?ch.schemaVersion:1;
+  while(version<CHARACTER_SCHEMA){
+    if(SCHEMA_MIGRATIONS[version])Object.assign(m,SCHEMA_MIGRATIONS[version](m));
+    version++;
+  }
   m.schemaVersion=CHARACTER_SCHEMA;
   return m;
 }
@@ -102,6 +126,7 @@ const totalLvl=()=>C.classes.reduce((s,c)=>s+c.lvl,0);
 const pb=()=>PB_BY_LVL[Math.min(20,totalLvl())-1];
 function raceOf(){return RACES[C.race]||RACES.human}
 function subraceOf(){const r=raceOf();return r.subs&&C.subrace?r.subs[C.subrace]:null}
+function baseLanguageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
 function racialAsi(){
   const out={str:0,dex:0,con:0,int:0,wis:0,cha:0};
   const r=raceOf(), s=subraceOf();
@@ -140,7 +165,7 @@ function raceSkills(){
   if(r.skillChoice)out.push(...(C.raceSkills||[]).slice(0,r.skillChoice));
   return out;
 }
-function classSkills(){let o=[];C.classes.forEach(c=>{o=o.concat(C.classSkills[c.cls]||[])});return [...new Set(o)]}
+function classSkills(){return [...new Set(C.classes.flatMap(c=>C.classSkills[c.cls]||[]))]}
 function classSkillChoiceCount(index,cls){const cl=CLASSES[cls];return index===0?cl.skillCount:(cl.multiclassSkillCount||0)}
 function multiclassRequirementError(cls,skipIndex=-1){
   const existing=C.classes.filter((_,i)=>i!==skipIndex);
@@ -251,14 +276,16 @@ function skillMod(sk){
   return m;
 }
 function saveMods(){
-  const clsProf=CLASSES[C.classes[0].cls].saves,resilient=featBonusAbility('resilient');
+  const profs=new Set(CLASSES[C.classes[0].cls].saves),resilient=featBonusAbility('resilient');
+  if(C.classes.some(c=>c.cls==='monk'&&c.lvl>=14))ABILS.forEach(([a])=>profs.add(a));
+  if(C.classes.some(c=>c.cls==='rogue'&&c.lvl>=15))profs.add('wis');
+  if(resilient)profs.add(resilient);
   const out={};
   ABILS.forEach(([a])=>{
-    let m=am(a)+(clsProf.includes(a)||resilient===a?pb():0);
-    // паладин: аура защиты 6+
+    let m=am(a)+(profs.has(a)?pb():0);
     const p=C.classes.find(c=>c.cls==='paladin');
     if(p&&p.lvl>=6)m+=Math.max(1,am('cha'));
-    out[a]={mod:m,prof:clsProf.includes(a)||resilient===a};
+    out[a]={mod:m,prof:profs.has(a)};
   });
   return out;
 }
@@ -271,31 +298,44 @@ function initiative(){
   if(hasFeat('alert'))bonus+=5;
   return bonus;
 }
+function rovingActive(){
+  return C.classes.some(c=>c.cls==='ranger'&&c.lvl>=6&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer'));
+}
 function speed(){
-  const s=subraceOf();let value=(s&&s.speed)||raceOf().speed||30;
-  const monk=C.classes.find(c=>c.cls==='monk');
-  if(monk&&monk.lvl>=2&&!equippedArmor()&&!hasShield())value+=10+Math.floor((monk.lvl-2)/4)*5;
-  const barbarian=C.classes.find(c=>c.cls==='barbarian');
-  if(barbarian&&barbarian.lvl>=5){const armor=equippedArmor(),type=armor&&ARMORS.find(a=>a[0]===armor.id)?.[8];if(!armor||type!=='heavy')value+=10}
-  if(C.classes.some(c=>c.cls==='ranger'&&c.lvl>=6&&selectedTashaFeatures(c).some(f=>f[0]==='deft_explorer')))value+=5;
-  if(hasFeat('mobile'))value+=10;
-  return value;
+  const s=subraceOf(),armor=equippedArmor(),armorData=armor&&ARMORS.find(a=>a[0]===armor.id),heavy=armorData?.[8]==='heavy';
+  const monk=C.classes.find(c=>c.cls==='monk'),barbarian=C.classes.find(c=>c.cls==='barbarian');
+  return calculateMovementSpeed({
+    base:(s&&s.speed)||raceOf().speed||30,
+    monkBonus:monk&&monk.lvl>=2&&!armor&&!hasShield()?10+Math.floor((monk.lvl-2)/4)*5:0,
+    barbarianBonus:barbarian&&barbarian.lvl>=5&&!heavy?10:0,
+    rovingBonus:rovingActive()?5:0,
+    mobileBonus:hasFeat('mobile')?10:0,
+    heavyArmorPenalty:heavy&&armorData[5]&&abil('str')<armorData[5]?10:0,
+  });
+}
+function speedText(){
+  const walking=speed();
+  return `${walking} фт${rovingActive()?` · лазание/плавание ${walking} фт`:''}`;
 }
 
 // хиты
 function maxHp(){
-  let hp=0;
-  C.classes.forEach((c,i)=>{
-    const hd=CLASSES[c.cls].hd;
-    // первый уровень первого класса — максимум куба
-    if(i===0){hp+=hd+am('con');for(let l=1;l<c.lvl;l++)hp+=Math.floor(hd/2)+1+am('con')}
-    else{for(let l=0;l<c.lvl;l++)hp+=Math.floor(hd/2)+1+am('con')}
-  });
-  const r=raceOf(),s=subraceOf();
-  if(C.race==='dwarf'&&C.subrace==='hill')hp+=totalLvl(); // дварфская выносливость
-  if(C.classes.find(c=>c.cls==='sorcerer'&&c.sub==='draconic'))hp+=C.classes.find(c=>c.cls==='sorcerer').lvl;
-  if(hasFeat('tough'))hp+=2*totalLvl();
-  return Math.max(1,hp);
+  let bonus=0;
+  if(C.race==='dwarf'&&C.subrace==='hill')bonus+=totalLvl();
+  const draconic=C.classes.find(c=>c.cls==='sorcerer'&&c.sub==='draconic');
+  if(draconic)bonus+=draconic.lvl;
+  if(hasFeat('tough'))bonus+=2*totalLvl();
+  return calculateMaxHp(C.classes.map(c=>({level:c.lvl,hitDie:CLASSES[c.cls].hd})),am('con'),bonus);
+}
+function hitDiceUsedByClass(){
+  const g=C.game||{},used={};
+  C.classes.forEach(c=>used[c.cls]=Math.min(c.lvl,Math.max(0,Math.floor(g.hdUsedByClass?.[c.cls]||0))));
+  let remaining=Math.max(0,Math.floor(g.hdUsed||0)-Object.values(used).reduce((sum,n)=>sum+n,0));
+  for(const c of C.classes){const add=Math.min(c.lvl-used[c.cls],remaining);used[c.cls]+=add;remaining-=add}
+  return used;
+}
+function syncHitDice(){
+  const used=hitDiceUsedByClass();C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);return used;
 }
 function hitDiceStr(){const m={};C.classes.forEach(c=>{const d='к'+CLASSES[c.cls].hd;m[d]=(m[d]||0)+c.lvl});return Object.entries(m).map(([d,n])=>n+d).join(' + ')}
 
@@ -380,6 +420,15 @@ function spellClassAllowed(c,id){
   if(spell.cls.includes(listClass))return true;
   const expanded=SUBCLASSES[c.sub]?.expSpells||{};
   return Object.entries(expanded).some(([level,ids])=>+level<=classMaxSpellLevel(c)&&ids.includes(id));
+}
+const MYSTIC_ARCANUM_LEVELS=[[11,6],[13,7],[15,8],[17,9]];
+function arcanumLevels(level){return MYSTIC_ARCANUM_LEVELS.filter(([required])=>level>=required).map(([,spellLevel])=>spellLevel)}
+function invocationPrerequisiteError(id,warlock=C.classes.find(c=>c.cls==='warlock')){
+  if(!INVOCATIONS.some(([option])=>option===id))return 'Недоступное мистическое воззвание.';
+  const requirement=INVOCATION_PREREQUISITES[id]||{},level=Math.max(2,requirement.level||0);
+  if(!warlock||warlock.lvl<level)return `Требуется колдун ${level} уровня.`;
+  if(requirement.pact&&C.choices.pactBoon!==requirement.pact)return `Требуется Договор «${{blade:'Клинка',chain:'Цепи',tome:'Гримуара'}[requirement.pact]}».`;
+  return '';
 }
 function spellcasterClasses(){return C.classes.filter(c=>spellTypeOf(c))}
 function spellsForClass(cls,lvl){
@@ -476,7 +525,7 @@ function classResources(){
     if(cls==='druid')out.push({id:'wildshape',name:'Дикая форма',max:2});
     if(cls==='fighter'){out.push({id:'secondwind',name:'Второе дыхание',max:1});out.push({id:'surge',name:'Всплеск действий',max:L>=17?2:1});if(L>=9)out.push({id:'indom',name:'Несгибаемость',max:L>=17?3:L>=13?2:1});}
     if(cls==='monk')out.push({id:'ki',name:'Ци',max:TABLES.monk.ki[L-1]});
-    if(cls==='paladin')out.push({id:'layhands',name:'Наложение рук',max:5*L});
+    if(cls==='paladin'){out.push({id:'divineSense',name:'Чувство божественного',max:Math.max(1,1+am('cha'))});if(L>=3&&c.sub)out.push({id:'paladinChannel',name:'Божественный канал',max:1});out.push({id:'layhands',name:'Наложение рук',max:5*L})}
     if(cls==='sorcerer')out.push({id:'sorc',name:'Единицы чародейства',max:TABLES.sorcerer.sorcPoints[L-1]});
     if(cls==='rogue'&&L>=20)out.push({id:'luck',name:'Удар удачи',max:1});
     if(cls==='warlock'){const p=pactSlots();if(p)out.push({id:'pact',name:'Ячейки договора ('+p.level+' круг)',max:p.count});}
@@ -494,48 +543,12 @@ function primalAwarenessSpells(){
   return PRIMAL_AWARENESS_SPELLS.filter(([level])=>ranger.lvl>=level).map(([level,id,spellLevel])=>{const spell=SPELLS.find(s=>s.id===id);return {level,id,name:spell.ru,spellLevel,spell}});
 }
 function chosenTashaFeatures(){const features=C.classes.flatMap(c=>selectedTashaFeatures(c).map(f=>({cls:c.cls,lvl:f[1],name:f[2]+' (Таша)',desc:f[3]})));if(C.choices.pactBoon==='talisman')features.push({cls:'warlock',lvl:3,name:'Талисман договора (Таша)',desc:'Носитель может добавить к4 к проверке характеристики; число применений = БМ за долгий отдых.'});return features}
-function updateTashaChoice(cls,update){
-  const selector=`[data-tasha-features="${cls}"]`,wasOpen=$(selector)?.open;
-  update();persist();render();
-  if(wasOpen){const details=$(selector);if(details)details.open=true}
-}
-function toggleTashaFeature(cls,id,on){
-  C.choices.tashaFeatures=C.choices.tashaFeatures||{};
-  updateTashaChoice(cls,()=>{
-    const selected=new Set(C.choices.tashaFeatures[cls]||[]);
-    if(on)selected.add(id);else selected.delete(id);
-    C.choices.tashaFeatures[cls]=[...selected];
-    if(cls==='ranger'&&id==='deft_explorer'){
-      if(on)C.choices.deftExplorerMode='';
-      else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount())}
-    }
-  });
-}
 function tashaFeaturePicker(c){
   const options=TASHA_FEATURES[c.cls]||[];if(!options.length)return '';
   const selected=(C.choices.tashaFeatures||{})[c.cls]||[];
   const activeDeft=c.cls==='ranger'&&selected.includes('deft_explorer'),mode=C.choices.deftExplorerMode||'',knownTools=toolProficiencies();
   const deftExplorer=activeDeft?`<div class="card"><label>Навык для компетентности<select onchange="setDeftExplorerSkill(this.value)"><option value="">— выберите владение —</option>${profSkills().map(id=>`<option value="${id}"${C.choices.deftExplorerSkill===id?' selected':''}>${SKILLS.find(s=>s[0]===id)?.[1]||id}</option>`).join('')}</select></label><label>Дополнительные владения<select onchange="setDeftExplorerMode(this.value)"><option value="">— выберите вариант —</option><option value="two_languages"${mode==='two_languages'?' selected':''}>Два языка</option><option value="language_tool"${mode==='language_tool'?' selected':''}>Один язык и один инструмент</option></select></label>${mode==='language_tool'?`<label>Инструмент<select onchange="setDeftExplorerTool(this.value)"><option value="">— выберите —</option>${TOOL_PROFICIENCIES.filter(t=>!knownTools.includes(t)||t===C.choices.deftExplorerTool).map(t=>`<option${C.choices.deftExplorerTool===t?' selected':''}>${t}</option>`).join('')}</select></label>`:''}${mode==='two_languages'?'<p class="muted small">Языки выберите на вкладке «Основное».</p>':mode==='language_tool'?'<p class="muted small">Язык выберите на вкладке «Основное».</p>':''}</div>`:'';
   return `<details data-tasha-features="${c.cls}"><summary>Умения из «Котла Таши» · выбрано ${selectedTashaFeatures(c).length}</summary>${deftExplorer}<div class="col-list">${options.map(([id,lvl,name,desc])=>`<label class="chk wide"><input type="checkbox" ${selected.includes(id)?'checked':''}${lvl>c.lvl?' disabled':''} onchange="toggleTashaFeature('${c.cls}','${id}',this.checked)"><span><b>${name}</b> (${lvl} ур.) <span class="tag">Таша</span><br><span class="muted small">${desc}</span></span></label>`).join('')}</div><p class="muted small">Выбор сохраняется; компетентность «Искусного исследователя» применяется автоматически, остальные эффекты не пересчитываются.</p></details>`;
-}
-function setDeftExplorerSkill(skill){
-  if(!deftExplorerActive()||skill&&!profSkills().includes(skill))return;
-  updateTashaChoice('ranger',()=>{C.choices.deftExplorerSkill=skill;if(skill)C.expertise=(C.expertise||[]).filter(id=>id!==skill)});
-}
-function setDeftExplorerMode(mode){
-  if(!deftExplorerActive())return;
-  mode=mode||'';
-  if(mode&&!['two_languages','language_tool'].includes(mode))return;
-  updateTashaChoice('ranger',()=>{
-    const base=baseLanguageChoiceCount(),langs=C.extraLangs||[],count=mode==='two_languages'?2:mode==='language_tool'?1:0;
-    C.extraLangs=mode?Array.from({length:base+count},(_,i)=>langs[i]||''):langs.slice(0,base);
-    if(mode)C.choices.deftExplorerMode=mode;else delete C.choices.deftExplorerMode;
-    if(mode!=='language_tool')delete C.choices.deftExplorerTool;
-  });
-}
-function setDeftExplorerTool(tool){
-  if(!deftExplorerActive()||C.choices.deftExplorerMode!=='language_tool'||tool&&!TOOL_PROFICIENCIES.includes(tool)||tool&&tool!==C.choices.deftExplorerTool&&toolProficiencies().includes(tool))return;
-  updateTashaChoice('ranger',()=>{if(tool)C.choices.deftExplorerTool=tool;else delete C.choices.deftExplorerTool});
 }
 // классовые умения, доступные на уровне
 function availableFeats(){
@@ -558,6 +571,8 @@ function asiPending(){
 }
 function characterReadiness(){
   const issues=[],add=(tab,text,recommended=false)=>issues.push({tab,text,recommended}),r=raceOf(),sub=subraceOf();
+  if(totalLvl()>20)add('main','Общий уровень персонажа не может превышать 20.');
+  if(!validMulticlassCharacter(C))add('main','Исправьте требования к характеристикам для мультиклассирования.');
   if(!validAbilityBases(C))add('abil','Исправьте значения характеристик: соблюдайте правила выбранного метода (покупка очками — максимум 27).');
   if(!validRacialAbilityChoices(C))add('abil','Исправьте недопустимые или повторяющиеся расовые бонусы характеристик.');
   if(!validSkillChoices(C))add('skills','Исправьте недопустимые или повторяющиеся выборы навыков и компетентностей.');
@@ -595,8 +610,11 @@ function characterReadiness(){
     if(c.cls==='sorcerer'&&c.sub==='draconic'&&!C.choices.draconicType)add('cls','Выберите тип дракона-прародителя.');
     if(c.cls==='warlock'){
       if(c.lvl>=3&&!C.choices.pactBoon)add('cls','Выберите договорный дар колдуна.');
-      const invMax=TABLES.warlock.invocations[c.lvl-1]||0;if((C.choices.invocations||[]).length<invMax)add('cls',`Выберите мистические откровения: ${(C.choices.invocations||[]).length}/${invMax}.`);
-      if(c.lvl>=11){const arcLvl=c.lvl>=17?9:c.lvl>=15?8:c.lvl>=13?7:6;if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`)}
+      const invocations=C.choices.invocations||[],invMax=TABLES.warlock.invocations[c.lvl-1]||0,invalidInvocations=invocations.filter(id=>invocationPrerequisiteError(id));
+      if(invalidInvocations.length)add('cls','Замените мистические откровения, требования которых не выполнены.');
+      if(invocations.length>invMax)add('cls',`Удалите лишние мистические откровения: ${invocations.length}/${invMax}.`);
+      else if(invocations.length<invMax)add('cls',`Выберите мистические откровения: ${invocations.length}/${invMax}.`);
+      for(const arcLvl of arcanumLevels(c.lvl))if(!C.arcanum[arcLvl])add('cls',`Выберите мистический арканум ${arcLvl}-го круга.`);
     }
     if(c.cls==='sorcerer'&&c.lvl>=3){const max=c.lvl>=17?4:c.lvl>=10?3:2;if((C.choices.metamagic||[]).length<max)add('cls',`Выберите приёмы Метамагии: ${(C.choices.metamagic||[]).length}/${max}.`)}
     const cantrips=cantripLimit(c.cls),selectedCantrips=knownSpellSelection((C.cantrips||{})[c.cls]);if(cantrips>selectedCantrips.length)add('spells',`${cl.name}: выберите заговоры (${selectedCantrips.length}/${cantrips}).`);if(selectedCantrips.length>cantrips)add('spells',`${cl.name}: удалите лишние заговоры (${selectedCantrips.length}/${cantrips}).`);if(selectedCantrips.some(id=>{const s=SPELLS.find(x=>x.id===id);return !spellClassAllowed(c,id)||s?.lvl!==0}))add('spells',`${cl.name}: есть заговоры не из доступного списка.`);if(c.cls==='rogue'&&c.sub==='arcanetrickster'&&c.lvl>=3&&!selectedCantrips.includes('mage_hand'))add('spells','Мистический ловкач: выберите обязательный заговор «Волшебная рука».');
@@ -608,7 +626,8 @@ function characterReadiness(){
   if(manualExpertise<manualExpertiseMax)add('skills',`Выберите ещё ${manualExpertiseMax-manualExpertise} компетентности.`);
   const styleChoices=C.choices.fightingStyles||{};
   for(const key of activeFightingStyleKeys())if(!styleChoices[key])add('cls',key==='championExtra'?'Выберите второй боевой стиль (Чемпион 10).':`Выберите боевой стиль для класса «${CLASSES[key].name}».`);
-  const {need}=asiPending();
+  const {need,have}=asiPending();
+  if(have>need)add('abil','Удалите ASI/черты, которые больше не доступны на текущих уровнях классов.');
   for(let i=0;i<need;i++){
     const a=(C.asi||{})['asi'+i];let complete=false;
     if(Array.isArray(a))complete=a.length===2;

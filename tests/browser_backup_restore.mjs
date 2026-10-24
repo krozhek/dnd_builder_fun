@@ -185,6 +185,15 @@ try {
   if (!safeActions) throw new Error('Character card actions contain unsafe event attributes or imported markup');
   const opened = await evaluate(`(()=>{document.querySelector('[data-character-action="open"]').click();return C.name})()`);
   if (opened !== 'Backup E2E') throw new Error('Delegated character action did not open the selected character');
+  await evaluate(`(()=>{
+    const create=URL.createObjectURL.bind(URL);
+    URL.createObjectURL=blob=>{window.__foundryBlob=blob;return create(blob)};
+    HTMLAnchorElement.prototype.click=function(){window.__foundryDownload=this.download};
+  })()`);
+  await evaluate('exportFoundryJson()');
+  const foundryExport = await evaluate(`(async()=>({name:window.__foundryDownload,json:await window.__foundryBlob.text()}))()`);
+  const foundryActor = JSON.parse(foundryExport.json);
+  if (!foundryExport.name.endsWith('-foundry-v12-dnd5e-3.3.1.json') || foundryActor.type !== 'character' || foundryActor.name !== 'Backup E2E') throw new Error('Foundry Actor JSON download is invalid');
 
   const rulesSmoke = await evaluate(`(()=>{
     const currentId=C.id,c=newChar();c.id=currentId;c.name='Rules E2E';c.race='elf';c.subrace='high';c.bg='soldier';c.classes=[{cls:'wizard',lvl:1,sub:'evocation'},{cls:'bard',lvl:1,sub:'lore'}];
@@ -200,9 +209,11 @@ try {
     const profs=weaponProf('longbow')&&!weaponProf('rapier')&&toolProficiencies().includes('Лютня')&&toolProficiencies().includes('Игровой набор (кости)');
     TAB='equip';render();const equip=document.querySelector('#main').innerText;
     TAB='cls';render();const cls=document.querySelector('#main').innerText;
-    return {profs,toolPicker:!!toolPicker,backgroundChoice:main.includes('Игровой набор (1 на выбор)'),armorWarning:equip.includes('нельзя накладывать заклинания'),multiclassArmor:cls.includes('Доспехи: лёгкие')};
+    C.classes[0].lvl=20;persist();
+    const rollback=C.name==='Rules E2E'&&totalLvl()===2;
+    return {profs,toolPicker:!!toolPicker,backgroundChoice:main.includes('Игровой набор (1 на выбор)'),armorWarning:equip.includes('нельзя накладывать заклинания'),multiclassArmor:cls.includes('Доспехи: лёгкие'),rollback};
   })()`);
-  if (!rulesSmoke.profs || !rulesSmoke.toolPicker || !rulesSmoke.backgroundChoice || !rulesSmoke.armorWarning || !rulesSmoke.multiclassArmor) throw new Error(`Proficiency UI smoke test failed: ${JSON.stringify(rulesSmoke)}`);
+  if (!rulesSmoke.profs || !rulesSmoke.toolPicker || !rulesSmoke.backgroundChoice || !rulesSmoke.armorWarning || !rulesSmoke.multiclassArmor || !rulesSmoke.rollback) throw new Error(`Proficiency UI smoke test failed: ${JSON.stringify(rulesSmoke)}`);
 
   const corruptLibrary = '{damaged-local-library';
   await evaluate(`localStorage.setItem('dnd5e2014_chars_v1',${JSON.stringify(corruptLibrary)})`);
@@ -220,7 +231,7 @@ try {
   if (recoveryDialog.type !== 'confirm') throw new Error('Restoring over a corrupt library did not require confirmation');
   const recovered = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return !STORAGE_CORRUPT&&data.length===1&&data[0].name==='Backup E2E'})()`);
   if (!recovered) throw new Error('Confirmed backup did not recover the corrupt library');
-  console.log('Browser E2E passed: persistence, semantic import rejection, proficiency UI, XSS protection, and corrupt-storage recovery.');
+  console.log('Browser E2E passed: persistence, import validation, Foundry export, proficiency UI, XSS protection, and corrupt-storage recovery.');
 } finally {
   if (ws) ws.close();
   chrome.kill('SIGTERM');

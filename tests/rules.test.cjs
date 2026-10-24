@@ -32,21 +32,30 @@ const context = vm.createContext({
 });
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
-  newChar, migrate, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
+  newChar, migrate, calculateMaxHp, calculateMovementSpeed, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, speedText, rovingActive, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, hasUniqueCharacterIds,
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
   primalAwarenessSpells, knownLimit,
+  setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
+  setCharacterAbilityMethod, setCharacterStandardAbility, stepCharacterPointAbility, setCharacterManualAbility, setCharacterRaceAsiMode, setCharacterRaceAsi, toggleCharacterHalfElfAbility, setCharacterAsiType, setCharacterAsiFeat, setCharacterAsiFeatBonus, setCharacterAsiValues, resetCharacterSkillChoices, toggleCharacterRaceSkill, toggleCharacterClassSkill, toggleCharacterExpertise,
+  setCharacterEquipmentMode, setCharacterEquipmentChoice, setCharacterGold, setCharacterAttunement, priceToGold, addCharacterItem, buyCharacterItem, sellCharacterItem, removeCharacterItem, toggleCharacterEquipItem, toggleCharacterWieldWeapon, setCharacterWeaponGrip, applyCharacterStartingKit,
+  setCharacterRace, setCharacterBackground, setCharacterBackgroundTool, setCharacterClassTools, setCharacterExtraLanguage, setCharacterChoice, setCharacterHunterChoice, setCharacterFightingStyle, toggleCharacterInvocation, toggleCharacterMetamagic, toggleCharacterTashaFeature, setCharacterDeftExplorerSkill, setCharacterDeftExplorerMode, setCharacterDeftExplorerTool,
+  setCharacterField, setCharacterAppearance, setCharacterPortrait, setCharacterPersonality, addCharacterPersonality,
+  setCharacterGameField, changeCharacterHp, setCharacterFullHp, setCharacterDeathSaves, toggleCharacterTracker, reduceCharacterHitDiceUsed, spendCharacterHitDie, shortRestCharacter, longRestCharacter,
   setSpellQuery, setSpellFilter,
-  spellPicker, renderWizardSpells, toggleSpell, spellNameClick, SPELLS,
+  spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
   renderMain, renderHome, renderEquip, renderGame, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
   renderSheet2014,
   attacksHtml,
-  shortRest, drawGameTrackers,
+  shortRest, longRest, spendHd, drawGameTrackers, syncHitDice, hitDiceUsedByClass,
   renderSheet2024,
+  foundryActorData, foundrySpellItem,
   RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
-  addClass, changeClass, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
+  addClass, changeClass, changeLvl, changeSub, removeClass, changeRace, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
+  get character() { return C; },
+  persist,
 };`, context);
 const api = context.api;
 
@@ -61,6 +70,67 @@ function character() {
 test('offline HTML is generated from the modular source files', () => {
   execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'build.cjs'), '--check']);
 });
+
+test('Foundry 12 / dnd5e 3.3.1 export carries actor data, classes, spells, and equipment', () => {
+  const c = character();
+  c.name = 'Мира';
+  c.classes = [{ cls: 'wizard', lvl: 3, sub: 'evocation' }];
+  c.cantrips.wizard = ['fire_bolt'];
+  c.spellbook = ['mage_armor'];
+  c.spellsPrepared.wizard = ['mage_armor'];
+  c.inventory = [
+    { type: 'weapon', id: 'quarterstaff', qty: 1, wielded: true },
+    { type: 'armor', id: 'leather', qty: 1, equipped: true },
+    { type: 'gear', id: 'spellbook', qty: 1 },
+  ];
+  c.game.hpCur = 15;
+  c.game.slotsUsed = { 0: 1 };
+  c.gold = 10.56;
+  c.appearance.age = '120 лет';
+  api.setChar(c);
+
+  const actor = api.foundryActorData();
+  assert.equal(actor.type, 'character');
+  assert.equal(actor.system.abilities.dex.value, api.abil('dex'));
+  assert.equal(actor.system.attributes.hp.value, 15);
+  assert.equal(actor.system.currency.gp, 10);
+  assert.equal(actor.system.currency.sp, 5);
+  assert.equal(actor.system.currency.cp, 6);
+  assert.equal(actor.system.details.age, '120 лет');
+  assert.equal(actor.system.spells.spell1.value, actor.system.spells.spell1.override - 1);
+  assert.equal(actor.system.skills.prc.ability, 'wis');
+  assert.equal(actor.system.details.originalClass, actor.items.find(item => item.type === 'class')._id);
+  assert.equal(actor.items.find(item => item.type === 'class').system.spellcasting.progression, 'full');
+  assert.ok(actor.items.some(item => item.type === 'subclass' && item.system.classIdentifier === 'wizard'));
+  const fireBolt = actor.items.find(item => item.type === 'spell' && item.name === 'Огненный снаряд');
+  assert.equal(fireBolt.system.school, 'evo');
+  assert.ok(fireBolt.system.properties.includes('vocal'));
+  assert.ok(actor.items.some(item => item.type === 'spell' && item.name === 'Доспехи мага' && item.system.preparation.prepared));
+  const staff = actor.items.find(item => item.type === 'weapon');
+  assert.equal(staff.system.damage.parts[0].join(','), '1d6,bludgeoning');
+  assert.ok(actor.items.some(item => item.type === 'equipment' && item.system.equipped));
+  assert.ok(actor.items.some(item => item.type === 'loot' && item.name === 'Книга заклинаний'));
+  assert.doesNotThrow(() => JSON.parse(JSON.stringify(actor)));
+});
+
+test('Foundry spell conversion maps every catalog entry to known dnd5e 3.3.1 enums', () => {
+  const schools = new Set(['abj', 'con', 'div', 'enc', 'evo', 'ill', 'nec', 'trs']);
+  const modes = new Set(['prepared', 'pact', 'always', 'atwill', 'innate', 'ritual']);
+  const durations = new Set(['inst', 'perm', 'disp', 'dstr', 'spec', 'turn', 'round', 'minute', 'hour', 'day', 'month', 'year']);
+  for (const spell of api.SPELLS) {
+    const item = api.foundrySpellItem(spell, 'wizard', 'prepared', false);
+    assert.ok(schools.has(item.system.school), spell.id);
+    assert.ok(modes.has(item.system.preparation.mode), spell.id);
+    assert.ok(durations.has(item.system.duration.units), spell.id);
+    assert.ok(Array.isArray(item.system.properties), spell.id);
+  }
+});
+
+test('Foundry export HTML action is wired to the character toolbar', () => {
+  assert.match(script, /onclick="exportFoundryJson\(\)"/);
+  assert.ok(script.includes('foundry-v12-dnd5e-3.3.1'));
+});
+
 
 test('proficiency bonus and modifiers follow total character level', () => {
   const c = character();
@@ -296,10 +366,22 @@ test('class skill choices use the starting or multiclass progression', () => {
   c2.classSkills.bard = ['arcana', 'history', 'perception'];
   api.setChar(c2);
   assert.match(api.renderSkills(), /Мультиклассирование в этот класс не даёт выбора навыков/);
+  assert.match(api.toggleCharacterClassSkill('bard', 'performance', true), /Максимум 3/);
 
   c.classSkills.bard.push('nature');
   api.setChar(c);
   assert.ok(api.characterReadiness().some(i => i.tab === 'skills' && i.text.includes('Бард: уберите лишние навыки')));
+
+  const c3 = character();
+  c3.classes = [{ cls: 'rogue', lvl: 1, sub: 'thief' }];
+  c3.classSkills.rogue = ['acrobatics', 'stealth', 'perception'];
+  c3.expertise = ['acrobatics'];
+  api.setChar(c3);
+  assert.match(api.renderSkills(), /toggleExpertise\('acrobatics',this\.checked\)/);
+  assert.equal(api.toggleCharacterExpertise('acrobatics', true), '');
+  assert.equal(api.toggleCharacterExpertise('stealth', true), '');
+  assert.match(api.toggleCharacterExpertise('perception', true), /Максимум 2/);
+  assert.deepEqual(Array.from(c3.expertise), ['acrobatics', 'stealth']);
 });
 
 test('multiclass prerequisites check the new and existing classes', () => {
@@ -359,6 +441,17 @@ test('multiclass keeps only the starting class saving throw proficiencies', () =
   assert.equal(saves.wis.prof, false);
 });
 
+test('Diamond Soul and Slippery Mind grant their saving throw proficiencies', () => {
+  const c = character();
+  c.classes = [{ cls: 'monk', lvl: 14, sub: 'openhand' }];
+  api.setChar(c);
+  assert.ok(Object.values(api.saveMods()).every(save => save.prof));
+  c.classes = [{ cls: 'rogue', lvl: 15, sub: 'thief' }];
+  api.setChar(c);
+  assert.equal(api.saveMods().wis.prof, true);
+  assert.equal(api.saveMods().wis.mod, api.am('wis') + api.pb());
+});
+
 test('initiative includes Jack of All Trades and Remarkable Athlete bonuses', () => {
   const c = character();
   c.bases.manual.dex = 14;
@@ -412,6 +505,40 @@ test('ability scores cap at 20 and Primal Champion adds +4 to Strength and Const
   c.classes[0].cls = 'fighter';
   api.setChar(c);
   assert.equal(api.abil('str'), 20);
+});
+
+test('class level edits cannot exceed character level 20', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 20, sub: 'champion' }];
+  c.bases.manual.str = 15;
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.addClass();
+  assert.equal(api.totalLvl(), 20);
+  api.changeLvl(0, 19);
+  assert.equal(api.totalLvl(), 19);
+  api.addClass();
+  assert.equal(api.totalLvl(), 20);
+  api.changeLvl(0, 20);
+  assert.equal(api.totalLvl(), 20);
+  assert.ok(alerts.some(message => message.includes('не может превышать 20')));
+  api.setRenderFn(oldRender);
+});
+
+test('hit point gains are at least one per level with negative Constitution', () => {
+  const c = character();
+  c.race = 'tiefling';
+  c.classes = [{ cls: 'wizard', lvl: 20, sub: 'evocation' }];
+  c.bases.manual = { str: 10, dex: 10, con: 3, int: 10, wis: 10, cha: 10 };
+  api.setChar(c);
+  assert.equal(api.maxHp(), 21);
+});
+
+test('pure rule calculators cover hit points and movement without reading character state', () => {
+  assert.equal(api.calculateMaxHp([{ level: 20, hitDie: 6 }], -4), 21);
+  assert.equal(api.calculateMaxHp([{ level: 2, hitDie: 10 }, { level: 1, hitDie: 6 }], 0), 20);
+  assert.equal(api.calculateMovementSpeed({ base: 30, rovingBonus: 5, heavyArmorPenalty: 10 }), 25);
 });
 
 test('fighter hit points use maximum first hit die and average thereafter', () => {
@@ -536,7 +663,7 @@ test('third casters enforce school exceptions and Arcane Trickster requires Mage
   const oldRender = api.renderFn;
   api.setRenderFn(() => {});
   alerts.length = 0;
-  api.toggleSpell('spellsKnown', 'fighter', 3, 'disguise_self', true);
+  api.toggleSpell('spellsKnown', 'fighter', 'disguise_self', true);
   assert.deepEqual(Array.from(c.spellsKnown.fighter), ['shield', 'charm_person']);
   assert.match(alerts.at(-1), /нет свободного выбора/);
   api.setRenderFn(oldRender);
@@ -570,15 +697,59 @@ test('speed includes monk, barbarian, and Deft Explorer bonuses with armor condi
   c.inventory = [{ type: 'armor', id: 'scalemail', equipped: true }];
   api.setChar(c);
   assert.equal(api.speed(), 40);
-  c.inventory = [{ type: 'armor', id: 'chainmail', equipped: true }];
+  c.inventory = [{ type: 'armor', id: 'chainmail', qty: 1, equipped: true }];
   api.setChar(c);
-  assert.equal(api.speed(), 30);
+  assert.equal(api.speed(), 20); // STR 11 < chainmail requirement 13
+  c.bases.manual.str = 15;
+  api.setChar(c);
+  assert.equal(api.speed(), 30); // meets the requirement, but heavy armor disables Fast Movement
 
   c.classes = [{ cls: 'ranger', lvl: 6, sub: 'hunter' }];
+  c.bases.manual.str = 10;
   c.inventory = [];
   c.choices.tashaFeatures = { ranger: ['deft_explorer'] };
   api.setChar(c);
   assert.equal(api.speed(), 35);
+  assert.equal(api.rovingActive(), true);
+  assert.match(api.speedText(), /лазание\/плавание 35 фт/);
+  c.inventory = [{ type: 'armor', id: 'chainmail', qty: 1, equipped: true }];
+  api.setChar(c);
+  assert.equal(api.speed(), 25); // STR 11 < chainmail requirement 13; Roving still grants +5 ft
+  assert.equal(api.rovingActive(), true);
+  assert.match(api.speedText(), /лазание\/плавание 25 фт/);
+});
+
+test('equipment and currency changes are owned by the state layer', () => {
+  const c = character();
+  c.goldMode = 'gold';
+  c.gold = 3;
+  api.setChar(c);
+  assert.equal(api.buyCharacterItem('weapon', 'dagger', api.priceToGold('2 зм')), '');
+  assert.equal(c.gold, 1);
+  assert.deepEqual(Array.from(c.inventory, item => item.id), ['dagger']);
+  assert.match(api.buyCharacterItem('weapon', 'shortsword', 5), /Не хватает золота/);
+  assert.equal(c.inventory.length, 1);
+  assert.equal(api.sellCharacterItem(0), true);
+  assert.equal(c.gold, 2);
+  assert.equal(c.inventory.length, 0);
+
+  c.inventory = [
+    { type: 'armor', id: 'leather', qty: 1, equipped: true },
+    { type: 'armor', id: 'chainmail', qty: 1, equipped: false },
+  ];
+  api.setChar(c);
+  assert.equal(api.toggleCharacterEquipItem(1), true);
+  assert.deepEqual(Array.from(c.inventory, item => item.equipped), [false, true]);
+  assert.equal(api.setCharacterAttunement(1, 'Кольцо'), true);
+  assert.equal(c.attunement[1], 'Кольцо');
+  assert.equal(api.setCharacterGold(-5), true);
+  assert.equal(c.gold, 0);
+
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  api.setChar(c);
+  api.applyCharacterStartingKit();
+  assert.ok(c.inventory.length > 0);
+  assert.ok(c.inventory.some(item => item.type === 'armor' && item.equipped));
 });
 
 test('armor class includes Dexterity and an equipped shield', () => {
@@ -654,6 +825,41 @@ test('spell search filters rows and hides empty spell levels', () => {
   assert.equal(dom.empty.hidden, true);
 });
 
+test('spell selections and wizard book changes are owned by the state layer', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 3, sub: 'evocation' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterSpellbook('shield', true), true);
+  assert.equal(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 'shield', true), '');
+  assert.deepEqual(Array.from(c.spellbook), ['shield']);
+  assert.deepEqual(Array.from(c.spellsPrepared.wizard), ['shield']);
+  assert.match(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 'cure_wounds', true), /недоступно/);
+  assert.equal(api.setCharacterSpellbook('shield', false), true);
+  assert.deepEqual(Array.from(c.spellsPrepared.wizard), []);
+
+  const limited = character();
+  limited.classes = [{ cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  limited.bases.manual.int = 10;
+  api.setChar(limited);
+  assert.equal(api.setCharacterSpellbook('shield', true), true);
+  assert.equal(api.setCharacterSpellbook('mage_armor', true), true);
+  assert.equal(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 'shield', true), '');
+  assert.match(api.setCharacterSpellSelection('spellsPrepared', 'wizard', 'mage_armor', true), /Лимит: 1/);
+
+  c.classes = [{ cls: 'warlock', lvl: 11, sub: 'fiend' }];
+  c.race = 'astralelf';
+  api.setChar(c);
+  assert.equal(api.setCharacterArcanum(6, 'true_seeing'), true);
+  assert.equal(c.arcanum[6], 'true_seeing');
+  assert.equal(api.setCharacterArcanum(6, 'wish'), false);
+  assert.equal(api.setCharacterRacialSpell('astralelf', 'light'), true);
+  assert.equal(c.racialSpells.astralelf, 'light');
+  assert.equal(c.racialSpells.astralelfAbility, 'wis');
+  assert.equal(api.setCharacterRacialSpell('astralelf', 'fireball'), false);
+  assert.equal(api.setCharacterRacialSpellAbility('astralelf', 'cha'), true);
+  assert.equal(c.racialSpells.astralelfAbility, 'cha');
+});
+
 test('spell filters combine class access, circle, ritual, concentration, and text search', () => {
   const c = character();
   c.classes = [{ cls: 'druid', lvl: 3, sub: 'land' }];
@@ -715,6 +921,90 @@ test('clicking a spell name opens its details without selecting it', () => {
   assert.match(bookPicker, /onclick="spellNameClick\(event,/);
 });
 
+test('character text, appearance, portrait, and personality edits are handled by the state layer', () => {
+  const c = character();
+  api.setChar(c);
+  assert.equal(api.setCharacterField('name', 'N'.repeat(150)), true);
+  assert.equal(c.name.length, 100);
+  assert.equal(api.setCharacterField('align', 'Lawful good'), false);
+  assert.equal(api.setCharacterField('goals', 'G'.repeat(6000)), true);
+  assert.equal(c.goals.length, 5000);
+  assert.equal(api.setCharacterField('subrace', 'high'), false);
+  c.race = 'elf';
+  api.setChar(c);
+  assert.equal(api.setCharacterField('subrace', 'high'), true);
+  assert.equal(c.subrace, 'high');
+  assert.equal(api.setCharacterAppearance('details', 'D'.repeat(600)), true);
+  assert.equal(c.appearance.details.length, 500);
+  assert.equal(api.setCharacterPortrait('data:image/jpeg;base64,AA=='), true);
+  assert.equal(api.setCharacterPortrait('<img src=x onerror=alert(1)>'), false);
+  assert.equal(api.setCharacterPersonality('traits', 'Brave'), true);
+  assert.equal(api.addCharacterPersonality('traits', 'Curious'), true);
+  assert.equal(c.personality.traits, 'Brave\nCurious');
+  assert.equal(api.addCharacterPersonality('unknown', 'text'), false);
+});
+
+test('ability, feat, and proficiency choices are mutated through the state layer', () => {
+  const c = character();
+  assert.equal(api.setCharacterAbilityMethod('point'), true);
+  assert.equal(c.abilityMethod, 'point');
+  assert.equal(api.stepCharacterPointAbility('str', 1), true);
+  assert.equal(c.bases.point.str, 9);
+  assert.equal(api.setCharacterStandardAbility('dex', 15), true);
+  assert.equal(c.bases.standard.dex, 15);
+  assert.equal(c.bases.standard.str, 14); // swap the occupied standard score
+  assert.equal(api.setCharacterManualAbility('con', 99), true);
+  assert.equal(c.bases.manual.con, 18);
+
+  c.race = 'halfelf';
+  c.classes = [{ cls: 'rogue', lvl: 1, sub: 'arcanetrickster' }];
+  api.setChar(c);
+  assert.equal(api.toggleCharacterHalfElfAbility('str', true), '');
+  assert.equal(api.toggleCharacterHalfElfAbility('str', true), 'Недопустимый бонус характеристики.');
+  assert.equal(api.setCharacterAsiType(0, 'feat'), true);
+  assert.equal(api.setCharacterAsiFeat(0, 'resilient'), true);
+  assert.equal(api.setCharacterAsiFeatBonus(0, 'wis'), true);
+  assert.equal(c.asi.asi0.bonus, 'wis');
+  assert.equal(api.setCharacterAsiFeatBonus(0, 'invalid'), false);
+
+  assert.equal(api.toggleCharacterRaceSkill('arcana', true), '');
+  assert.equal(api.toggleCharacterClassSkill('rogue', 'acrobatics', true), '');
+  assert.equal(api.toggleCharacterExpertise('arcana', true), '');
+  assert.deepEqual(Array.from(c.raceSkills), ['arcana']);
+  assert.deepEqual(Array.from(c.classSkills.rogue), ['acrobatics']);
+  assert.deepEqual(Array.from(c.expertise), ['arcana']);
+  assert.match(api.toggleCharacterExpertise('stealth', true), /только для навыка/);
+});
+
+test('race and background changes prune conflicting skill choices', () => {
+  const c = character();
+  c.race = 'human';
+  c.bg = 'sage';
+  c.classes = [{ cls: 'rogue', lvl: 1, sub: 'thief' }];
+  c.classSkills.rogue = ['stealth', 'acrobatics', 'perception', 'insight'];
+  c.expertise = ['perception', 'stealth'];
+  api.setChar(c);
+  assert.equal(api.setCharacterRace('elf'), true);
+  assert.deepEqual(Array.from(c.classSkills.rogue), ['stealth', 'acrobatics', 'insight']);
+  assert.deepEqual(Array.from(c.expertise), ['perception', 'stealth']);
+  assert.equal(api.validCharacter(c), true);
+
+  assert.equal(api.setCharacterBackground('criminal'), true);
+  assert.deepEqual(Array.from(c.classSkills.rogue), ['acrobatics', 'insight']);
+  assert.equal(api.validCharacter(c), true);
+
+  const c2 = character();
+  c2.bg = 'acolyte';
+  c2.classes = [{ cls: 'ranger', lvl: 1, sub: 'hunter' }];
+  c2.classSkills.ranger = ['survival'];
+  c2.choices.tashaFeatures = { ranger: ['deft_explorer'] };
+  c2.choices.deftExplorerSkill = 'religion';
+  api.setChar(c2);
+  assert.equal(api.setCharacterBackground('criminal'), true);
+  assert.equal(c2.choices.deftExplorerSkill, undefined);
+  assert.equal(api.validCharacter(c2), true);
+});
+
 test('ability methods enforce legal scores and the 27-point budget', () => {
   const c = character();
   const point = { str: 15, dex: 15, con: 15, int: 8, wis: 8, cha: 8 };
@@ -766,6 +1056,351 @@ test('import rejects invalid skill choices but storage can still open old drafts
   storageData.delete('dnd5e2014_chars_v1');
 });
 
+test('persist rolls back malformed state to the last saved character', () => {
+  const c = character();
+  c.name = 'Saved';
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.persist();
+  c.classes[0].lvl = 21;
+  alerts.length = 0;
+  assert.equal(api.persist(), false);
+  assert.equal(api.character.name, 'Saved');
+  assert.equal(api.character.classes[0].lvl, 1);
+  assert.match(alerts.at(-1), /изменение отменено/);
+  api.setRenderFn(oldRender);
+});
+
+test('persist rejects new rule violations but permits gradual repair of legacy drafts', () => {
+  const c = character();
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.persist();
+  c.classSkills.fighter = ['arcana'];
+  assert.equal(api.persist(), false);
+  assert.equal(api.character.classSkills.fighter, undefined);
+  const current=api.character;
+  current.abilityMethod = 'manual';
+  current.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'wizard', lvl: 1, sub: 'evocation' }];
+  current.bases.manual.int = 10;
+  assert.equal(api.persist(), false);
+  assert.equal(api.character.classes.length, 1);
+
+  const legacy = api.newChar();
+  legacy.abilityMethod = 'point';
+  legacy.bases.point = { str: 15, dex: 15, con: 15, int: 15, wis: 15, cha: 15 };
+  api.setLibrary([JSON.parse(JSON.stringify(legacy))]);
+  api.setChar(legacy);
+  assert.ok(api.pointBuySpent(legacy.bases.point) > 27);
+  assert.notEqual(api.persist(), false);
+  legacy.bases.point.str = 14;
+  assert.notEqual(api.persist(), false);
+  assert.equal(api.character.bases.point.str, 14);
+  api.setRenderFn(oldRender);
+});
+
+test('hit dice use the selected multiclass hit die and track expenditure per class', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];
+  c.game.hpCur = 0;
+  c.game.hdUsed = 1;
+  c.game.hdUsedByClass = { fighter: 1 };
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.spendHd('wizard');
+  assert.equal(c.game.hdUsedByClass.fighter, 1);
+  assert.equal(c.game.hdUsedByClass.wizard, 1);
+  assert.equal(c.game.hdUsed, 2);
+  assert.ok(c.game.hpCur >= 1 && c.game.hpCur <= 6);
+  api.setRenderFn(oldRender);
+});
+
+test('long rest restores at least one hit die, choosing the earliest class first', () => {
+  const c = character();
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  c.game.hdUsed = 1;
+  c.game.hdUsedByClass = { fighter: 1 };
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.longRest();
+  assert.equal(c.game.hdUsed, 0);
+
+  c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];
+  c.game.hdUsed = 3;
+  c.game.hdUsedByClass = { fighter: 2, wizard: 1 };
+  api.setChar(c);
+  api.longRest();
+  assert.equal(c.game.hdUsedByClass.fighter, 0);
+  assert.equal(c.game.hdUsedByClass.wizard, 1);
+  assert.equal(c.game.hdUsed, 1);
+  api.setRenderFn(oldRender);
+});
+
+test('class changes remove obsolete proficiencies and class-specific choices', () => {
+  const c = character();
+  c.bg = 'charlatan';
+  c.classes = [{ cls: 'fighter', lvl: 4, sub: 'champion' }];
+  c.classSkills.fighter = ['athletics', 'perception'];
+  c.cantrips.fighter = ['light'];
+  c.asi.asi0 = { type: 'asi', vals: ['str', 'str'] };
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  assert.ok(api.skillMod('athletics') > api.am('str'));
+  api.changeClass(0, 'bard');
+  assert.equal(c.classSkills.fighter, undefined);
+  assert.equal(c.cantrips.fighter, undefined);
+  assert.equal(api.skillMod('athletics'), api.am('str') + Math.floor(api.pb()/2));
+  assert.equal(Object.keys(c.asi).length, 1);
+  api.changeLvl(0, 2);
+  assert.equal(Object.keys(c.asi).length, 0);
+  api.setRenderFn(oldRender);
+});
+
+test('subclass and level changes prune spells that are no longer available', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 5, sub: 'fiend' }];
+  c.spellsKnown.warlock = ['fireball'];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.changeSub(0, 'archfey');
+  assert.deepEqual(Array.from(c.spellsKnown.warlock), []);
+  c.classes[0] = { cls: 'ranger', lvl: 5, sub: 'hunter' };
+  c.spellsKnown.ranger = ['hunters_mark', 'speak_with_animals'];
+  api.setChar(c);
+  api.changeLvl(0, 1);
+  assert.deepEqual(Array.from(c.spellsKnown.ranger), []);
+  c.classes[0].lvl = 7;
+  assert.equal(api.setCharacterHunterChoice(3, 'colossus'), true);
+  assert.equal(api.setCharacterHunterChoice(7, 'escape'), true);
+  assert.equal(api.setCharacterChoice('favoredEnemy', 'Нежить'), true);
+  assert.equal(api.toggleCharacterTashaFeature('ranger', 'favored_foe', true), true);
+  api.changeSub(0, '');
+  assert.equal(c.choices.hunter_3, undefined);
+  assert.equal(c.choices.hunter_7, undefined);
+  assert.equal(api.setCharacterHunterChoice(3, 'colossus'), false);
+  assert.equal(c.choices.favoredEnemy, 'Нежить');
+  assert.deepEqual(Array.from(c.choices.tashaFeatures.ranger), ['favored_foe']);
+  api.setRenderFn(oldRender);
+});
+
+test('warlock Mystic Arcanum supports all unlocked spell circles and prunes them on level loss', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 17, sub: 'fiend' }];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  assert.equal(api.characterReadiness().filter(issue => issue.text.includes('арканум')).length, 4);
+  for (const level of [6, 7, 8, 9]) {
+    const spell = api.SPELLS.find(entry => entry.lvl === level && entry.cls.includes('warlock'));
+    assert.ok(spell, `warlock arcanum spell exists for circle ${level}`);
+    assert.equal(api.setCharacterArcanum(level, spell.id), true);
+    assert.match(api.renderSpells(), new RegExp(`Мистический арканум \\(${level} круг\\)`));
+  }
+  assert.equal(api.setCharacterArcanum(5, 'true_seeing'), false);
+  assert.equal(api.characterReadiness().some(issue => issue.text.includes('арканум')), false);
+  api.changeLvl(0, 13);
+  assert.deepEqual(Object.keys(c.arcanum).sort(), ['6', '7']);
+  assert.equal(api.setCharacterArcanum(8, 'finger_of_death'), false);
+  assert.equal((api.renderSpells().match(/Мистический арканум \(/g) || []).length, 2);
+  api.setRenderFn(oldRender);
+});
+
+test('warlock invocations enforce pact and level prerequisites', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 3, sub: 'fiend' }];
+  api.setChar(c);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  assert.match(api.toggleCharacterInvocation('book', true), /Договор «Гримуара»/);
+  assert.match(api.renderClass(), /Требуется Договор «Гримуара»/);
+  assert.equal(api.setCharacterChoice('pactBoon', 'tome'), true);
+  assert.equal(api.toggleCharacterInvocation('book', true), '');
+  assert.equal(api.setCharacterChoice('pactBoon', 'chain'), true);
+  assert.deepEqual(Array.from(c.choices.invocations), []);
+  assert.equal(api.toggleCharacterInvocation('voice', true), '');
+  assert.match(api.toggleCharacterInvocation('chains', true), /колдун 15 уровня/);
+
+  api.changeLvl(0, 15);
+  assert.equal(api.toggleCharacterInvocation('chains', true), '');
+  assert.equal(api.toggleCharacterInvocation('visions', true), '');
+  assert.equal(api.toggleCharacterInvocation('whispers', true), '');
+  assert.equal(api.setCharacterChoice('pactBoon', 'blade'), true);
+  assert.equal(api.toggleCharacterInvocation('life', true), '');
+  assert.deepEqual(Array.from(c.choices.invocations), ['visions', 'whispers', 'life']);
+  api.changeLvl(0, 14);
+  assert.deepEqual(Array.from(c.choices.invocations), ['whispers', 'life']);
+  assert.equal(api.validCharacter(c), true);
+  assert.equal(api.validCharacter({ ...c, choices: { ...c.choices, invocations: ['chains'] } }), false);
+  api.setRenderFn(oldRender);
+});
+
+test('lowering class levels prunes choices that are no longer available', () => {
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  let c = character();
+  c.classes = [{ cls: 'ranger', lvl: 7, sub: 'hunter' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterHunterChoice(3, 'colossus'), true);
+  assert.equal(api.setCharacterHunterChoice(7, 'escape'), true);
+  api.changeLvl(0, 4);
+  assert.equal(c.choices.hunter_3, 'colossus');
+  assert.equal(c.choices.hunter_7, undefined);
+
+  c = character();
+  c.classes = [{ cls: 'barbarian', lvl: 7, sub: 'berserk' }];
+  c.choices.tashaFeatures = { barbarian: ['primal_knowledge', 'instinctive_pounce'] };
+  api.setChar(c);
+  api.changeLvl(0, 6);
+  assert.deepEqual(Array.from(c.choices.tashaFeatures.barbarian), ['primal_knowledge']);
+  api.changeLvl(0, 7);
+  assert.deepEqual(Array.from(c.choices.tashaFeatures.barbarian), ['primal_knowledge']);
+
+  c = character();
+  c.classes = [{ cls: 'rogue', lvl: 6, sub: 'thief' }];
+  c.classSkills.rogue = ['acrobatics', 'stealth', 'perception', 'insight'];
+  c.expertise = ['acrobatics', 'stealth', 'perception', 'insight'];
+  api.setChar(c);
+  api.changeLvl(0, 5);
+  assert.deepEqual(Array.from(c.expertise), ['acrobatics', 'stealth']);
+
+  c = character();
+  c.classes = [{ cls: 'druid', lvl: 2, sub: 'land' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterChoice('druidLand', 'forest'), true);
+  api.changeLvl(0, 1);
+  assert.equal(c.choices.druidLand, undefined);
+
+  c = character();
+  c.classes = [{ cls: 'fighter', lvl: 10, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterFightingStyle('championExtra', 'archery'), '');
+  api.changeLvl(0, 9);
+  assert.equal(c.choices.fightingStyles.championExtra, undefined);
+
+  c = character();
+  c.classes = [{ cls: 'sorcerer', lvl: 17, sub: 'draconic' }];
+  api.setChar(c);
+  for (const option of ['careful', 'distant', 'empowered', 'extended']) assert.equal(api.toggleCharacterMetamagic(option, true), '');
+  api.changeLvl(0, 9);
+  assert.deepEqual(Array.from(c.choices.metamagic), ['careful', 'distant']);
+
+  c = character();
+  c.classes = [{ cls: 'warlock', lvl: 4, sub: 'fiend' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterChoice('pactBoon', 'talisman'), true);
+  assert.equal(api.toggleCharacterInvocation('armor', true), '');
+  assert.equal(api.toggleCharacterInvocation('beast', true), '');
+  api.changeLvl(0, 1);
+  assert.equal(c.choices.pactBoon, undefined);
+  assert.deepEqual(Array.from(c.choices.invocations), []);
+  assert.doesNotMatch(api.renderClass(), /Талисман договора/);
+  api.setRenderFn(oldRender);
+});
+
+test('losing a subclass or level prunes its tool choices', () => {
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  let c = character();
+  c.classes = [{ cls: 'fighter', lvl: 3, sub: 'battlemaster' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterClassTools('fighter', [api.TOOL_PROFICIENCIES[0]]), true);
+  api.changeSub(0, 'champion');
+  assert.equal(c.choices.classTools.fighter, undefined);
+
+  c = character();
+  c.classes = [{ cls: 'fighter', lvl: 3, sub: 'battlemaster' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterClassTools('fighter', [api.TOOL_PROFICIENCIES[0]]), true);
+  api.changeLvl(0, 2);
+  assert.equal(c.choices.classTools.fighter, undefined);
+  api.setRenderFn(oldRender);
+});
+
+test('race and subrace changes clear incompatible racial spell selections', () => {
+  const c = character();
+  c.race = 'elf';c.subrace = 'high';c.bg = 'criminal';c.extraLangs = ['Драконий'];c.racialSpells = { highelf: 'fire_bolt', highelfAbility: 'int' };
+  api.setChar(c);
+  assert.equal(api.setCharacterField('subrace', 'wood'), true);
+  assert.deepEqual({ ...c.racialSpells }, {});
+  assert.deepEqual(Array.from(c.extraLangs), []);
+  assert.equal(api.validCharacter(c), true);
+  assert.equal(api.setCharacterField('subrace', 'high'), true);
+  assert.equal(api.setCharacterRacialSpell('highelf', 'fire_bolt'), true);
+  const oldRender = api.renderFn;
+  api.setRenderFn(() => {});
+  api.changeRace('human');
+  assert.deepEqual({ ...c.racialSpells }, {});
+  api.setRenderFn(oldRender);
+});
+
+test('warlock pact slots have a single resource tracker', () => {
+  const c = character();
+  c.classes = [{ cls: 'warlock', lvl: 3, sub: 'fiend' }];
+  api.setChar(c);
+  const game = api.renderGame();
+  assert.match(game, /data-res="pact"/);
+  assert.doesNotMatch(game, /pactPips/);
+});
+
+test('game tracker changes are handled in the state layer', () => {
+  const c = character();
+  c.classes = [{ cls: 'wizard', lvl: 3, sub: 'evocation' }];
+  c.game.hpCur = 5;
+  c.game.hpTemp = 3;
+  api.setChar(c);
+  assert.equal(api.changeCharacterHp(4, false), true);
+  assert.equal(c.game.hpTemp, 0);
+  assert.equal(c.game.hpCur, 4);
+  assert.equal(api.setCharacterGameField('exh', 9), true);
+  assert.equal(c.game.exh, 6);
+  assert.equal(api.setCharacterGameField('notes', 'test'), true);
+  assert.equal(c.game.notes, 'test');
+  assert.equal(api.setCharacterDeathSaves('dsOk', 8), true);
+  assert.equal(c.game.dsOk, 3);
+  assert.equal(api.toggleCharacterTracker('slot', 0, 2), true);
+  assert.equal(c.game.slotsUsed[0], 3);
+  assert.equal(api.toggleCharacterTracker('slot', 0, 2), true);
+  assert.equal(c.game.slotsUsed[0], 2);
+  assert.equal(api.toggleCharacterTracker('resource', 'invalid', 0), false);
+
+  c.classes = [{ cls: 'fighter', lvl: 2, sub: 'champion' }];
+  c.game.hpCur = 1;
+  c.game.hdUsed = 0;
+  c.game.hdUsedByClass = { fighter: 0 };
+  api.setChar(c);
+  const result = api.spendCharacterHitDie('fighter', 10);
+  assert.equal(result.hitDie, 10);
+  assert.equal(result.healing >= 1, true);
+  assert.equal(c.game.hdUsedByClass.fighter, 1);
+  api.reduceCharacterHitDiceUsed();
+  assert.equal(c.game.hdUsedByClass.fighter, 0);
+  api.setCharacterFullHp();
+  assert.equal(c.game.hpCur, api.maxHp());
+});
+
+test('paladin resources track their correct rest recovery', () => {
+  const c = character();
+  c.classes = [{ cls: 'paladin', lvl: 3, sub: 'devotion' }];
+  api.setChar(c);
+  assert.match(api.renderGame(), /Божественный канал/);
+  assert.match(api.renderGame(), /Чувство божественного/);
+  assert.equal(api.toggleCharacterTracker('resource', 'paladinChannel', 0), true);
+  assert.equal(api.toggleCharacterTracker('resource', 'divineSense', 0), true);
+  assert.equal(c.game.resources.paladinChannel, 1);
+  assert.equal(c.game.resources.divineSense, 1);
+  api.shortRestCharacter();
+  assert.equal(c.game.resources.paladinChannel, 0);
+  assert.equal(c.game.resources.divineSense, 1);
+  api.longRestCharacter();
+  assert.equal(c.game.resources.divineSense, undefined);
+});
+
 test('short rest preserves ordinary spell slots and restores pact slots', () => {
   const c = character();
   c.classes = [{ cls: 'wizard', lvl: 5, sub: 'evocation' }];
@@ -808,6 +1443,27 @@ test('backup libraries require unique character ids', () => {
   assert.equal(api.hasUniqueCharacterIds([{}, {}]), true);
 });
 
+test('schema migrations assign legacy spent hit dice to class levels and upgrade to v5', () => {
+  const legacy = character();
+  legacy.schemaVersion = 4;
+  legacy.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];
+  legacy.game.hdUsed = 2;
+  delete legacy.game.hdUsedByClass;
+  const migrated = api.migrate(legacy);
+  assert.equal(migrated.schemaVersion, 5);
+  assert.deepEqual({ ...migrated.game.hdUsedByClass }, { fighter: 1, wizard: 1 });
+
+  legacy.schemaVersion = 3;
+  legacy.game.hdUsed = 1;
+  for(const version of [1, 2]){
+    legacy.schemaVersion = version;
+    legacy.game.hdUsed = 1;
+    const older = api.migrate(legacy);
+    assert.equal(older.schemaVersion, 5);
+    assert.deepEqual({ ...older.game.hdUsedByClass }, { fighter: 1 });
+  }
+});
+
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {
   const c = character();
   assert.equal(api.validCharacter(c), true);
@@ -846,7 +1502,7 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(legacy.race, 'human');
   assert.equal(legacy.bg, 'soldier');
   assert.equal(legacy.abilityMethod, 'standard');
-  assert.equal(legacy.schemaVersion, 4);
+  assert.equal(legacy.schemaVersion, 5);
   assert.equal(Object.hasOwn(legacy, 'injected'), false);
   assert.ok(Array.isArray(legacy.extraLangs));
   assert.ok(legacy.racialSpells && typeof legacy.racialSpells === 'object');
@@ -1222,10 +1878,15 @@ test('readiness checklist reports missing race, language, skill, and class choic
   assert.match(html, /не блокируют сохранение и печать/);
 });
 
-test('content source audit reports untagged records without inventing sources', () => {
+test('content source audit separates spell translation from rules attribution', () => {
   const report = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'audit-content-sources.cjs')], { encoding: 'utf8' });
   assert.match(report, /SPELLS\s+319\s+Source not recorded/);
-  assert.match(report, /без источника на записи: 355/);
+  assert.match(report, /Перевод SPELLS\s+374\s+5e14\.ttg\.club/);
+  assert.match(report, /без источника правил\/контента на записи: 355/);
+  assert.ok(api.SPELLS.every(spell => spell.translationSource === '5e14.ttg.club'));
+  assert.equal(api.SPELLS.find(spell => spell.src === 'PHB').src, 'PHB');
+  api.openSpellModal(api.SPELLS[0].id);
+  assert.match(dom.modal.innerHTML, /Источник русского перевода: 5e14\.ttg\.club/);
 });
 
 test('Deft Explorer grants expertise to a selected proficient skill', () => {
@@ -1273,7 +1934,7 @@ test('Primal Awareness grants additional spells by ranger level without using th
   api.setChar(c);
   const spellUi = api.renderSpells();
   assert.match(spellUi, /Известные заклинания — 0\/4/);
-  assert.match(spellUi, /type="checkbox" checked disabled onchange="toggleSpell\('spellsKnown','ranger',4,'speak_with_animals',this.checked\)"/);
+  assert.match(spellUi, /type="checkbox" checked disabled onchange="toggleSpell\('spellsKnown','ranger','speak_with_animals',this.checked\)"/);
   assert.doesNotMatch(spellUi, /описание отсутствует в библиотеке/);
 
   c.classes = [{ cls: 'ranger', lvl: 17, sub: 'hunter' }];
@@ -1318,6 +1979,42 @@ test('clearing Deft Explorer mode removes only its extra language and tool choic
   assert.equal(api.languageChoiceCount(), 1);
   assert.equal(c.extraLangs.length, 1);
   api.setRenderFn(oldRender);
+});
+
+test('class feature and proficiency choices are handled by the state layer', () => {
+  const c = character();
+  c.classes = [{ cls: 'ranger', lvl: 3, sub: 'hunter' }];
+  c.classSkills.ranger = ['survival'];
+  api.setChar(c);
+  assert.equal(api.setCharacterChoice('favoredEnemy', 'Драконы'), true);
+  assert.equal(api.setCharacterChoice('favoredEnemy', 'invalid'), false);
+  assert.equal(api.setCharacterHunterChoice(3, 'colossus'), true);
+  assert.equal(api.setCharacterHunterChoice(3, 'invalid'), false);
+  assert.equal(api.toggleCharacterTashaFeature('ranger', 'deft_explorer', true), true);
+  assert.equal(api.setCharacterDeftExplorerSkill('survival'), true);
+  assert.equal(api.setCharacterDeftExplorerMode('language_tool'), true);
+  assert.equal(api.setCharacterDeftExplorerTool(api.TOOL_PROFICIENCIES[0]), true);
+  assert.equal(api.toggleCharacterTashaFeature('ranger', 'deft_explorer', false), true);
+  assert.equal(c.choices.deftExplorerMode, undefined);
+  assert.equal(c.choices.deftExplorerTool, undefined);
+
+  c.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }];
+  api.setChar(c);
+  assert.equal(api.setCharacterFightingStyle('fighter', 'dueling'), '');
+  assert.equal(api.setCharacterFightingStyle('fighter', 'invalid'), false);
+
+  c.classes = [{ cls: 'warlock', lvl: 2, sub: 'fiend' }];
+  api.setChar(c);
+  assert.equal(api.toggleCharacterInvocation('armor', true), '');
+  assert.equal(api.toggleCharacterInvocation('beast', true), '');
+  assert.match(api.toggleCharacterInvocation('beguiling', true), /Максимум/);
+  assert.equal(api.toggleCharacterInvocation('invalid', true).includes('Недоступное'), true);
+
+  c.classes = [{ cls: 'sorcerer', lvl: 3, sub: 'wildsorc' }];
+  api.setChar(c);
+  assert.equal(api.toggleCharacterMetamagic('careful', true), '');
+  assert.equal(api.toggleCharacterMetamagic('distant', true), '');
+  assert.match(api.toggleCharacterMetamagic('empowered', true), /Максимум/);
 });
 
 test('Tasha Canny language and tool alternatives count toward readiness and character sheets', () => {
