@@ -1566,6 +1566,13 @@ test('library load diagnostics identify the failing field without replacing stor
   assert.match(api.storageDiagnostic,/списке «spellsKnown»/);
   assert.equal(storageData.get(key),spellRaw);
   storageData.delete(key);api.setLibrary([]);assert.equal(api.saveLib(true),true);storageData.delete(key);
+
+  const ranger=api.newChar();ranger.classes=[{cls:'ranger',lvl:2,sub:'hunter'}];ranger.spellsKnown={ranger:api.SPELLS.filter(spell=>spell.lvl===1&&spell.cls.includes('ranger')).slice(0,2).map(spell=>spell.id)};
+  const rangerRaw=JSON.stringify([ranger]);storageData.set(key,rangerRaw);api.loadLib();
+  assert.equal(api.storageCorrupt,false);
+  assert.equal(api.library.length,1);
+  api.setChar(api.library[0]);assert.equal(api.knownLimit('ranger'),2);
+  storageData.delete(key);api.setLibrary([]);assert.equal(api.saveLib(true),true);storageData.delete(key);
 });
 
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {
@@ -2149,6 +2156,14 @@ test('Deft Explorer grants expertise to a selected proficient skill', () => {
   assert.match(api.renderClass(), /Навык для компетентности/);
   assert.match(api.renderClass(), /value="survival" selected/);
   assert.match(api.renderSkills(), /Искусный исследователь/);
+});
+
+test('Ranger spells-known progression follows the 2014 class table', () => {
+  const c=character(),expected=[0,2,3,3,4,4,5,6,6,7,8,8,9,10,10,11,11,11,12,13];
+  for(const [index,count] of expected.entries()){
+    c.classes=[{cls:'ranger',lvl:index+1,sub:'hunter'}];api.setChar(c);
+    assert.equal(api.knownLimit('ranger'),count,`ranger level ${index+1}`);
+  }
 });
 
 test('Primal Awareness grants additional spells by ranger level without using the known-spell limit', () => {
