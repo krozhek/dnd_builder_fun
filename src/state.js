@@ -229,7 +229,7 @@ function setCharacterAsiFeat(index,id){
 }
 function setCharacterAsiFeatBonus(index,ability){
   const feat=C.asi['asi'+index],definition=FEATS.find(([id])=>id===feat?.id);
-  if(!definition?.[3]?.includes(ability))return false;feat.bonus=ability;return true;
+  if(!feat||!definition?.[3]||ability&&!definition[3].includes(ability))return false;feat.bonus=ability;return true;
 }
 function setCharacterAsiValues(index,values){
   if(!Number.isInteger(index)||index<0||!Array.isArray(values)||values.length>2||values.some(id=>!ABILS.some(([ability])=>ability===id)))return false;

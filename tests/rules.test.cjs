@@ -1018,6 +1018,8 @@ test('ability, feat, and proficiency choices are mutated through the state layer
   assert.equal(api.setCharacterAsiFeat(0, 'resilient'), true);
   assert.equal(api.setCharacterAsiFeatBonus(0, 'wis'), true);
   assert.equal(c.asi.asi0.bonus, 'wis');
+  assert.equal(api.setCharacterAsiFeatBonus(0, ''), true);
+  assert.equal(c.asi.asi0.bonus, '');
   assert.equal(api.setCharacterAsiFeatBonus(0, 'invalid'), false);
 
   assert.equal(api.toggleCharacterRaceSkill('arcana', true), '');
