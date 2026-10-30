@@ -2219,6 +2219,20 @@ test('class feature and proficiency choices are handled by the state layer', () 
   assert.match(api.toggleCharacterMetamagic('empowered', true), /Максимум/);
 });
 
+test('Deft Explorer can be selected and its skill choice saved', () => {
+  const c=character();c.classes=[{cls:'ranger',lvl:1,sub:'hunter'}];c.classSkills.ranger=['survival'];
+  api.setLibrary([JSON.parse(JSON.stringify(c))]);api.setChar(c);
+  const oldRender=api.renderFn;api.setRenderFn(()=>{});alerts.length=0;
+  assert.equal(api.toggleCharacterTashaFeature('ranger','deft_explorer',true),true);
+  assert.equal(c.choices.deftExplorerMode,undefined);
+  assert.notEqual(api.persist(),false);
+  assert.equal(api.setCharacterDeftExplorerSkill('survival'),true);
+  assert.notEqual(api.persist(),false);
+  assert.equal(api.character.choices.deftExplorerSkill,'survival');
+  assert.equal(alerts.some(message=>message.includes('Некорректное изменение отменено')),false);
+  api.setRenderFn(oldRender);api.setLibrary([]);
+});
+
 test('Tasha Canny language and tool alternatives count toward readiness and character sheets', () => {
   const c = character();
   c.classes = [{ cls: 'ranger', lvl: 1, sub: 'hunter' }];

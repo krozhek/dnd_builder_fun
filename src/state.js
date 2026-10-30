@@ -413,7 +413,7 @@ function toggleCharacterTashaFeature(cls,id,on){
   C.choices.tashaFeatures=C.choices.tashaFeatures||{};
   const selected=new Set(C.choices.tashaFeatures[cls]||[]);if(on)selected.add(id);else selected.delete(id);C.choices.tashaFeatures[cls]=[...selected];
   if(cls==='ranger'&&id==='deft_explorer'){
-    if(on)C.choices.deftExplorerMode='';
+    if(on)delete C.choices.deftExplorerMode;
     else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool}
   }
   if(cls==='ranger')pruneExtraLanguages();
