@@ -1492,7 +1492,7 @@ function newChar(){
   };
 }
 
-let STORAGE_WARNING_SHOWN=false, STORAGE_CORRUPT=false;
+let STORAGE_WARNING_SHOWN=false, STORAGE_CORRUPT=false, STORAGE_DIAGNOSTIC='';
 function readStorage(key){try{return {value:localStorage.getItem(key)}}catch(error){console.error(`Не удалось прочитать ${key}`,error);return {error}}}
 function writeStorage(key,value){try{localStorage.setItem(key,value);return true}catch(error){console.error(`Не удалось записать ${key}`,error);return false}}
 const storedTheme=readStorage(LS_THEME).value, storedSheet=readStorage(LS_SHEET).value;
@@ -1500,28 +1500,32 @@ let LIB=[], C=null, TAB='home', THEME=storedTheme==='light'?'light':'dark', SHEE
 function hasUniqueCharacterIds(characters){const ids=characters.map(c=>c?.id).filter(Boolean);return new Set(ids).size===ids.length}
 function loadLib(){
   const {value,error}=readStorage(LS_KEY);
-  if(error){LIB=[];STORAGE_CORRUPT=true;warnStorage();return}
+  if(error){LIB=[];STORAGE_CORRUPT=true;STORAGE_DIAGNOSTIC='Chrome не разрешил прочитать localStorage.';warnStorage();return}
   if(value==null){LIB=[];return}
   try{
     const saved=JSON.parse(value);
-    if(!Array.isArray(saved)||!saved.every(character=>isRecord(character)&&Array.isArray(character.classes)&&character.classes.length&&(character.schemaVersion==null||Number.isInteger(character.schemaVersion)&&character.schemaVersion>=1&&character.schemaVersion<=CHARACTER_SCHEMA)&&!hasUnsafeKeys(character)))throw new Error('Некорректная библиотека персонажей');
-    const migrated=saved.map(migrate);
-    if(!migrated.every(character=>validCharacter(character,false))||!hasUniqueCharacterIds(migrated))throw new Error('Некорректная библиотека персонажей');
+    if(!Array.isArray(saved))throw new Error('В хранилище записан не список персонажей.');
+    const invalidShape=saved.findIndex(character=>!isRecord(character)||!Array.isArray(character.classes)||!character.classes.length||!(character.schemaVersion==null||Number.isInteger(character.schemaVersion)&&character.schemaVersion>=1&&character.schemaVersion<=CHARACTER_SCHEMA)||hasUnsafeKeys(character));
+    if(invalidShape>=0)throw new Error(`Некорректная структура или версия у записи №${invalidShape+1}.`);
+    const migrated=saved.map(migrate),invalid=migrated.findIndex(character=>!validCharacter(character,false));
+    if(invalid>=0)throw new Error(`Запись №${invalid+1} не прошла проверку после миграции.`);
+    if(!hasUniqueCharacterIds(migrated))throw new Error('У нескольких записей совпадают идентификаторы.');
     LIB=migrated;
-  }catch(error){LIB=[];STORAGE_CORRUPT=true;console.error('Не удалось восстановить библиотеку персонажей',error);warnStorage()}
+  }catch(error){LIB=[];STORAGE_CORRUPT=true;STORAGE_DIAGNOSTIC=error.message||'Неизвестная ошибка проверки библиотеки.';console.error('Не удалось восстановить библиотеку персонажей',error);warnStorage()}
 }
 function warnStorage(){
   if(STORAGE_WARNING_SHOWN)return;
   STORAGE_WARNING_SHOWN=true;
-  alert(STORAGE_CORRUPT
-    ?'Библиотека персонажей повреждена или недоступна. Исходные данные оставлены без изменений; новые изменения не сохраняются. Восстановите библиотеку из резервной копии.'
-    :'Не удалось сохранить данные персонажей в браузере. Скачайте резервную копию и проверьте свободное место в хранилище.');
+  const message=STORAGE_CORRUPT
+    ?'Библиотека персонажей повреждена или недоступна. Исходные данные оставлены без изменений; новые изменения не сохраняются. Восстановите библиотеку из резервной копии.'+(STORAGE_DIAGNOSTIC?`\n\nДиагностика: ${STORAGE_DIAGNOSTIC}`:'')
+    :'Не удалось сохранить данные персонажей в браузере. Скачайте резервную копию и проверьте свободное место в хранилище.';
+  alert(message);
 }
 function saveLib(replaceCorrupt=false){
   if(STORAGE_CORRUPT&&!replaceCorrupt){warnStorage();return false}
   if(!Array.isArray(LIB)||!hasUniqueCharacterIds(LIB)||!LIB.every(c=>validCharacter(c,false)))return false;
   if(!writeStorage(LS_KEY,JSON.stringify(LIB))){if(replaceCorrupt)STORAGE_WARNING_SHOWN=false;warnStorage();return false}
-  STORAGE_CORRUPT=false;STORAGE_WARNING_SHOWN=false;return true;
+  STORAGE_CORRUPT=false;STORAGE_DIAGNOSTIC='';STORAGE_WARNING_SHOWN=false;return true;
 }
 function persist(){
   if(!C)return;

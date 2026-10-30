@@ -33,7 +33,7 @@ const context = vm.createContext({
 vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, migrate, calculateMaxHp, calculateMovementSpeed, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, speedText, rovingActive, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
-  get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, hasUniqueCharacterIds,
+  get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, get storageDiagnostic() { return STORAGE_DIAGNOSTIC; }, hasUniqueCharacterIds,
   expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES, raceSizeOptions, raceToolChoiceGroup, featPrerequisiteError, classResources,
   primalAwarenessSpells, knownLimit,
   setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
@@ -1682,6 +1682,7 @@ test('corrupt local libraries remain untouched until explicit backup replacement
     api.loadLib();
     assert.equal(api.library.length, 0);
     assert.equal(api.storageCorrupt, true);
+    if (raw.includes('Broken')) assert.match(api.storageDiagnostic,/записи №1/);
     assert.equal(api.saveLib(), false);
     assert.equal(storageData.get(key), raw);
     api.setLibrary([api.newChar()]);
@@ -1697,6 +1698,7 @@ test('localStorage access failures are caught without throwing or overwriting da
   storageReadError = true;
   api.loadLib();
   assert.equal(api.storageCorrupt, true);
+  assert.match(api.storageDiagnostic,/Chrome не разрешил прочитать/);
   storageReadError = false;
   api.setLibrary([api.newChar()]);
   storageWriteError = true;
