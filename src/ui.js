@@ -12,6 +12,8 @@ function render(){
   const app=$('#app');
   if(!app.dataset.characterActions){
     app.addEventListener('click',event=>{
+      const picker=event.target.closest('[data-picker-select]');
+      if(picker){chooseFilteredOption(picker.dataset.pickerSelect,picker.dataset.pickerValue);return}
       const button=event.target.closest('[data-character-action]');if(!button)return;
       const {characterAction:action,characterId:id}=button.dataset;
       if(action==='open')openChar(id);else if(action==='duplicate')dupChar(id);else if(action==='delete')delChar(id);
@@ -173,10 +175,17 @@ function classToolChoiceFields(c,index){
 function setBackgroundToolChoices(index,select){if(setCharacterBackgroundTool(index,select.value)){persist();render()}}
 function setRaceTool(value){if(setCharacterRaceTool(value)){persist();render()}}
 function setClassToolChoices(cls,select){if(setCharacterClassTools(cls,[...select.selectedOptions].map(option=>option.value))){persist();render()}}
-function filterSelectOptions(select,query){
+function filterSelectOptions(select,query,results){
   if(!select)return;
-  const q=String(query||'').trim().toLocaleLowerCase('ru');
-  for(const option of select.options)option.hidden=!!q&&option.value!==''&&!option.selected&&!option.textContent.toLocaleLowerCase('ru').includes(q);
+  const q=String(query||'').trim().toLocaleLowerCase('ru'),matches=[...select.options].filter(option=>option.value&&option.textContent.toLocaleLowerCase('ru').includes(q));
+  for(const option of select.options)option.hidden=!!q&&option.value!==''&&!option.selected&&!matches.includes(option);
+  if(!results)return;
+  results.hidden=!q;
+  results.innerHTML=!q?'':matches.length?`<div class="picker-result-count">Найдено: ${matches.length}</div>${matches.map(option=>`<button type="button" class="picker-result" data-picker-select="${select.id}" data-picker-value="${esc(option.value)}">${esc(option.textContent)}</button>`).join('')}`:'<div class="picker-empty">Ничего не найдено</div>';
+}
+function chooseFilteredOption(selectId,value){
+  const select=document.getElementById(selectId);if(!select)return;
+  select.value=value;select.dispatchEvent(new Event('change',{bubbles:true}));
 }
 function renderMain(){
   const r=raceOf(), s=subraceOf();
@@ -202,7 +211,7 @@ function renderMain(){
         <h3>Личность</h3>
         <label>Имя персонажа<input maxlength="100" value="${esc(C.name)}" oninput="setText('name',this.value);updTabChar()"></label>
         <div class="grid two">
-          <div><label>Поиск расы<input type="search" aria-label="Поиск расы" placeholder="Название или источник" oninput="filterSelectOptions(document.getElementById('raceSelect'),this.value)"></label><label>Раса<select id="raceSelect" onchange="changeRace(this.value)">${raceOpts}</select></label></div>
+          <div><label>Поиск расы<input type="search" aria-label="Поиск расы" aria-controls="raceSearchResults" placeholder="Название или источник" oninput="filterSelectOptions(document.getElementById('raceSelect'),this.value,document.getElementById('raceSearchResults'))"></label><div id="raceSearchResults" class="picker-results" role="listbox" hidden></div><label>Раса<select id="raceSelect" onchange="changeRace(this.value)">${raceOpts}</select></label></div>
           ${subOpts||'<span></span>'}
         </div>
         ${C.race==='dragonborn'?`<label>Прародитель-дракон<select onchange="setField('dragonColor',this.value);render()">${DRAGONS.map((d,i)=>`<option value="${['black','blue','brass','bronze','copper','gold','green','red','silver','white'][i]}"${C.dragonColor===['black','blue','brass','bronze','copper','gold','green','red','silver','white'][i]?' selected':''}>${d[0][0].toUpperCase()+d[0].slice(1)} (${d[1]}, ${d[2]})</option>`).join('')}</select>`:''}
@@ -374,7 +383,7 @@ function asiPicker(i){
     <label class="chk"><input type="radio" name="asit${i}" ${isFeat?'checked':''} onchange="setAsiType(${i},'feat')"> Черта (Котёл Таши)</label></div>
     ${!isFeat?`<div class="row gap wrap"><select multiple size="3" onchange="setAsi(${i},[...this.selectedOptions].map(o=>o.value))">${opts}</select>
     <span class="muted small">выберите одну (тогда +2) или две (+1 каждой)</span></div>`
-    :`<div class="feat-picker"><label>Поиск черты<input type="search" aria-label="Поиск черты" placeholder="Название черты" oninput="filterSelectOptions(document.getElementById('asiFeat${i}'),this.value)"></label><select id="asiFeat${i}" onchange="setAsiFeat(${i},this.value)"><option value="">— выберите черту —</option>${featOpts}</select>${bonusOpts}</div>
+    :`<div class="feat-picker"><label>Поиск черты<input type="search" aria-label="Поиск черты" aria-controls="asiFeatResults${i}" placeholder="Название черты" oninput="filterSelectOptions(document.getElementById('asiFeat${i}'),this.value,document.getElementById('asiFeatResults${i}'))"></label><div id="asiFeatResults${i}" class="picker-results" role="listbox" hidden></div><select id="asiFeat${i}" onchange="setAsiFeat(${i},this.value)"><option value="">— выберите черту —</option>${featOpts}</select>${bonusOpts}</div>
     ${featDef?`<p class="hint">${esc(featDef[2])}</p><p class="muted small">Автоматизация: ${esc(FEAT_AUTOMATION[cur.id]||'не рассчитывается; описание дано для справки.')}</p>`:''}`}</div>`;
 }
 function setAsiType(i,t){if(setCharacterAsiType(i,t)){persist();render()}}

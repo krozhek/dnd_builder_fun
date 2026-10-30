@@ -101,18 +101,21 @@ try {
   if (restoredSession.name !== 'Backup E2E' || restoredSession.tab !== 'main' || restoredSession.library !== 1 || restoredSession.language !== 'Эльфийский' || restoredSession.goal !== 'Найти родной дом' || restoredSession.age !== '120 лет' || !restoredSession.portrait) throw new Error('Character data and portrait did not survive page reload');
 
   const pickerFilters = await evaluate(`(()=>{
-    const savedCharacter=C,savedTab=TAB;
+    const savedCharacter=JSON.parse(JSON.stringify(C)),savedLibrary=JSON.parse(JSON.stringify(LIB)),savedTab=TAB,savedStorage=localStorage.getItem(LS_KEY);
     TAB='main';render();
     const raceQuery=document.querySelector('[aria-label="Поиск расы"]');raceQuery.value='АСТРАЛЬНЫЙ';raceQuery.dispatchEvent(new Event('input',{bubbles:true}));
-    const races=[...document.querySelector('#raceSelect').options].filter(option=>!option.hidden).map(option=>option.textContent);
+    const raceSelect=document.querySelector('#raceSelect'),races=[...raceSelect.options].filter(option=>!option.hidden).map(option=>option.textContent),raceResults=document.querySelector('#raceSearchResults'),racePanelText=raceResults.textContent,racePanelVisible=!raceResults.hidden;
+    document.querySelector('#raceSearchResults [data-picker-value="astralelf"]').click();
+    const pickedRace=C.race;
+    C=savedCharacter;LIB=savedLibrary;localStorage.setItem(LS_KEY,savedStorage);TAB='abil';render();
     const temporary=newChar();temporary.classes=[{cls:'fighter',lvl:4,sub:'champion'}];temporary.asi={asi0:{type:'feat',id:'alert',bonus:''}};
-    C=temporary;TAB='abil';render();
+    C=temporary;render();
     const featQuery=document.querySelector('[aria-label="Поиск черты"]');featQuery.value='Бдительный';featQuery.dispatchEvent(new Event('input',{bubbles:true}));
-    const feats=[...document.querySelector('#asiFeat0').options].filter(option=>!option.hidden).map(option=>option.value);
-    C=savedCharacter;TAB=savedTab;render();
-    return {races,feats};
+    const feats=[...document.querySelector('#asiFeat0').options].filter(option=>!option.hidden).map(option=>option.value),featResults=document.querySelector('#asiFeatResults0'),featPanelText=featResults.textContent;
+    C=savedCharacter;LIB=savedLibrary;TAB=savedTab;render();
+    return {races,feats,pickedRace,racePanelVisible,featPanelVisible:!featResults.hidden,featPanelText};
   })()`);
-  if (pickerFilters.races.length !== 2 || !pickerFilters.races.some(name => name.includes('Астральный эльф')) || !pickerFilters.feats.includes('alert') || !pickerFilters.feats.includes('')) throw new Error('Race or feat picker search did not filter its options correctly');
+  if (pickerFilters.races.length !== 2 || !pickerFilters.races.some(name => name.includes('Астральный эльф')) || pickerFilters.pickedRace !== 'astralelf' || !pickerFilters.feats.includes('alert') || !pickerFilters.feats.includes('') || !pickerFilters.racePanelVisible || !pickerFilters.featPanelVisible || !pickerFilters.featPanelText.includes('Бдительный')) throw new Error('Race or feat picker search did not show usable results');
 
   await evaluate(`(()=>{
     const create=URL.createObjectURL.bind(URL);

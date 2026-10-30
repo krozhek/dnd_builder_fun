@@ -1951,13 +1951,18 @@ test('race and feat pickers filter long native option lists while preserving the
     {value:'tiefling',textContent:'Тифлинг',selected:false,hidden:false},
     {value:'',textContent:'— выберите —',selected:false,hidden:false},
   ];
-  api.filterSelectOptions({options},'  АСТРАЛЬНЫЙ ');
+  const results={hidden:true,innerHTML:''};
+  api.filterSelectOptions({options,id:'raceSelect'},'  АСТРАЛЬНЫЙ ',results);
   assert.equal(options[0].hidden,false);
   assert.equal(options[1].hidden,false);
   assert.equal(options[2].hidden,true);
   assert.equal(options[3].hidden,false);
-  api.filterSelectOptions({options},'');
+  assert.equal(results.hidden,false);
+  assert.match(results.innerHTML,/Астральный эльф/);
+  assert.doesNotMatch(results.innerHTML,/Тифлинг/);
+  api.filterSelectOptions({options,id:'raceSelect'},'',results);
   assert.ok(options.every(option=>!option.hidden));
+  assert.equal(results.hidden,true);
 });
 
 test('AAG flexible ability increases apply +2/+1 or +1 to three abilities', () => {

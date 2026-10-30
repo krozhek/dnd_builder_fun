@@ -96,6 +96,11 @@ label.chk.wide{flex-basis:45%}
 .stepper b{font-size:1.2rem;min-width:26px}
 .asi-row{margin-bottom:8px}
 .feat-picker{flex:1 1 280px;min-width:0}
+.picker-results{max-height:220px;overflow:auto;margin:0 0 6px;border:1px solid var(--line2);border-radius:7px;background:var(--bg)}
+.picker-results[hidden]{display:none}
+.picker-result{display:block;width:100%;padding:6px 10px;text-align:left;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer}
+.picker-result:hover,.picker-result:focus{background:var(--btn-hov)}
+.picker-result-count,.picker-empty{padding:6px 10px;color:var(--muted);font-size:.82rem}
 .spell-lvl{margin:6px 0}
 .spell-lvl summary{cursor:pointer;font-weight:600;color:var(--accent);padding:4px 0}
 .spell-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:2px 14px;margin:6px 0}
