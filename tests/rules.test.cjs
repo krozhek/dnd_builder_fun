@@ -1560,6 +1560,12 @@ test('library load diagnostics identify the failing field without replacing stor
   assert.match(api.storageDiagnostic,/Запись №1: Некорректный дополнительный язык/);
   assert.equal(storageData.get(key),raw);
   storageData.delete(key);api.setLibrary([]);assert.equal(api.saveLib(true),true);storageData.delete(key);
+
+  const invalidSpell=api.newChar();invalidSpell.spellsKnown={wizard:['removed_spell']};
+  const spellRaw=JSON.stringify([invalidSpell]);storageData.set(key,spellRaw);api.loadLib();
+  assert.match(api.storageDiagnostic,/списке «spellsKnown»/);
+  assert.equal(storageData.get(key),spellRaw);
+  storageData.delete(key);api.setLibrary([]);assert.equal(api.saveLib(true),true);storageData.delete(key);
 });
 
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {

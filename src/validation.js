@@ -23,33 +23,35 @@ function validRacialSpellChoices(ch){
     return Array.isArray(choices[key])&&choices[key].includes(value);
   });
 }
-function validSpellSelections(ch,enforceRules=true){
-  const previous=C;C=ch;
+function validSpellSelections(ch,enforceRules=true,diagnostic=null){
+  const fail=reason=>{if(diagnostic)diagnostic.reason=reason;return false},previous=C;C=ch;
   try{
     const classes=new Map(ch.classes.map(c=>[c.cls,c]));
     for(const [field,kind] of [['cantrips','cantrip'],['spellsKnown','known'],['spellsPrepared','prepared']]){
       for(const [cls,ids] of Object.entries(ch[field]||{})){
-        const c=classes.get(cls);if(!c)return false;if(!ids.length)continue;
-        if(!spellTypeOf(c)||kind==='prepared'&&!['cleric','druid','paladin','wizard'].includes(cls)||kind==='known'&&!classKnownLimit(c))return false;
+        const c=classes.get(cls);if(!c)return fail(`В списке «${field}» указан отсутствующий класс «${cls}».`);if(!ids.length)continue;
+        if(!spellTypeOf(c)||kind==='prepared'&&!['cleric','druid','paladin','wizard'].includes(cls)||kind==='known'&&!classKnownLimit(c))return fail(`Класс «${cls}» не поддерживает список «${field}».`);
         const limit=kind==='cantrip'?cantripLimit(cls):kind==='known'?knownLimit(cls):prepLimit(cls);
         const free=kind==='known'&&cls==='ranger'&&selectedTashaFeatures(c).some(feature=>feature[0]==='primal_awareness')?new Set(primalAwarenessSpells().map(spell=>spell.id)):new Set();
-        if(enforceRules&&ids.filter(id=>!free.has(id)).length>limit)return false;
-        if(ids.some(id=>{
+        if(enforceRules&&ids.filter(id=>!free.has(id)).length>limit)return fail(`В списке «${field}» класса «${cls}» выбрано слишком много заклинаний.`);
+        const invalid=ids.find(id=>{
           const spell=SPELLS.find(s=>s.id===id);
           return !spell||!spellClassAllowed(c,id)||(kind==='cantrip'?spell.lvl!==0:spell.lvl<1||spell.lvl>classMaxSpellLevel(c))||(kind==='prepared'&&cls==='wizard'&&!(ch.spellbook||[]).includes(id));
-        }))return false;
-        if(kind==='known'&&!thirdCasterSpellSelectionsValid(c,ids))return false;
+        });
+        if(invalid)return fail(`Заклинание «${invalid}» в списке «${field}» недоступно классу «${cls}».`);
+        if(kind==='known'&&!thirdCasterSpellSelectionsValid(c,ids))return fail(`В списке «${field}» класса «${cls}» выбрано заклинание из недоступной школы.`);
       }
     }
     const wizard=classes.get('wizard');
-    if((ch.spellbook||[]).length&&wizard&&ch.spellbook.some(id=>{
-      const spell=SPELLS.find(s=>s.id===id);return !spell||spell.lvl<1||spell.lvl>classMaxSpellLevel(wizard)||!spellClassAllowed(wizard,id);
-    }))return false;
+    if((ch.spellbook||[]).length&&wizard){
+      const invalid=ch.spellbook.find(id=>{const spell=SPELLS.find(s=>s.id===id);return !spell||spell.lvl<1||spell.lvl>classMaxSpellLevel(wizard)||!spellClassAllowed(wizard,id)});
+      if(invalid)return fail(`Заклинание «${invalid}» в книге волшебника недоступно.`);
+    }
     for(const [level,id] of Object.entries(ch.arcanum||{})){
       const spell=SPELLS.find(s=>s.id===id),warlock=classes.get('warlock'),maxLevel=warlock?(warlock.lvl>=17?9:warlock.lvl>=15?8:warlock.lvl>=13?7:warlock.lvl>=11?6:0):0;
-      if(!warlock||!spell||+level!==spell.lvl||+level<6||+level>maxLevel||!spellClassAllowed(warlock,id))return false;
+      if(!warlock||!spell||+level!==spell.lvl||+level<6||+level>maxLevel||!spellClassAllowed(warlock,id))return fail(`Некорректный выбор заклинания мистического арканума «${id}».`);
     }
-    return validRacialSpellChoices(ch);
+    return validRacialSpellChoices(ch)||fail('Некорректный выбор расового заклинания.');
   }finally{C=previous}
 }
 function validRacialSpellChoices(ch){
@@ -214,7 +216,9 @@ function validCharacter(ch,enforceRules=true,diagnostic=null){
   for(const key of ['bases','asi','choices','classSkills','cantrips','spellsKnown','spellsPrepared','arcanum','racialSpells','equipChoice','game','personality','appearance'])if(!optionalRecord(ch[key]))return fail(`Некорректная структура поля «${key}».`);
   for(const key of ['raceSkills','halfElfPicks','raceAsiPicks','expertise','languages','attunement'])if(ch[key]!=null&&!stringArray(ch[key]))return fail(`Некорректный список «${key}».`);
   if(ch.extraLangs!=null&&(!stringArray(ch.extraLangs,true)||ch.extraLangs.length>LANGS.length||ch.extraLangs.some(value=>value&&(!LANGS.includes(value)||value.length>32))||!validExtraLanguages(ch)))return fail('Некорректный дополнительный язык.');
-  if(!stringArrayMap(ch.classSkills)||!validSpellArrayMap(ch.cantrips)||!validSpellArrayMap(ch.spellsKnown)||!validSpellArrayMap(ch.spellsPrepared)||!validSpellSelections(ch,enforceRules))return fail('Некорректный выбор навыка или заклинания.');
+  if(!stringArrayMap(ch.classSkills))return fail('Некорректный список навыков класса.');
+  for(const field of ['cantrips','spellsKnown','spellsPrepared'])if(ch[field]!=null&&!Object.values(ch[field]).every(validSpellArray))return fail(`Некорректный или повторяющийся ID в списке «${field}».`);
+  const spellDiagnostic={};if(!validSpellSelections(ch,enforceRules,spellDiagnostic))return fail(spellDiagnostic.reason||'Некорректный выбор заклинания.');
   if(ch.spellbook!=null&&!validSpellArray(ch.spellbook))return fail('Некорректный список заклинаний в книге.');
   if(ch.arcanum&&Object.values(ch.arcanum).some(id=>!SPELL_IDS.has(id)))return fail('Некорректный выбор мистического арканума.');
   if(ch.bases&&Object.values(ch.bases).some(values=>!isRecord(values)||Object.values(values).some(v=>!Number.isFinite(v))))return fail('Некорректные базовые характеристики.');
