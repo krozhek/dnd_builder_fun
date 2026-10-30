@@ -1553,6 +1553,15 @@ test('loadLib migrates legacy entries before validating their current schema', (
   storageData.delete(key);api.setLibrary([]);
 });
 
+test('library load diagnostics identify the failing field without replacing stored data', () => {
+  const key='dnd5e2014_chars_v1',legacy=api.newChar();legacy.extraLangs=['Клингонский'];
+  const raw=JSON.stringify([legacy]);storageData.set(key,raw);api.loadLib();
+  assert.equal(api.storageCorrupt,true);
+  assert.match(api.storageDiagnostic,/Запись №1: Некорректный дополнительный язык/);
+  assert.equal(storageData.get(key),raw);
+  storageData.delete(key);api.setLibrary([]);assert.equal(api.saveLib(true),true);storageData.delete(key);
+});
+
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {
   const c = character();
   assert.equal(api.validCharacter(c), true);

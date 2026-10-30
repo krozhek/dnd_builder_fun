@@ -37,8 +37,9 @@ function loadLib(){
     if(!Array.isArray(saved))throw new Error('В хранилище записан не список персонажей.');
     const invalidShape=saved.findIndex(character=>!isRecord(character)||!Array.isArray(character.classes)||!character.classes.length||!(character.schemaVersion==null||Number.isInteger(character.schemaVersion)&&character.schemaVersion>=1&&character.schemaVersion<=CHARACTER_SCHEMA)||hasUnsafeKeys(character));
     if(invalidShape>=0)throw new Error(`Некорректная структура или версия у записи №${invalidShape+1}.`);
-    const migrated=saved.map(migrate),invalid=migrated.findIndex(character=>!validCharacter(character,false));
-    if(invalid>=0)throw new Error(`Запись №${invalid+1} не прошла проверку после миграции.`);
+    const migrated=saved.map(migrate);let invalid=-1,reason='';
+    for(let index=0;index<migrated.length;index++){const diagnostic={};if(!validCharacter(migrated[index],false,diagnostic)){invalid=index;reason=diagnostic.reason;break}}
+    if(invalid>=0)throw new Error(`Запись №${invalid+1}: ${reason||'не прошла проверку после миграции.'}`);
     if(!hasUniqueCharacterIds(migrated))throw new Error('У нескольких записей совпадают идентификаторы.');
     LIB=migrated;
   }catch(error){LIB=[];STORAGE_CORRUPT=true;STORAGE_DIAGNOSTIC=error.message||'Неизвестная ошибка проверки библиотеки.';console.error('Не удалось восстановить библиотеку персонажей',error);warnStorage()}
