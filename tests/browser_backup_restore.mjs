@@ -100,6 +100,20 @@ try {
   const restoredSession = await evaluate(`(()=>({name:C?.name,id:C?.id,tab:TAB,library:LIB.length,language:C?.extraLangs?.[0],goal:C?.goals,age:C?.appearance?.age,portrait:C?.portrait?.startsWith('data:image/jpeg;base64,')}))()`);
   if (restoredSession.name !== 'Backup E2E' || restoredSession.tab !== 'main' || restoredSession.library !== 1 || restoredSession.language !== 'Эльфийский' || restoredSession.goal !== 'Найти родной дом' || restoredSession.age !== '120 лет' || !restoredSession.portrait) throw new Error('Character data and portrait did not survive page reload');
 
+  const pickerFilters = await evaluate(`(()=>{
+    const savedCharacter=C,savedTab=TAB;
+    TAB='main';render();
+    const raceQuery=document.querySelector('[aria-label="Поиск расы"]');raceQuery.value='АСТРАЛЬНЫЙ';raceQuery.dispatchEvent(new Event('input',{bubbles:true}));
+    const races=[...document.querySelector('#raceSelect').options].filter(option=>!option.hidden).map(option=>option.textContent);
+    const temporary=newChar();temporary.classes=[{cls:'fighter',lvl:4,sub:'champion'}];temporary.asi={asi0:{type:'feat',id:'alert',bonus:''}};
+    C=temporary;TAB='abil';render();
+    const featQuery=document.querySelector('[aria-label="Поиск черты"]');featQuery.value='Бдительный';featQuery.dispatchEvent(new Event('input',{bubbles:true}));
+    const feats=[...document.querySelector('#asiFeat0').options].filter(option=>!option.hidden).map(option=>option.value);
+    C=savedCharacter;TAB=savedTab;render();
+    return {races,feats};
+  })()`);
+  if (pickerFilters.races.length !== 2 || !pickerFilters.races.some(name => name.includes('Астральный эльф')) || !pickerFilters.feats.includes('alert') || !pickerFilters.feats.includes('')) throw new Error('Race or feat picker search did not filter its options correctly');
+
   await evaluate(`(()=>{
     const create=URL.createObjectURL.bind(URL);
     URL.createObjectURL=blob=>{window.__backupBlob=blob;return create(blob)};

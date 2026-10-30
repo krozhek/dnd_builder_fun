@@ -95,6 +95,7 @@ label.chk.wide{flex-basis:45%}
 .stepper{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0}
 .stepper b{font-size:1.2rem;min-width:26px}
 .asi-row{margin-bottom:8px}
+.feat-picker{flex:1 1 280px;min-width:0}
 .spell-lvl{margin:6px 0}
 .spell-lvl summary{cursor:pointer;font-weight:600;color:var(--accent);padding:4px 0}
 .spell-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:2px 14px;margin:6px 0}

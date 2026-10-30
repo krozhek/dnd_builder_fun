@@ -42,7 +42,7 @@ globalThis.api = {
   setCharacterRace, setCharacterBackground, setCharacterSubclass, setCharacterRaceTool, setCharacterBackgroundTool, setCharacterClassTools, setCharacterExtraLanguage, setCharacterChoice, setCharacterHunterChoice, setCharacterFightingStyle, toggleCharacterInvocation, toggleCharacterMetamagic, toggleCharacterTashaFeature, setCharacterDeftExplorerSkill, setCharacterDeftExplorerMode, setCharacterDeftExplorerTool,
   setCharacterField, setCharacterAppearance, setCharacterPortrait, setCharacterPersonality, addCharacterPersonality,
   setCharacterGameField, changeCharacterHp, setCharacterFullHp, setCharacterDeathSaves, toggleCharacterTracker, reduceCharacterHitDiceUsed, spendCharacterHitDie, shortRestCharacter, longRestCharacter,
-  setSpellQuery, setSpellFilter,
+  setSpellQuery, setSpellFilter, filterSelectOptions,
   spellPicker, renderWizardSpells, toggleSpell, spellNameClick, openSpellModal, SPELLS,
   renderSpells, racialCantripChoices, racialSpellEntries,
   renderMain, renderHome, renderEquip, renderGame, setLib: value => { LIB = value; }, renderAbil, renderClass, renderSheet, domainSpellsOf,
@@ -1937,10 +1937,27 @@ test('AAG species and backgrounds carry source tags in the builder', () => {
   api.setChar(c);
   const html = api.renderMain();
   assert.match(html, /Астральный эльф \(AAG\)/);
+  assert.match(html, /aria-label="Поиск расы"/);
   assert.match(html, /Астральный скиталец \(AAG\)/);
   assert.match(api.renderAbil(), /Бонусы характеристик \(AAG\)/);
   assert.equal(Object.values(api.RACES).filter(r => r.src === 'AAG').length, 6);
   assert.equal(Object.values(api.BACKGROUNDS).filter(b => b.src === 'AAG').length, 2);
+});
+
+test('race and feat pickers filter long native option lists while preserving the selection and placeholder', () => {
+  const options=[
+    {value:'human',textContent:'Человек',selected:true,hidden:false},
+    {value:'astralelf',textContent:'Астральный эльф (AAG)',selected:false,hidden:false},
+    {value:'tiefling',textContent:'Тифлинг',selected:false,hidden:false},
+    {value:'',textContent:'— выберите —',selected:false,hidden:false},
+  ];
+  api.filterSelectOptions({options},'  АСТРАЛЬНЫЙ ');
+  assert.equal(options[0].hidden,false);
+  assert.equal(options[1].hidden,false);
+  assert.equal(options[2].hidden,true);
+  assert.equal(options[3].hidden,false);
+  api.filterSelectOptions({options},'');
+  assert.ok(options.every(option=>!option.hidden));
 });
 
 test('AAG flexible ability increases apply +2/+1 or +1 to three abilities', () => {
