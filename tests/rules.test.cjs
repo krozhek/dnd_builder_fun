@@ -34,12 +34,12 @@ vm.runInContext(`${script.slice(0, initAt)}
 globalThis.api = {
   newChar, migrate, calculateMaxHp, calculateMovementSpeed, totalLvl, pb, am, abil, maxHp, skillMod, saveMods, passivePerception, passiveInvestigation, stepPoint, pointBuySpent, spellSlots, armorClass, speed, speedText, rovingActive, initiative, weaponProf, weaponAttack, weaponDamage, armorProficiencies, armorProficient, armorProficiencyText, weaponProficiencyText, classArmorProficiencyText, classWeaponProficiencies, classToolProficiencyText, WEAPONS, ARMORS, toggleWieldWeapon, setWeaponGrip, hasFightingStyle, setFightingStyle, validCharacter, loadLib, saveLib,
   get library() { return LIB; }, setLibrary(value) { LIB = value; }, get storageCorrupt() { return STORAGE_CORRUPT; }, hasUniqueCharacterIds,
-  expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES,
+  expertiseAvailable, expertiseSkills, deftExplorerSkill, renderSkills, toolProficiencies, TOOL_PROFICIENCIES, raceSizeOptions, raceToolChoiceGroup, featPrerequisiteError, classResources,
   primalAwarenessSpells, knownLimit,
   setCharacterSpellSelection, setCharacterSpellbook, setCharacterRacialSpell, setCharacterRacialSpellAbility, setCharacterArcanum,
   setCharacterAbilityMethod, setCharacterStandardAbility, stepCharacterPointAbility, setCharacterManualAbility, setCharacterRaceAsiMode, setCharacterRaceAsi, toggleCharacterHalfElfAbility, setCharacterAsiType, setCharacterAsiFeat, setCharacterAsiFeatBonus, setCharacterAsiValues, resetCharacterSkillChoices, toggleCharacterRaceSkill, toggleCharacterClassSkill, toggleCharacterExpertise,
   setCharacterEquipmentMode, setCharacterEquipmentChoice, setCharacterGold, setCharacterAttunement, priceToGold, addCharacterItem, buyCharacterItem, sellCharacterItem, removeCharacterItem, toggleCharacterEquipItem, toggleCharacterWieldWeapon, setCharacterWeaponGrip, applyCharacterStartingKit,
-  setCharacterRace, setCharacterBackground, setCharacterBackgroundTool, setCharacterClassTools, setCharacterExtraLanguage, setCharacterChoice, setCharacterHunterChoice, setCharacterFightingStyle, toggleCharacterInvocation, toggleCharacterMetamagic, toggleCharacterTashaFeature, setCharacterDeftExplorerSkill, setCharacterDeftExplorerMode, setCharacterDeftExplorerTool,
+  setCharacterRace, setCharacterBackground, setCharacterSubclass, setCharacterRaceTool, setCharacterBackgroundTool, setCharacterClassTools, setCharacterExtraLanguage, setCharacterChoice, setCharacterHunterChoice, setCharacterFightingStyle, toggleCharacterInvocation, toggleCharacterMetamagic, toggleCharacterTashaFeature, setCharacterDeftExplorerSkill, setCharacterDeftExplorerMode, setCharacterDeftExplorerTool,
   setCharacterField, setCharacterAppearance, setCharacterPortrait, setCharacterPersonality, addCharacterPersonality,
   setCharacterGameField, changeCharacterHp, setCharacterFullHp, setCharacterDeathSaves, toggleCharacterTracker, reduceCharacterHitDiceUsed, spendCharacterHitDie, shortRestCharacter, longRestCharacter,
   setSpellQuery, setSpellFilter,
@@ -50,8 +50,8 @@ globalThis.api = {
   attacksHtml,
   shortRest, longRest, spendHd, drawGameTrackers, syncHitDice, hitDiceUsedByClass,
   renderSheet2024,
-  foundryActorData, foundrySpellItem,
-  RACES, BACKGROUNDS, racialAsi, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError,
+  foundryActorData, foundrySpellItem, longStoryShortExport,
+  RACES, SUBCLASSES, CLASSES, CONTENT_2014, BACKGROUNDS, racialAsi, raceAsiChoice, raceFlexibleAsi, raceSkillChoiceCount, raceSkillChoiceOptions, raceFixedSkillProfs, raceSkills, raceKnownLanguages, raceExtraLanguageOptions, validRacialAbilityChoices, TASHA_FEATURES, availableFeats, characterReadiness, languageChoiceCount, classSkillChoiceCount, multiclassRequirementError, rollGold, rollCheck, setLog: fn => { logRoll = fn; },
   addClass, changeClass, changeLvl, changeSub, removeClass, changeRace, setDeftExplorerMode, alerts, get renderFn() { return render; }, setRenderFn(fn) { render = fn; },
   setChar: value => { C = value; },
   get character() { return C; },
@@ -67,8 +67,27 @@ function character() {
   return c;
 }
 
+function readyCharacter() {
+  const c=character();
+  c.classes=[{cls:'fighter',lvl:1,sub:'champion'}];
+  c.classSkills={fighter:['history','perception']};
+  c.extraLangs=['Эльфийский'];
+  c.choices.backgroundTools=['Игровой набор (кости)'];
+  c.choices.fightingStyles={fighter:'defense'};
+  api.setChar(c);
+  return c;
+}
+
 test('offline HTML is generated from the modular source files', () => {
   execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'build.cjs'), '--check']);
+});
+
+test('official spell catalog entries carry source and translation attribution', () => {
+  assert.equal(api.SPELLS.length, 512);
+  assert.ok(api.SPELLS.every(spell => spell.src && spell.translationSource === '5e14.ttg.club'));
+  assert.equal(api.SPELLS.filter(spell => spell.src === 'XGE').length, 95);
+  assert.equal(api.SPELLS.find(spell => spell.id === 'skywrite').ritual, true);
+  assert.equal(api.SPELLS.find(spell => spell.id === 'witch_bolt').src, 'PHB');
 });
 
 test('Foundry 12 / dnd5e 3.3.1 export carries actor data, classes, spells, and equipment', () => {
@@ -113,6 +132,21 @@ test('Foundry 12 / dnd5e 3.3.1 export carries actor data, classes, spells, and e
   assert.doesNotThrow(() => JSON.parse(JSON.stringify(actor)));
 });
 
+test('Long Story Short export matches the imported site envelope and nested data shape', () => {
+  const outerKeys=['tags','rooms','disabledBlocks','edition','sheetEdition','spells','linkAccess','data','lastWriterSessionId','wizard','jsonType','version'];
+  const dataKeys=['jsonType','template','name','info','subInfo','spellsInfo','spells','spellsPact','bonuses','proficiency','stats','saves','skills','vitality','attunementsList','weaponsList','text','coins','resources','conditions','createdAt'];
+  const c=character();c.name='Лондинор';c.race='astralelf';c.classes=[{cls:'ranger',lvl:1,sub:''}];c.appearance.age='174';c.appearance.height='180';c.appearance.weight='62';api.setChar(c);
+  const output=api.longStoryShortExport(),data=JSON.parse(output.data);
+  assert.deepEqual(Object.keys(output),outerKeys);
+  assert.deepEqual(Object.keys(data),dataKeys);
+  assert.equal(output.jsonType,'character');assert.equal(output.version,'2');
+  assert.equal(data.jsonType,'character');assert.equal(data.info.charClass.value,'Следопыт');
+  assert.equal(data.info.race.value,'Астральный эльф');assert.equal(data.name.value,c.name);
+  assert.equal(data.stats.str.score,api.abil('str'));assert.equal(data.proficiency,api.pb());
+  assert.equal(data.skills['animal handling'].baseStat,'wis');
+  assert.equal(typeof output.data,'string');
+});
+
 test('Foundry spell conversion maps every catalog entry to known dnd5e 3.3.1 enums', () => {
   const schools = new Set(['abj', 'con', 'div', 'enc', 'evo', 'ill', 'nec', 'trs']);
   const modes = new Set(['prepared', 'pact', 'always', 'atwill', 'innate', 'ritual']);
@@ -128,6 +162,7 @@ test('Foundry spell conversion maps every catalog entry to known dnd5e 3.3.1 enu
 
 test('Foundry export HTML action is wired to the character toolbar', () => {
   assert.match(script, /onclick="exportFoundryJson\(\)"/);
+  assert.match(script, /onclick="exportLongStoryShortJson\(\)"/);
   assert.ok(script.includes('foundry-v12-dnd5e-3.3.1'));
 });
 
@@ -752,6 +787,24 @@ test('equipment and currency changes are owned by the state layer', () => {
   assert.ok(c.inventory.some(item => item.type === 'armor' && item.equipped));
 });
 
+test('starting kits are additive by default, replace only explicitly, and use the first class', () => {
+  const c=character();
+  c.classes=[{cls:'wizard',lvl:1,sub:'evocation'},{cls:'fighter',lvl:1,sub:'champion'}];
+  c.inventory=[{type:'gear',id:'rope50',qty:1}];
+  api.setChar(c);
+  assert.equal(api.applyCharacterStartingKit(),true);
+  assert.ok(c.inventory.some(item=>item.id==='rope50'));
+  assert.ok(c.inventory.some(item=>item.id==='spellbook'));
+  assert.match(api.renderEquip(), /<b>Волшебник:<\/b>/);
+  assert.doesNotMatch(api.renderEquip(), /<b>Воин:<\/b>/);
+  c.goldMode='gold';api.setChar(c);
+  assert.match(api.renderEquip(), /Стартовый класс · Волшебник/);
+  assert.doesNotMatch(api.renderEquip(), /Стартовый класс · Воин/);
+  assert.equal(api.applyCharacterStartingKit(true),true);
+  assert.equal(c.inventory.some(item=>item.id==='rope50'),false);
+  assert.ok(c.inventory.some(item=>item.id==='spellbook'));
+});
+
 test('armor class includes Dexterity and an equipped shield', () => {
   const c = character();
   c.inventory = [
@@ -1170,7 +1223,7 @@ test('subclass and level changes prune spells that are no longer available', () 
   api.setRenderFn(() => {});
   api.changeSub(0, 'archfey');
   assert.deepEqual(Array.from(c.spellsKnown.warlock), []);
-  c.classes[0] = { cls: 'ranger', lvl: 5, sub: 'hunter' };
+  api.changeClass(0, 'ranger');
   c.spellsKnown.ranger = ['hunters_mark', 'speak_with_animals'];
   api.setChar(c);
   api.changeLvl(0, 1);
@@ -1401,6 +1454,14 @@ test('paladin resources track their correct rest recovery', () => {
   assert.equal(c.game.resources.divineSense, undefined);
 });
 
+test('healing from zero HP resets death saves and roll buttons report results without auto-critical labels', () => {
+  const c=character();c.game.hpCur=0;c.game.dsOk=2;c.game.dsFail=2;api.setChar(c);
+  assert.equal(api.changeCharacterHp(3,true),true);
+  assert.equal(c.game.hpCur,3);assert.equal(c.game.dsOk,0);assert.equal(c.game.dsFail,0);
+  let message='';api.setLog(value=>{message=value});api.rollCheck('abil','str','Сила');
+  assert.match(message,/Сила: к20=/);assert.doesNotMatch(message,/КРИТ|ПРОВАЛ/i);
+});
+
 test('short rest preserves ordinary spell slots and restores pact slots', () => {
   const c = character();
   c.classes = [{ cls: 'wizard', lvl: 5, sub: 'evocation' }];
@@ -1413,13 +1474,21 @@ test('short rest preserves ordinary spell slots and restores pact slots', () => 
   assert.deepEqual(c.game.slotsUsed, { 0: 2, 1: 1 });
 
   c.classes = [{ cls: 'warlock', lvl: 3, sub: 'fiend' }];
-  c.game.pactUsed = 2;
   c.game.resources.pact = 2;
   api.shortRest();
-  assert.equal(c.game.pactUsed, 0);
   assert.equal(c.game.resources.pact, 0);
+  assert.equal(Object.hasOwn(c.game, 'pactUsed'), false);
   api.setRenderFn(oldRender);
   api.setLibrary([]);
+});
+
+test('starting gold dice action updates the character and logs its result', () => {
+  const c=character();c.classes=[{cls:'fighter',lvl:1,sub:'champion'}];api.setChar(c);
+  const oldRender=api.renderFn;api.setRenderFn(()=>{});
+  let message='';api.setLog(value=>{message=value});api.rollGold('fighter');
+  assert.ok(c.gold>=50&&c.gold<=200&&c.gold%10===0);
+  assert.match(message,/Стартовое золото \(Воин\)/);
+  const previous=c.gold;api.rollGold('wizard');assert.equal(c.gold,previous);api.setRenderFn(oldRender);
 });
 
 test('stored long character names remain loadable while new input respects the limit', () => {
@@ -1443,15 +1512,20 @@ test('backup libraries require unique character ids', () => {
   assert.equal(api.hasUniqueCharacterIds([{}, {}]), true);
 });
 
-test('schema migrations assign legacy spent hit dice to class levels and upgrade to v5', () => {
+test('schema migrations assign legacy spent hit dice to class levels and upgrade to v6', () => {
   const legacy = character();
   legacy.schemaVersion = 4;
   legacy.classes = [{ cls: 'fighter', lvl: 1, sub: 'champion' }, { cls: 'wizard', lvl: 2, sub: 'evocation' }];
   legacy.game.hdUsed = 2;
   delete legacy.game.hdUsedByClass;
   const migrated = api.migrate(legacy);
-  assert.equal(migrated.schemaVersion, 5);
+  assert.equal(migrated.schemaVersion, 6);
   assert.deepEqual({ ...migrated.game.hdUsedByClass }, { fighter: 1, wizard: 1 });
+  const pactLegacy=character();pactLegacy.schemaVersion=5;pactLegacy.game.pactUsed=2;pactLegacy.game.resources.pact=1;
+  const pactMigrated=api.migrate(pactLegacy);
+  assert.equal(pactMigrated.schemaVersion,6);
+  assert.equal(pactMigrated.game.resources.pact,2);
+  assert.equal(Object.hasOwn(pactMigrated.game,'pactUsed'),false);
 
   legacy.schemaVersion = 3;
   legacy.game.hdUsed = 1;
@@ -1459,7 +1533,7 @@ test('schema migrations assign legacy spent hit dice to class levels and upgrade
     legacy.schemaVersion = version;
     legacy.game.hdUsed = 1;
     const older = api.migrate(legacy);
-    assert.equal(older.schemaVersion, 5);
+    assert.equal(older.schemaVersion, 6);
     assert.deepEqual({ ...older.game.hdUsedByClass }, { fighter: 1 });
   }
 });
@@ -1502,7 +1576,7 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(legacy.race, 'human');
   assert.equal(legacy.bg, 'soldier');
   assert.equal(legacy.abilityMethod, 'standard');
-  assert.equal(legacy.schemaVersion, 5);
+  assert.equal(legacy.schemaVersion, 6);
   assert.equal(Object.hasOwn(legacy, 'injected'), false);
   assert.ok(Array.isArray(legacy.extraLangs));
   assert.ok(legacy.racialSpells && typeof legacy.racialSpells === 'object');
@@ -1514,6 +1588,17 @@ test('import validation rejects malformed character data and migration fills leg
   assert.equal(legacyStyles.choices.fightingStyles.fighter, 'defense');
   assert.equal(legacyStyles.choices.fightingStyles.championExtra, 'dueling');
   assert.equal(Object.hasOwn(legacyStyles.choices, 'fightingStyle'), false);
+});
+
+test('species size, spell limits, and incomplete readiness block invalid character sheets', () => {
+  const c=character();c.size='Крошечный';api.setChar(c);
+  assert.equal(api.validCharacter(c),false);
+  assert.match(api.renderSheet(),/Лист персонажа недоступен/);
+  c.size='Средний';c.classes=[{cls:'sorcerer',lvl:1,sub:'draconic'}];
+  const spells=api.SPELLS.filter(spell=>spell.lvl===1&&spell.cls.includes('sorcerer')).slice(0,3).map(spell=>spell.id);
+  c.spellsKnown={sorcerer:spells};api.setChar(c);
+  assert.equal(api.validCharacter(c),false);
+  assert.ok(api.characterReadiness().some(issue=>issue.text.includes('лишние известные заклинания')));
 });
 
 test('import and readiness reject unknown or duplicate spell ids', () => {
@@ -1649,7 +1734,8 @@ test('untrusted game values are rejected and escaped by sheet renderers', () => 
 });
 
 test('sheet selector keeps 2014 as default and offers 2024', () => {
-  character();
+  const c = readyCharacter();
+  api.setChar(c);
   const html = api.renderSheet();
   assert.match(html, /option value="2014" selected/);
   assert.match(html, /option value="2024"/);
@@ -1815,6 +1901,20 @@ test('racial spell choices are separate from class limits and appear on sheets',
   assert.ok(api.racialCantripChoices()[0].spells.length > 0);
 });
 
+test('dwarven tool choice and AAG language and size choices are exposed and validated', () => {
+  const c=character();c.race='dwarf';api.setChar(c);
+  assert.equal(api.raceToolChoiceGroup().count,1);
+  assert.equal(api.setCharacterRaceTool('Инструменты кузнеца'),true);
+  assert.ok(api.toolProficiencies().includes('Инструменты кузнеца'));
+  c.race='autognome';c.size='Маленький';api.setChar(c);
+  assert.equal(api.languageChoiceCount(),1);
+  assert.deepEqual(Array.from(api.raceSizeOptions()),['Маленький']);
+  assert.match(api.renderMain(),/Язык на выбор/);
+  c.race='hadozee';c.size='Средний';api.setChar(c);
+  assert.deepEqual(Array.from(api.raceSizeOptions()),['Маленький','Средний']);
+  assert.equal(api.setCharacterField('size','Большой'),false);
+});
+
 test('AAG species and backgrounds carry source tags in the builder', () => {
   const c = character();
   c.race = 'astralelf';
@@ -1861,6 +1961,87 @@ test('AAG background feat appears on both character-sheet styles', () => {
   assert.match(api.renderSheet2024(), /Посвящённый в магию: жрец \(PHB\) \(AAG\)/);
 });
 
+test('new 2014 race and subclass catalog entries preserve site source labels and omit unsupported sources', () => {
+  const content = api.CONTENT_2014;
+  const registry = JSON.parse(readFileSync(path.join(__dirname, '..', 'data/source-registry.json'), 'utf8'));
+  assert.equal(content.rulesEdition, 2014);
+  assert.equal(Object.keys(content.races).length, 72);
+  assert.equal(Object.values(content.raceSubraces).reduce((n, subs) => n + Object.keys(subs).length, 0), 53);
+  assert.equal(Object.keys(content.subclasses).length, 47);
+  assert.ok(!JSON.stringify(content).includes('"PSA"'));
+  assert.ok(!Object.keys(content.subclasses).some(id => content.subclasses[id].cls === 'artificer'));
+  for (const row of [...Object.values(content.races), ...Object.values(content.subclasses), ...Object.values(content.raceSubraces).flatMap(Object.values)]) {
+    assert.ok(registry[row.src], `source label registered: ${row.src}`);
+    assert.equal(row.manualFeatures, true);
+  }
+  for (const race of Object.values(api.RACES))for(const sub of Object.values(race.subs||{}))assert.ok(registry[sub.src],`subrace source label registered: ${sub.src}`);
+  assert.ok(Object.values(content.subclasses).every(row => row.cls in api.CLASSES && row.feats.length && row.feats.every(([, , description]) => description)));
+  assert.equal(Object.keys(api.RACES).length, 87);
+  assert.equal(Object.keys(api.SUBCLASSES).length, 112);
+  assert.equal(api.RACES.gith.src, 'MTF');
+  assert.equal(api.SUBCLASSES.samurai.src, 'XGE');
+});
+
+test('2014 racial subrace choices replace or add ability bonuses correctly', () => {
+  const c = character();api.setChar(c);
+  assert.equal(api.setCharacterRace('genasi'), true);
+  assert.equal(api.setCharacterField('subrace', 'air'), true);
+  let bonuses = api.racialAsi();
+  assert.equal(bonuses.con, 2);assert.equal(bonuses.dex, 1);
+
+  assert.equal(api.setCharacterRace('human'), true);
+  assert.equal(api.setCharacterField('subrace', 'human_(variant)'), true);
+  assert.equal(api.raceSkillChoiceCount(), 1);
+  assert.ok(api.characterReadiness().some(issue => issue.tab === 'abil' && issue.text.includes('бонуса характеристики')));
+  assert.ok(api.characterReadiness().some(issue => issue.tab === 'skills' && issue.text.includes('расовых навыка')));
+  assert.equal(api.toggleCharacterHalfElfAbility('str', true), '');
+  assert.equal(api.toggleCharacterHalfElfAbility('dex', true), '');
+  bonuses = api.racialAsi();
+  assert.equal(bonuses.str, 1);assert.equal(bonuses.dex, 1);assert.equal(bonuses.wis, 0);
+  assert.ok(!api.characterReadiness().some(issue => issue.text === 'Выберите подрасу.'));
+
+  assert.equal(api.setCharacterRace('dragonborn'), true);
+  assert.equal(api.setCharacterField('subrace', 'gem'), true);
+  assert.equal(api.raceFlexibleAsi(), true);
+  assert.equal(api.setCharacterRaceAsiMode('three'), true);
+  for (const [i, ability] of ['str', 'dex', 'wis'].entries())assert.equal(api.setCharacterRaceAsi(i, ability), true);
+  bonuses = api.racialAsi();
+  assert.equal(bonuses.str, 1);assert.equal(bonuses.dex, 1);assert.equal(bonuses.wis, 1);assert.equal(bonuses.cha, 0);
+});
+
+test('new 2014 language and skill choices enforce their race-specific options', () => {
+  const c = character();api.setChar(c);
+  assert.equal(api.setCharacterRace('simic_hybrid'), true);
+  assert.deepEqual(Array.from(api.raceExtraLanguageOptions(0)), ['Эльфийский', 'Ведалкенский']);
+  assert.equal(api.setCharacterExtraLanguage(0, 'Гоблинский'), false);
+  assert.equal(api.setCharacterExtraLanguage(0, 'Ведалкенский'), true);
+  assert.ok(api.raceKnownLanguages().includes('Общий'));
+
+  assert.equal(api.setCharacterRace('changeling'), true);
+  assert.equal(api.raceSkillChoiceCount(), 2);
+  assert.deepEqual(Array.from(api.raceSkillChoiceOptions()), ['deception', 'insight', 'intimidation', 'persuasion']);
+  assert.equal(api.toggleCharacterRaceSkill('deception', true), '');
+  assert.equal(api.toggleCharacterRaceSkill('insight', true), '');
+  assert.deepEqual(Array.from(api.raceSkills()), ['deception', 'insight']);
+  assert.notEqual(api.toggleCharacterRaceSkill('athletics', true), '');
+  assert.equal(api.setCharacterRace('human'), true);
+  assert.deepEqual(Array.from(c.raceSkills), []);
+});
+
+test('race source labels and informational trait notices render for imported options', () => {
+  const c=character();api.setChar(c);
+  api.setCharacterRace('aasimar');api.setCharacterField('subrace','protector');
+  const mainHtml=api.renderMain();
+  assert.match(mainHtml,/Аасимар \(VGM\)/);
+  assert.match(mainHtml,/Аасимар \(защитник\) \(VGM\)/);
+  assert.match(mainHtml,/учитывать вручную/);
+  api.setCharacterRace('human');api.setCharacterField('subrace','mark_of_handling');
+  assert.match(api.renderMain(),/подраса \(ERLW\)/);
+  c.classes[0].cls='fighter';c.classes[0].sub='champion';c.classes[0].lvl=3;api.setChar(c);
+  assert.equal(api.setCharacterSubclass(0,'samurai')?.removed,0);
+  assert.match(api.renderClass(),/Самурай \(XGE\)/);
+  assert.match(api.renderClass(),/Описания классовых и подклассовых умений приведены для справки/);
+});
 test('readiness checklist reports missing race, language, skill, and class choices', () => {
   const c = character();
   c.race = 'halfelf';
@@ -1875,18 +2056,26 @@ test('readiness checklist reports missing race, language, skill, and class choic
   const html = api.renderMain();
   assert.match(html, /Проверка заполнения/);
   assert.equal((html.match(/Язык на выбор/g) || []).length, 3);
-  assert.match(html, /не блокируют сохранение и печать/);
+  assert.match(html, /Черновик можно сохранить/);
 });
 
 test('content source audit separates spell translation from rules attribution', () => {
   const report = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'audit-content-sources.cjs')], { encoding: 'utf8' });
-  assert.match(report, /SPELLS\s+319\s+Source not recorded/);
-  assert.match(report, /Перевод SPELLS\s+374\s+5e14\.ttg\.club/);
-  assert.match(report, /без источника правил\/контента на записи: 355/);
-  assert.ok(api.SPELLS.every(spell => spell.translationSource === '5e14.ttg.club'));
+  assert.match(report, /SPELLS\s+95\s+Xanathar/);
+  assert.match(report, /Перевод SPELLS\s+512\s+5e14\.ttg\.club/);
+  assert.match(report, /без источника правил\/контента на записи: 13/);
+  assert.match(report, /RACE_SUBRACES\s+\d+/);
+  assert.match(report, /Всего записей: 800/);
+  assert.doesNotMatch(report, /UNKNOWN LABEL/);
+  const missing = execFileSync(process.execPath, [path.join(__dirname, '..', 'scripts', 'audit-content-sources.cjs'), '--missing'], { encoding: 'utf8' });
+  assert.equal((missing.match(/- BACKGROUNDS /g) || []).length, 13);
+  assert.doesNotMatch(missing, /- (?:CLASSES|RACES|RACE_SUBRACES|SPELLS|SUBCLASSES) /);
+  assert.ok(api.SPELLS.every(spell => spell.src && spell.translationSource === '5e14.ttg.club'));
   assert.equal(api.SPELLS.find(spell => spell.src === 'PHB').src, 'PHB');
   api.openSpellModal(api.SPELLS[0].id);
   assert.match(dom.modal.innerHTML, /Источник русского перевода: 5e14\.ttg\.club/);
+  api.openSpellModal('encode_thoughts');
+  assert.doesNotMatch(dom.modal.innerHTML, /undefined/);
 });
 
 test('Deft Explorer grants expertise to a selected proficient skill', () => {

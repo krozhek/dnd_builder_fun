@@ -14,7 +14,7 @@ const context = vm.createContext({
   localStorage: { getItem: () => null, setItem: () => {} },
   console,
 });
-vm.runInContext(`${script.slice(0, initAt)}\nglobalThis.auditData={SPELLS,RACES,BACKGROUNDS,SUBCLASSES};`, context, { timeout: 5000 });
+vm.runInContext(`${script.slice(0, initAt)}\nglobalThis.auditData={CLASSES,SPELLS,RACES,BACKGROUNDS,SUBCLASSES,RACE_SUBRACES:Object.fromEntries(Object.entries(RACES).flatMap(([race,entry])=>Object.entries(entry.subs||{}).map(([id,sub])=>[race+'/'+id,sub])))};`, context, { timeout: 5000 });
 const data = context.auditData;
 const registry = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'source-registry.json'), 'utf8'));
 const records = Object.entries(data).flatMap(([category, entries]) => {
@@ -43,8 +43,8 @@ for (const [key, count] of [...translationCounts].sort(([a], [b]) => a.localeCom
 console.log(`\nВсего записей: ${records.length}; без источника правил/контента на записи: ${records.filter(r => r.source === 'UNATTRIBUTED').length}`);
 
 if (process.argv.includes('--missing')) {
-  console.log('\nЗаписи заклинаний без указанного источника правил/контента:');
-  for (const r of records.filter(r => r.category === 'SPELLS' && r.source === 'UNATTRIBUTED')) console.log(`- ${r.id}: ${r.name}${r.translationSource ? ` (русский перевод: ${registry[r.translationSource]?.title || r.translationSource})` : ''}`);
+  console.log('\nЗаписи без указанного источника правил/контента:');
+  for (const r of records.filter(r => r.source === 'UNATTRIBUTED')) console.log(`- ${r.category} ${r.id}: ${r.name}${r.translationSource ? ` (русский перевод: ${registry[r.translationSource]?.title || r.translationSource})` : ''}`);
 }
 if (unknownLabels) {
   console.error(`\nОшибка: ${unknownLabels} записей используют отсутствующую в data/source-registry.json метку.`);

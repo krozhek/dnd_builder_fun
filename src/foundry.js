@@ -130,7 +130,7 @@ function foundryActorData(){
   });
   const levels=spellSlots()||[],spells={};
   levels.forEach((max,index)=>{if(max)spells[`spell${index+1}`]={value:Math.max(0,max-(C.game.slotsUsed?.[index]||0)),override:max}});
-  const pact=pactSlots();if(pact)spells.pact={value:Math.max(0,pact.count-(C.game.pactUsed||0)),override:pact.count};
+  const pact=pactSlots();if(pact)spells.pact={value:Math.max(0,pact.count-(C.game.resources?.pact||0)),override:pact.count};
   const languages=[...new Set([...(raceOf().langs||[]),...(C.extraLangs||[]).filter(Boolean),...(C.languages||[])])];
   if(C.classes.some(c=>c.cls==='druid'))languages.push('Друидический');if(C.classes.some(c=>c.cls==='rogue'))languages.push('Воровской жаргон');
   const languageValues=languages.map(language=>FOUNDRY_LANGUAGES[language]).filter(Boolean);
@@ -152,7 +152,8 @@ function foundryActorData(){
   return actor;
 }
 function exportFoundryJson(){
-  if(!validCharacter(C)){alert('Исправьте некорректные значения персонажа перед экспортом.');return}
+  const issues=characterReadiness().filter(issue=>!issue.recommended);
+  if(!validCharacter(C)||issues.length){alert('Заполните обязательные выборы и исправьте ошибки перед экспортом.');return}
   const blob=new Blob([JSON.stringify(foundryActorData(),null,1)],{type:'application/json'}),a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download=`${(C.name||'character').replace(/[\\/:*?"<>|]/g,'_')}-foundry-v12-dnd5e-3.3.1.json`;a.click();URL.revokeObjectURL(a.href);
 }

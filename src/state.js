@@ -25,8 +25,8 @@ function pruneExpertise(){
 }
 function pruneSkillChoices(){
   C.classSkills=C.classSkills||{};C.raceSkills=C.raceSkills||[];
-  const prof=new Set([...bgSkills(),...(raceOf().skillProf||[])]),raceLimit=raceOf().skillChoice||0;
-  C.raceSkills=C.raceSkills.filter(id=>!prof.has(id)).slice(0,raceLimit);C.raceSkills.forEach(id=>prof.add(id));
+  const prof=new Set([...bgSkills(),...raceFixedSkillProfs()]),raceLimit=raceSkillChoiceCount(),raceOptions=raceSkillChoiceOptions();
+  C.raceSkills=C.raceSkills.filter(id=>raceOptions.includes(id)&&!prof.has(id)).slice(0,raceLimit);C.raceSkills.forEach(id=>prof.add(id));
   C.classes.forEach((c,index)=>{
     const picks=(C.classSkills[c.cls]||[]).filter(id=>CLASSES[c.cls].skillList.includes(id)&&!prof.has(id)).slice(0,classSkillChoiceCount(index,c.cls));
     C.classSkills[c.cls]=picks;picks.forEach(id=>prof.add(id));
@@ -52,15 +52,28 @@ function pruneClassSpells(cls){
   }
   return removed;
 }
+function pruneGameTrackers(){
+  const game=C.game,slots=spellSlots()||[],resources=new Map(classResources().map(resource=>[resource.id,resource.max]));
+  game.slotsUsed=Object.fromEntries(Object.entries(game.slotsUsed||{}).filter(([level])=>/^[0-8]$/.test(level)&&slots[+level]).map(([level,used])=>[level,Math.min(slots[+level],Math.max(0,Math.floor(used||0)))]));
+  game.resources=Object.fromEntries(Object.entries(game.resources||{}).filter(([id])=>resources.has(id)).map(([id,used])=>[id,Math.min(resources.get(id),Math.max(0,Math.floor(used||0)))]));
+  if(game.hpCur!=null)game.hpCur=Math.min(game.hpCur,maxHp());
+}
+function pruneExtraLanguages(){
+  const old=C.extraLangs||[],count=languageChoiceCount(),used=new Set(raceKnownLanguages());
+  C.extraLangs=Array.from({length:count},(_,index)=>{
+    const value=old[index]||'',allowed=index<baseLanguageChoiceCount()?raceExtraLanguageOptions(index):LANGS;
+    if(!value||!allowed.includes(value)||used.has(value))return '';
+    used.add(value);return value;
+  });
+}
 function setCharacterRace(race){
   if(!RACES[race])return false;
-  C.race=race;C.subrace='';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiPicks=[];C.extraLangs=[];C.racialSpells={};
-  if(RACES[race].src==='AAG')C.size=RACES[race].size;
-  pruneSkillChoices();return true;
+  C.race=race;C.subrace='';C.size=raceSizeOptions(race,'').includes(C.size)?C.size:RACES[race].size||'Средний';C.raceSkills=[];C.halfElfPicks=[];C.raceAsiMode='two';C.raceAsiPicks=[];C.extraLangs=[];C.racialSpells={};delete C.choices.raceTools;
+  pruneSkillChoices();pruneGameTrackers();return true;
 }
 function setCharacterBackground(background){
   if(!BACKGROUNDS[background])return false;
-  C.bg=background;C.choices.backgroundTools=[];C.extraLangs=[];pruneSkillChoices();return true;
+  C.bg=background;C.choices.backgroundTools=[];pruneExtraLanguages();pruneSkillChoices();return true;
 }
 function setCharacterClass(index,cls){
   if(!CLASSES[cls])return 'Неизвестный класс.';
@@ -70,8 +83,8 @@ function setCharacterClass(index,cls){
   const previous=current.cls;if(previous===cls)return '';
   discardClassHitDice(previous);current.cls=cls;current.sub=CLASSES[cls].sub||'';
   clearClassSelections(previous);pruneAsiChoices();
-  if(previous==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
-  pruneExpertise();return '';
+  if(previous==='ranger')delete C.choices.deftExplorerMode;
+  pruneExtraLanguages();pruneExpertise();pruneGameTrackers();return '';
 }
 function pruneWarlockInvocations(){
   const warlock=C.classes.find(characterClass=>characterClass.cls==='warlock'),max=warlock?TABLES.warlock.invocations[warlock.lvl-1]||0:0;
@@ -111,8 +124,8 @@ function setCharacterLevel(index,value){
   const used=syncHitDice();current.lvl=level;
   used[current.cls]=Math.min(used[current.cls]||0,level);
   C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,n)=>sum+n,0);
-  pruneClassLevelChoices(current);pruneExpertise();
-  const removed=pruneClassSpells(current.cls);pruneAsiChoices();return {removed};
+  pruneClassLevelChoices(current);pruneExpertise();pruneExtraLanguages();
+  const removed=pruneClassSpells(current.cls);pruneAsiChoices();pruneGameTrackers();return {removed};
 }
 function setCharacterSubclass(index,subclass){
   const current=C.classes[index];if(!current||current.sub===subclass)return null;
@@ -122,14 +135,14 @@ function setCharacterSubclass(index,subclass){
   if(current.cls==='druid'&&subclass!=='land')delete C.choices.druidLand;
   if(current.cls==='sorcerer'&&subclass!=='draconic')delete C.choices.draconicType;
   if(current.cls==='fighter'&&subclass!=='champion')delete C.choices.fightingStyles?.championExtra;
-  return {removed:pruneClassSpells(current.cls)};
+  const removed=pruneClassSpells(current.cls);pruneGameTrackers();return {removed};
 }
 function addCharacterClass(){
   if(totalLvl()>=20)return 'Общий уровень персонажа уже равен 20.';
   const used=C.classes.map(c=>c.cls),available=Object.keys(CLASSES).filter(cls=>!used.includes(cls));
   const cls=available.find(value=>!multiclassRequirementError(value));
   if(!cls)return available.length?multiclassRequirementError(available[0]):'Все классы уже добавлены.';
-  C.classes.push({cls,lvl:1,sub:CLASSES[cls].sub||''});return '';
+  C.classes.push({cls,lvl:1,sub:CLASSES[cls].sub||''});pruneGameTrackers();return '';
 }
 function setCharacterArcanum(level,id){
   const warlock=C.classes.find(c=>c.cls==='warlock');
@@ -179,7 +192,7 @@ function removeCharacterClass(index){
   const cls=C.classes[index].cls;
   discardClassHitDice(cls);C.classes.splice(index,1);clearClassSelections(cls);pruneAsiChoices();
   if(cls==='ranger')C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount());
-  pruneExpertise();return true;
+  pruneExpertise();pruneGameTrackers();return true;
 }
 function setCharacterAbilityMethod(method){if(!['standard','point','manual'].includes(method))return false;C.abilityMethod=method;return true}
 function setCharacterStandardAbility(ability,value){
@@ -194,14 +207,14 @@ function stepCharacterPointAbility(ability,delta){
   base[ability]=value;return true;
 }
 function setCharacterManualAbility(ability,value){if(!ABILS.some(([id])=>id===ability))return false;C.bases.manual[ability]=Math.max(3,Math.min(18,+value||10));return true}
-function setCharacterRaceAsiMode(mode){if(!raceOf().flexibleAsi||!['two','three'].includes(mode))return false;C.raceAsiMode=mode;C.raceAsiPicks=[];return true}
+function setCharacterRaceAsiMode(mode){if(!raceFlexibleAsi()||!['two','three'].includes(mode))return false;C.raceAsiMode=mode;C.raceAsiPicks=[];return true}
 function setCharacterRaceAsi(index,ability){
   const count=C.raceAsiMode==='three'?3:2;
-  if(!raceOf().flexibleAsi||!Number.isInteger(index)||index<0||index>=count||ability&&(!ABILS.some(([id])=>id===ability)||(C.raceAsiPicks||[]).some((id,i)=>i!==index&&id===ability)))return false;
+  if(!raceFlexibleAsi()||!Number.isInteger(index)||index<0||index>=count||ability&&(!ABILS.some(([id])=>id===ability)||(C.raceAsiPicks||[]).some((id,i)=>i!==index&&id===ability)))return false;
   C.raceAsiPicks=C.raceAsiPicks||[];C.raceAsiPicks[index]=ability;return true;
 }
 function toggleCharacterHalfElfAbility(ability,on){
-  C.halfElfPicks=C.halfElfPicks||[];const choice=raceOf().asiChoice;
+  C.halfElfPicks=C.halfElfPicks||[];const choice=raceAsiChoice();
   if(on){
     if(!choice||!ABILS.some(([id])=>id===ability)||choice.exclude.includes(ability)||C.halfElfPicks.includes(ability)||C.halfElfPicks.length>=choice.count)return 'Недопустимый бонус характеристики.';
     C.halfElfPicks.push(ability);
@@ -209,7 +222,11 @@ function toggleCharacterHalfElfAbility(ability,on){
   return '';
 }
 function setCharacterAsiType(index,type){if(!Number.isInteger(index)||index<0||!['asi','feat'].includes(type))return false;C.asi['asi'+index]=type==='feat'?{type:'feat',id:'',bonus:''}:{type:'asi',vals:[]};return true}
-function setCharacterAsiFeat(index,id){if(!Number.isInteger(index)||index<0||id&&!FEATS.some(([feat])=>feat===id))return false;C.asi['asi'+index]={type:'feat',id,bonus:''};return true}
+function setCharacterAsiFeat(index,id){
+  if(!Number.isInteger(index)||index<0||id&&!FEATS.some(([feat])=>feat===id))return false;
+  if(id){const error=featPrerequisiteError(id);if(error)return error;if(Object.entries(C.asi||{}).some(([key,value])=>key!==`asi${index}`&&value?.type==='feat'&&value.id===id))return 'Эту черту нельзя выбрать повторно.'}
+  C.asi['asi'+index]={type:'feat',id,bonus:''};return true;
+}
 function setCharacterAsiFeatBonus(index,ability){
   const feat=C.asi['asi'+index],definition=FEATS.find(([id])=>id===feat?.id);
   if(!definition?.[3]?.includes(ability))return false;feat.bonus=ability;return true;
@@ -220,8 +237,8 @@ function setCharacterAsiValues(index,values){
 }
 function resetCharacterSkillChoices(){C.classSkills={};C.raceSkills=[];C.expertise=[];delete C.choices.deftExplorerSkill}
 function toggleCharacterRaceSkill(id,on){
-  C.raceSkills=C.raceSkills||[];const max=raceOf().skillChoice||0;
-  if(on){if(!SKILLS.some(([skill])=>skill===id)||profSkills().includes(id))return 'Навык уже выбран из другого источника.';if(C.raceSkills.length>=max)return 'Максимум '+max;C.raceSkills.push(id)}
+  C.raceSkills=C.raceSkills||[];const max=raceSkillChoiceCount(),options=raceSkillChoiceOptions();
+  if(on){if(!options.includes(id)||profSkills().includes(id))return 'Навык уже выбран из другого источника.';if(C.raceSkills.length>=max)return 'Максимум '+max;C.raceSkills.push(id)}
   else C.raceSkills=C.raceSkills.filter(skill=>skill!==id);
   return '';
 }
@@ -292,35 +309,38 @@ function setCharacterWeaponGrip(index,grip){
   if(!weapon||!weapon[5].includes('Универсальное')||!['one-handed','two-handed'].includes(grip))return false;
   item.grip=grip;return true;
 }
-function applyCharacterStartingKit(){
-  C.inventory=[];
-  C.classes.forEach(characterClass=>{
-    const equipment=STARTING_EQUIPMENT[characterClass.cls];if(!equipment)return;
-    const choice=(C.equipChoice[characterClass.cls]||'а'),selected=equipment.choices.find(item=>item.name===choice)||equipment.choices[0];
-    for(const [kind,a,b] of [...(selected?.items||[]),...(equipment.defaults||[])]){
-      if(kind==='weapon')addCharacterItem('weapon',a,typeof b==='number'?b:1);
-      else if(kind==='weaponAny'){
-        const category=a.includes('martial')?'martial':'simple',melee=a.includes('melee'),weapon=WEAPONS.find(row=>row[7]===category&&(melee?row[6]==='melee':true));
-        if(weapon)addCharacterItem('weapon',weapon[0],1);
-      }else if(kind==='armor')addCharacterItem('armor',a,1);
-      else if(kind==='shield')addCharacterItem('shield','shield',1);
-      else if(kind==='ammo'||kind==='gear')addCharacterItem('gear',a,1);
-      else if(kind==='pack')addCharacterItem('pack',a,1);
-      else if(kind==='instrument')addCharacterItem('instrument',a,1);
-    }
-  });
-  const armor=C.inventory.find(item=>item.type==='armor');if(armor)armor.equipped=true;
+function applyCharacterStartingKit(replace=false){
+  const characterClass=C.classes[0],equipment=STARTING_EQUIPMENT[characterClass?.cls];if(!equipment)return false;
+  if(replace)C.inventory=[];
+  const choice=(C.equipChoice[characterClass.cls]||'а'),selected=equipment.choices.find(item=>item.name===choice)||equipment.choices[0];
+  for(const [kind,a,b] of [...(selected?.items||[]),...(equipment.defaults||[])]){
+    if(kind==='weapon')addCharacterItem('weapon',a,typeof b==='number'?b:1);
+    else if(kind==='weaponAny'){
+      const category=a.includes('martial')?'martial':'simple',melee=a.includes('melee'),weapon=WEAPONS.find(row=>row[7]===category&&(melee?row[6]==='melee':true));
+      if(weapon)addCharacterItem('weapon',weapon[0],1);
+    }else if(kind==='armor')addCharacterItem('armor',a,1);
+    else if(kind==='shield')addCharacterItem('shield','shield',1);
+    else if(kind==='ammo'||kind==='gear')addCharacterItem('gear',a,1);
+    else if(kind==='pack')addCharacterItem('pack',a,1);
+    else if(kind==='instrument')addCharacterItem('instrument',a,1);
+  }
+  if(!C.inventory.some(item=>item.type==='armor'&&item.equipped)){
+    const armor=C.inventory.find(item=>item.type==='armor');if(armor)armor.equipped=true;
+  }
+  return true;
 }
 function setCharacterField(key,value){
   if(key==='subrace'){
     if(value&&!RACES[C.race]?.subs?.[value])return false;
-    C.subrace=value;
+    const changed=C.subrace!==value;C.subrace=value;
+    if(changed){C.halfElfPicks=[];C.raceAsiPicks=[];C.raceAsiMode='two'}
+    if(!raceSizeOptions().includes(C.size))C.size=raceSizeOptions()[0];
     if(C.race==='elf'&&value!=='high'&&C.racialSpells){delete C.racialSpells.highelf;delete C.racialSpells.highelfAbility}
-    C.extraLangs=(C.extraLangs||[]).slice(0,languageChoiceCount());
+    pruneSkillChoices();pruneExtraLanguages();
   }
   else if(key==='dragonColor'){if(!['black','blue','brass','bronze','copper','gold','green','red','silver','white'].includes(value))return false;C.dragonColor=value}
   else if(key==='align'){if(!ALIGN.includes(value))return false;C.align=value}
-  else if(key==='size'){if(!['Крошечный','Маленький','Средний','Большой','Огромный'].includes(value))return false;C.size=value}
+  else if(key==='size'){if(!raceSizeOptions().includes(value))return false;C.size=value}
   else if(key==='name'){C.name=String(value).slice(0,100)}
   else if(key==='xp'){const xp=Number(value);if(!Number.isFinite(xp)||xp<0)return false;C.xp=xp}
   else if(key==='goals'){C.goals=String(value).slice(0,5000)}
@@ -334,6 +354,10 @@ function setCharacterAppearance(key,value){
 function setCharacterPortrait(portrait){if(typeof portrait!=='string'||portrait.length>MAX_PORTRAIT_DATA||portrait&&!portrait.startsWith('data:image/'))return false;C.portrait=portrait;return true}
 function setCharacterPersonality(key,value){if(!['traits','ideals','bonds','flaws'].includes(key))return false;C.personality[key]=String(value);return true}
 function addCharacterPersonality(key,value){if(!['traits','ideals','bonds','flaws'].includes(key))return false;C.personality[key]=(C.personality[key]?C.personality[key]+'\n':'')+String(value);return true}
+function setCharacterRaceTool(value){
+  const choice=raceToolChoiceGroup();if(!choice||value&&!choice.options.includes(value))return false;
+  if(value)C.choices.raceTools=value;else delete C.choices.raceTools;return true;
+}
 function setCharacterBackgroundTool(index,value){
   const groups=backgroundToolChoiceGroups().choices;if(!Number.isInteger(index)||index<0||index>=groups.length)return false;
   C.choices.backgroundTools=C.choices.backgroundTools||[];C.choices.backgroundTools[index]=groups[index].options.includes(value)?value:'';return true;
@@ -344,8 +368,8 @@ function setCharacterClassTools(cls,values){
   C.choices.classTools=C.choices.classTools||{};C.choices.classTools[cls]=values.filter(value=>options.includes(value)).slice(0,max);return true;
 }
 function setCharacterExtraLanguage(index,value){
-  if(!Number.isInteger(index)||index<0||index>=languageChoiceCount()||value&&!LANGS.includes(value))return false;
-  const used=[...(raceOf().langs||[]),...(C.extraLangs||[]).filter((lang,i)=>i!==index&&lang)];if(value&&used.includes(value))return false;
+  if(!Number.isInteger(index)||index<0||index>=languageChoiceCount()||value&&!raceExtraLanguageOptions(index).includes(value))return false;
+  const used=[...raceKnownLanguages(),...(C.extraLangs||[]).filter((lang,i)=>i!==index&&lang)];if(value&&used.includes(value))return false;
   C.extraLangs=C.extraLangs||[];while(C.extraLangs.length<=index)C.extraLangs.push('');C.extraLangs[index]=value;return true;
 }
 function setCharacterChoice(key,value){
@@ -390,8 +414,9 @@ function toggleCharacterTashaFeature(cls,id,on){
   const selected=new Set(C.choices.tashaFeatures[cls]||[]);if(on)selected.add(id);else selected.delete(id);C.choices.tashaFeatures[cls]=[...selected];
   if(cls==='ranger'&&id==='deft_explorer'){
     if(on)C.choices.deftExplorerMode='';
-    else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool;C.extraLangs=(C.extraLangs||[]).slice(0,baseLanguageChoiceCount())}
+    else{delete C.choices.deftExplorerSkill;delete C.choices.deftExplorerMode;delete C.choices.deftExplorerTool}
   }
+  if(cls==='ranger')pruneExtraLanguages();
   return true;
 }
 function setCharacterDeftExplorerSkill(skill){
@@ -405,7 +430,7 @@ function setCharacterDeftExplorerMode(mode){
   C.extraLangs=mode?Array.from({length:base+count},(_,i)=>langs[i]||''):langs.slice(0,base);
   if(mode)C.choices.deftExplorerMode=mode;else delete C.choices.deftExplorerMode;
   if(mode!=='language_tool')delete C.choices.deftExplorerTool;
-  return true;
+  pruneExtraLanguages();return true;
 }
 function setCharacterDeftExplorerTool(tool){
   if(!deftExplorerActive()||C.choices.deftExplorerMode!=='language_tool'||tool&&!TOOL_PROFICIENCIES.includes(tool)||tool&&tool!==C.choices.deftExplorerTool&&toolProficiencies().includes(tool))return false;
@@ -420,17 +445,20 @@ function setCharacterGameField(field,value){
   else return false;
   return true;
 }
+function restoreDeathSavesAfterHealing(previousHp){if(previousHp<=0&&C.game.hpCur>0){C.game.dsOk=0;C.game.dsFail=0}}
 function changeCharacterHp(amount,healing){
   const game=C.game,mhp=maxHp();if(!Number.isFinite(amount)||amount<=0)return false;
-  if(healing)game.hpCur=Math.min(mhp,(game.hpCur??mhp)+amount);
+  const previousHp=game.hpCur??mhp;
+  if(healing)game.hpCur=Math.min(mhp,previousHp+amount);
   else{
     let damage=amount;
     const temporary=Math.min(game.hpTemp||0,damage);game.hpTemp=Math.max(0,(game.hpTemp||0)-temporary);damage-=temporary;
-    game.hpCur=Math.max(0,(game.hpCur??mhp)-damage);
+    game.hpCur=Math.max(0,previousHp-damage);
   }
+  if(healing)restoreDeathSavesAfterHealing(previousHp);
   return true;
 }
-function setCharacterFullHp(){C.game.hpCur=maxHp()}
+function setCharacterFullHp(){const previous=C.game.hpCur??maxHp();C.game.hpCur=maxHp();restoreDeathSavesAfterHealing(previous)}
 function setCharacterDeathSaves(kind,value){if(!['dsOk','dsFail'].includes(kind)||!Number.isInteger(value))return false;C.game[kind]=Math.max(0,Math.min(3,value));return true}
 function toggleCharacterTracker(kind,id,index){
   if(!Number.isInteger(index)||index<0)return false;
@@ -438,10 +466,7 @@ function toggleCharacterTracker(kind,id,index){
   if(kind==='slot'){
     max=(spellSlots()||[])[id];if(!Number.isInteger(max)||index>=max)return false;
     C.game.slotsUsed=C.game.slotsUsed||{};used=C.game.slotsUsed[id]||0;C.game.slotsUsed[id]=used===index+1?index:index+1;
-  }else if(kind==='pact'){
-    max=pactSlots()?.count;if(!max||index>=max)return false;
-    used=C.game.pactUsed||0;C.game.pactUsed=used===index+1?index:index+1;
-  }else if(kind==='resource'){
+  }else if(kind==='pact'||kind==='resource'){
     const resource=classResources().find(item=>item.id===id);if(!resource||index>=Math.min(resource.max,30))return false;
     C.game.resources=C.game.resources||{};used=C.game.resources[id]||0;C.game.resources[id]=used===index+1?index:index+1;
   }else return false;
@@ -457,11 +482,11 @@ function spendCharacterHitDie(cls,roll){
   if(!characterClass||used[cls]>=characterClass.lvl)return {error:'Все кости хитов этого класса потрачены'};
   const hitDie=CLASSES[cls].hd;if(!Number.isInteger(roll)||roll<1||roll>hitDie)return {error:'Некорректный бросок кости хитов'};
   used[cls]++;C.game.hdUsedByClass=used;C.game.hdUsed=Object.values(used).reduce((sum,count)=>sum+count,0);
-  const healing=Math.max(1,roll+am('con'));C.game.hpCur=Math.min(maxHp(),(C.game.hpCur??maxHp())+healing);
+  const previousHp=C.game.hpCur??maxHp(),healing=Math.max(1,roll+am('con'));C.game.hpCur=Math.min(maxHp(),previousHp+healing);restoreDeathSavesAfterHealing(previousHp);
   return {healing,hitDie};
 }
 function shortRestCharacter(){
-  const game=C.game;game.pactUsed=0;
+  const game=C.game;
   if(game.resources){
     for(const id of ['pact','ki','secondwind','surge','wildshape','channel','paladinChannel','luck'])if(game.resources[id]!=null)game.resources[id]=0;
     if(game.resources.insp!=null&&C.classes.find(c=>c.cls==='bard'&&c.lvl>=5))game.resources.insp=0;
@@ -474,5 +499,5 @@ function longRestCharacter(){
   let recover=remaining;
   for(const characterClass of C.classes){const restored=Math.min(used[characterClass.cls]||0,recover);used[characterClass.cls]-=restored;recover-=restored}
   game.hdUsedByClass=used;game.hdUsed=Object.values(used).reduce((sum,count)=>sum+count,0);
-  game.slotsUsed={};game.pactUsed=0;game.resources={};game.dsOk=0;game.dsFail=0;
+  game.slotsUsed={};game.resources={};game.dsOk=0;game.dsFail=0;
 }

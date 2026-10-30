@@ -11,18 +11,22 @@ const data = read('src/data.js');
 const spellMarker = '/*SPELL_CATALOG*/[]';
 if (data.split(spellMarker).length !== 2) throw new Error('Data source must contain the spell catalog placeholder exactly once');
 const spells = JSON.parse(read('data/spells.json'));
+const content = JSON.parse(read('data/content-2014.json'));
+const contentMarker = '/*CONTENT_2014*/{}';
+if (data.split(contentMarker).length !== 2) throw new Error('Data source must contain the 2014 content placeholder exactly once');
+if (!content || content.rulesEdition !== 2014 || !content.races || !content.raceSubraces || !content.subclasses) throw new Error('Invalid 2014 content catalog');
 const spellTextFields = ['id', 'ru', 'en', 'school', 'time', 'range', 'comp', 'dur', 'desc', 'full'];
 const validSpell = spell => !!spell && typeof spell === 'object' && !Array.isArray(spell)
   && spellTextFields.every(key => typeof spell[key] === 'string') && !!spell.id
   && Number.isInteger(spell.lvl) && spell.lvl >= 0 && spell.lvl <= 9
   && typeof spell.ritual === 'boolean'
-  && Array.isArray(spell.cls) && spell.cls.length && spell.cls.every(cls => typeof cls === 'string' && cls.length)
+  && Array.isArray(spell.cls) && spell.cls.every(cls => typeof cls === 'string' && cls.length)
   && (spell.src == null || typeof spell.src === 'string')
   && (spell.translationSource == null || typeof spell.translationSource === 'string');
 if (!Array.isArray(spells) || !spells.length || spells.some(spell => !validSpell(spell)) || new Set(spells.map(spell => spell.id)).size !== spells.length) {
   throw new Error('Invalid spell catalog structure');
 }
-const app = [data.replace(spellMarker, () => JSON.stringify(spells)), read('src/rules.js'), read('src/core.js'), read('src/validation.js'), read('src/state.js'), read('src/foundry.js'), read('src/ui.js')].join('');
+const app = [data.replace(spellMarker, () => JSON.stringify(spells)).replace(contentMarker, () => JSON.stringify(content)), read('src/rules.js'), read('src/core.js'), read('src/validation.js'), read('src/state.js'), read('src/foundry.js'), read('src/long-story-short.js'), read('src/ui.js')].join('');
 const html = template.replace('{{STYLES}}', () => styles).replace('{{APP}}', () => app);
 const output = path.join(root, 'dnd_builder.html');
 

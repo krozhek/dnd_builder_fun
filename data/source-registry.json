@@ -2,17 +2,137 @@
   "PHB": {
     "title": "Player's Handbook (2014)",
     "kind": "sourcebook",
-    "status": "label-present; distribution terms not independently verified"
+    "status": "site source label recorded; distribution terms not independently verified"
   },
-  "Таша": {
+  "TCE": {
     "title": "Tasha's Cauldron of Everything",
     "kind": "sourcebook",
-    "status": "label-present; distribution terms not independently verified"
+    "status": "site source label recorded; distribution terms not independently verified"
   },
   "AAG": {
     "title": "Astral Adventurer's Guide",
     "kind": "sourcebook",
-    "status": "label-present; distribution terms not independently verified"
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "AI": {
+    "title": "Acquisitions Incorporated",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "BMT": {
+    "title": "The Book of Many Things",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "FTD": {
+    "title": "Fizban's Treasury of Dragons",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "GGR": {
+    "title": "Guildmasters' Guide to Ravnica",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "IDRotF": {
+    "title": "Icewind Dale: Rime of the Frostmaiden",
+    "kind": "adventure/sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "LLK": {
+    "title": "Lost Laboratory of Kwalish",
+    "kind": "adventure/sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "SCAG": {
+    "title": "Sword Coast Adventurer's Guide",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "SCC": {
+    "title": "Strixhaven: A Curriculum of Chaos",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "SatO": {
+    "title": "Sigil and the Outlands",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "XGE": {
+    "title": "Xanathar's Guide to Everything",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "BGG": {
+    "title": "Бигби представляет: Триумф великанов",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "DMG": {
+    "title": "Руководство мастера",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "DSotDQ": {
+    "title": "Драконье копье: Тень Королевы Драконов",
+    "kind": "adventure/sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "ERLW": {
+    "title": "Эберрон. Из пепла Последней войны",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "EV": {
+    "title": "Элементальное зло",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "LR": {
+    "title": "Восстание Локат",
+    "kind": "adventure/sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "MOT": {
+    "title": "Мифические одиссеи Тероса",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "MPMM": {
+    "title": "Морденкайнен представляет: Монстры Мультивселенной",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "MTF": {
+    "title": "Том Морденкайнена о врагах",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "OGA": {
+    "title": "Один грунг выше",
+    "kind": "supplement",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "VGM": {
+    "title": "Справочник Воло по монстрам",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "VRGR": {
+    "title": "Руководство ван Рихтена по Равенлофту",
+    "kind": "sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "WBtW": {
+    "title": "Чащоба за Ведьминым светом",
+    "kind": "adventure/sourcebook",
+    "status": "site source label recorded; distribution terms not independently verified"
+  },
+  "ttP": {
+    "title": "Тортл пакет",
+    "kind": "supplement",
+    "status": "site source label recorded; distribution terms not independently verified"
   },
   "SRD 5.1": {
     "title": "Systems Reference Document 5.1",

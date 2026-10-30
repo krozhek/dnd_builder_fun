@@ -87,7 +87,7 @@ try {
 
   const portraitData = await evaluate(`(()=>{const canvas=document.createElement('canvas');canvas.width=2;canvas.height=2;const ctx=canvas.getContext('2d');ctx.fillStyle='#724';ctx.fillRect(0,0,2,2);return canvas.toDataURL('image/png')})()`);
   fs.writeFileSync(portraitPath, Buffer.from(portraitData.split(',')[1], 'base64'));
-  await evaluate("createChar();C.name='Backup E2E';C.goals='Найти родной дом';C.appearance.age='120 лет';C.extraLangs=['Эльфийский'];persist()");
+  await evaluate("createChar();C.name='Backup E2E';C.goals='Найти родной дом';C.appearance.age='120 лет';C.extraLangs=['Эльфийский'];C.classSkills.fighter=['acrobatics','perception'];C.choices.backgroundTools=['Игровой набор (кости)'];C.choices.fightingStyles={fighter:'defense'};persist()");
   const documentRoot = await send('DOM.getDocument');
   const portraitInput = await send('DOM.querySelector', { nodeId: documentRoot.root.nodeId, selector: '#portraitFile' });
   if (!portraitInput.nodeId) throw new Error('Portrait upload input not found');
@@ -194,6 +194,10 @@ try {
   const foundryExport = await evaluate(`(async()=>({name:window.__foundryDownload,json:await window.__foundryBlob.text()}))()`);
   const foundryActor = JSON.parse(foundryExport.json);
   if (!foundryExport.name.endsWith('-foundry-v12-dnd5e-3.3.1.json') || foundryActor.type !== 'character' || foundryActor.name !== 'Backup E2E') throw new Error('Foundry Actor JSON download is invalid');
+  await evaluate('exportLongStoryShortJson()');
+  const longStoryExport=await evaluate(`(async()=>({name:window.__foundryDownload,json:await window.__foundryBlob.text()}))()`);
+  const longStoryCharacter=JSON.parse(longStoryExport.json);
+  if(!longStoryExport.name.endsWith('-long-story-short.json')||longStoryCharacter.jsonType!=='character'||typeof longStoryCharacter.data!=='string'||JSON.parse(longStoryCharacter.data).jsonType!=='character')throw new Error('Long Story Short JSON download is invalid');
 
   const rulesSmoke = await evaluate(`(()=>{
     const currentId=C.id,c=newChar();c.id=currentId;c.name='Rules E2E';c.race='elf';c.subrace='high';c.bg='soldier';c.classes=[{cls:'wizard',lvl:1,sub:'evocation'},{cls:'bard',lvl:1,sub:'lore'}];
@@ -231,7 +235,7 @@ try {
   if (recoveryDialog.type !== 'confirm') throw new Error('Restoring over a corrupt library did not require confirmation');
   const recovered = await waitForCondition(`(()=>{const data=JSON.parse(localStorage.getItem('dnd5e2014_chars_v1')||'[]');return !STORAGE_CORRUPT&&data.length===1&&data[0].name==='Backup E2E'})()`);
   if (!recovered) throw new Error('Confirmed backup did not recover the corrupt library');
-  console.log('Browser E2E passed: persistence, import validation, Foundry export, proficiency UI, XSS protection, and corrupt-storage recovery.');
+  console.log('Browser E2E passed: persistence, import validation, Foundry and Long Story Short exports, proficiency UI, XSS protection, and corrupt-storage recovery.');
 } finally {
   if (ws) ws.close();
   chrome.kill('SIGTERM');

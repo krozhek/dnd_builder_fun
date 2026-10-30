@@ -1,4 +1,4 @@
-const CHARACTER_SCHEMA=5;
+const CHARACTER_SCHEMA=6;
 const MAX_PORTRAIT_DATA=200000;
 function newChar(){
   const ab={};ABILS.forEach(([k])=>ab[k]=10);
@@ -16,7 +16,7 @@ function newChar(){
     choices:{}, // fightingStyle, favoredEnemy, favoredTerrain, hunter{3,7,11,15}, pactBoon, druidLand, metamagic[], invocations[]
     cantrips:{}, spellsKnown:{}, spellsPrepared:{}, spellbook:[], arcanum:{}, racialSpells:{},
     equipChoice:{}, goldMode:'equipment', gold:0, inventory:[], attunement:['','',''],
-    game:{hpCur:null,hpTemp:0,hdUsed:0,hdUsedByClass:{},slotsUsed:{},pactUsed:0,resources:{},dsOk:0,dsFail:0,conditions:'',notes:'',insp:false,exh:0},
+    game:{hpCur:null,hpTemp:0,hdUsed:0,hdUsedByClass:{},slotsUsed:{},resources:{},dsOk:0,dsFail:0,conditions:'',notes:'',insp:false,exh:0},
     personality:{traits:'',ideals:'',bonds:'',flaws:''}, allies:'', backstory:'', goals:'', appearance:{age:'',height:'',weight:'',eyes:'',skin:'',hair:'',details:''}, portrait:'', treasure:'', featuresNotes:'',
     created:Date.now(), updated:Date.now()
   };
@@ -83,6 +83,12 @@ const SCHEMA_MIGRATIONS={
       for(const cls of character.classes){const count=Math.min(cls.lvl,remaining);if(count)used[cls.cls]=count;remaining-=count}
     }
     return {...character,game:{...character.game,hdUsedByClass:used}};
+  },
+  5:character=>{
+    const game={...character.game},resources={...(game.resources||{})};
+    if(game.pactUsed!=null)resources.pact=Math.max(resources.pact||0,game.pactUsed||0);
+    delete game.pactUsed;
+    return {...character,game:{...game,resources}};
   }
 };
 function migrate(ch){
@@ -125,19 +131,28 @@ function migrate(ch){
 const totalLvl=()=>C.classes.reduce((s,c)=>s+c.lvl,0);
 const pb=()=>PB_BY_LVL[Math.min(20,totalLvl())-1];
 function raceOf(){return RACES[C.race]||RACES.human}
-function subraceOf(){const r=raceOf();return r.subs&&C.subrace?r.subs[C.subrace]:null}
+function subraceOf(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human;return race.subs&&subraceId?race.subs[subraceId]:null}
+function raceSizeOptions(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId);return sub?.sizeOptions|| (sub?.size?[sub.size]:race.sizeOptions||[race.size||'Средний'])}
+function raceAsiChoice(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId);return sub?.replaceAsi?(sub.asiChoice||null):(sub?.asiChoice||race.asiChoice||null)}
+function raceFlexibleAsi(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId);return sub?.replaceAsi?!!sub.flexibleAsi:!!(sub?.flexibleAsi||race.flexibleAsi)}
+function raceSkillChoiceCount(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId);return sub?.skillChoice??race.skillChoice??0}
+function raceSkillChoiceOptions(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId);return sub?.skillChoiceOptions||race.skillChoiceOptions||SKILLS.map(([id])=>id)}
+function raceFixedSkillProfs(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId);return [...new Set([...(race.skillProf||[]),...(sub?.skillProf||[])])]}
+function raceKnownLanguages(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId);return [...new Set([...(race.langs||[]),...(sub?.langs||[])])]}
+function raceExtraLanguageOptions(index,raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId),base=race.extraLang||0;return index<base?race.extraLangOptions?.[index]||LANGS:index-base<(sub?.extraLang||0)?sub.extraLangOptions?.[index-base]||LANGS:LANGS}
+function raceDarkvision(raceId=C.race,subraceId=C.subrace){const race=RACES[raceId]||RACES.human,sub=subraceOf(raceId,subraceId);return sub?.darkvision||race.darkvision||0}
 function baseLanguageChoiceCount(){const r=raceOf(),s=subraceOf(),bg=BACKGROUNDS[C.bg]||{};return (r.extraLang||0)+(s?.extraLang||0)+(bg.langs||0)}
 function racialAsi(){
   const out={str:0,dex:0,con:0,int:0,wis:0,cha:0};
-  const r=raceOf(), s=subraceOf();
+  const r=raceOf(), s=subraceOf(),flexible=raceFlexibleAsi(),choice=raceAsiChoice();
   const add=o=>{for(const k in o)out[k]+=o[k]};
-  add(r.asi||{}); if(s)add(s.asi||{});
-  if(r.flexibleAsi){
+  if(s?.replaceAsi)add(s.asi||{});else{add(r.asi||{});add(s?.asi||{})}
+  if(flexible){
     const picks=(C.raceAsiPicks||[]).filter(Boolean);
     if(C.raceAsiMode==='three')picks.slice(0,3).forEach(a=>{if(out[a]!=null)out[a]++});
     else{if(out[picks[0]]!=null)out[picks[0]]+=2;if(out[picks[1]]!=null)out[picks[1]]++}
   }
-  if(r.asiChoice){(C.halfElfPicks||[]).slice(0,r.asiChoice.count).forEach(a=>{if(!r.asiChoice.exclude.includes(a))out[a]+=r.asiChoice.val})}
+  if(choice)(C.halfElfPicks||[]).slice(0,choice.count).forEach(a=>{if(!choice.exclude.includes(a))out[a]+=choice.val});
   return out;
 }
 function asiBonus(){
@@ -161,8 +176,8 @@ const am=a=>mod(abil(a));
 // владения навыками
 function bgSkills(){return (BACKGROUNDS[C.bg]||{}).skills||[]}
 function raceSkills(){
-  const r=raceOf(),s=subraceOf(),out=[...(r.skillProf||[])];
-  if(r.skillChoice)out.push(...(C.raceSkills||[]).slice(0,r.skillChoice));
+  const out=raceFixedSkillProfs();
+  if(raceSkillChoiceCount())out.push(...(C.raceSkills||[]).slice(0,raceSkillChoiceCount()));
   return out;
 }
 function classSkills(){return [...new Set(C.classes.flatMap(c=>C.classSkills[c.cls]||[]))]}
@@ -248,6 +263,19 @@ function backgroundToolChoiceGroups(bgId=C.bg){
   }
   return {fixed,choices};
 }
+function raceToolChoiceGroup(raceId=C.race){return (RACES[raceId]||RACES.human).toolChoice||null}
+function featPrerequisiteError(id){
+  const requirement=FEAT_PREREQUISITES[id];if(!requirement)return '';
+  const profs=new Set();C.classes.forEach((c,index)=>classArmorProficiencies(c,index).forEach(value=>profs.add(value)));
+  (RACE_ARMOR_PROFICIENCIES[C.race]?.[C.subrace]||[]).forEach(value=>profs.add(value));
+  if(requirement==='medium_armor'&&!profs.has('medium'))return 'Требуется владение средними доспехами.';
+  if(requirement==='heavy_armor'&&!profs.has('heavy'))return 'Требуется владение тяжёлыми доспехами.';
+  if(requirement==='light_armor'&&!profs.has('light'))return 'Требуется владение лёгкими доспехами.';
+  if(requirement==='shield'&&!profs.has('shield'))return 'Требуется владение щитами.';
+  if(requirement==='spellcasting'&&!C.classes.some(c=>spellTypeOf(c)))return 'Требуется умение накладывать заклинания.';
+  if(requirement==='int_or_wis_13'&&abil('int')<13&&abil('wis')<13)return 'Требуется Интеллект или Мудрость 13.';
+  return '';
+}
 function classToolChoiceGroups(c,index){
   const spec=CLASS_TOOL_PROFICIENCIES[c.cls]?.[index===0?'starting':'multiclass']||{},groups=[];
   if(spec.choice)groups.push({label:spec.count===1?'Инструмент на выбор':`Музыкальные инструменты (${spec.count} на выбор)`,options:TOOL_CHOICE_OPTIONS[spec.choice],count:spec.count});
@@ -257,6 +285,8 @@ function classToolChoiceGroups(c,index){
 function toolProficiencies(){
   const {fixed:backgroundTools,choices:backgroundChoices}=backgroundToolChoiceGroups();
   const tools=[...backgroundTools,...(C.choices.backgroundTools||[]).flatMap((value,i)=>backgroundChoices[i]?.options.includes(value)?[value]:[])];
+  const raceChoice=raceToolChoiceGroup(),raceTool=C.choices.raceTools;
+  if(raceChoice&&raceChoice.options.includes(raceTool))tools.push(raceTool);
   C.classes.forEach((c,index)=>{
     const spec=CLASS_TOOL_PROFICIENCIES[c.cls]?.[index===0?'starting':'multiclass']||{};
     tools.push(...(spec.fixed||[]));
@@ -381,10 +411,8 @@ function knownLimit(cls){
   return classKnownLimit(c);
 }
 function cantripLimit(cls){
-  const c=C.classes.find(x=>x.cls===cls);if(!c)return 0;
-  if(spellTypeOf(c)==='third')return (cls==='fighter'?[0,0,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3]:[0,0,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4])[c.lvl-1];
-  const t=TABLES[cls];
-  return (t.cantrips||[])[c.lvl-1]||0;
+  const c=C.classes.find(x=>x.cls===cls);if(!c||!spellTypeOf(c))return 0;
+  return (TABLES[cls].cantrips||[])[c.lvl-1]||0;
 }
 function prepLimit(cls){
   const c=C.classes.find(x=>x.cls===cls);if(!c)return 0;
@@ -403,10 +431,7 @@ function classMaxSpellLevel(c){
   const slots=TABLES[c.cls].slots?.[c.lvl-1]||[];
   let level=0;slots.forEach((count,index)=>{if(count>0)level=index+1});return level;
 }
-function classKnownLimit(c){
-  if(spellTypeOf(c)==='third')return [0,0,3,4,4,4,5,6,6,7,8,8,9,10,10,11,11,11,12,13][c.lvl-1]||0;
-  return (TABLES[c.cls].known||[])[c.lvl-1]||0;
-}
+function classKnownLimit(c){return spellTypeOf(c)?(TABLES[c.cls].known||[])[c.lvl-1]||0:0}
 function thirdCasterSpellSelectionsValid(c,ids){
   if(spellTypeOf(c)!=='third')return true;
   const schools=c.cls==='fighter'?['ограждение','воплощение']:['очарование','иллюзия'];
@@ -570,20 +595,22 @@ function asiPending(){
   return {need,have};
 }
 function characterReadiness(){
-  const issues=[],add=(tab,text,recommended=false)=>issues.push({tab,text,recommended}),r=raceOf(),sub=subraceOf();
+  const issues=[],add=(tab,text,recommended=false)=>issues.push({tab,text,recommended}),r=raceOf(),sub=subraceOf(),asiChoice=raceAsiChoice(),flexibleAsi=raceFlexibleAsi(),skillChoiceCount=raceSkillChoiceCount();
+  if(!validCharacter(C))add('main','Исправьте значения или выборы, нарушающие правила и ограничения данных.');
   if(totalLvl()>20)add('main','Общий уровень персонажа не может превышать 20.');
   if(!validMulticlassCharacter(C))add('main','Исправьте требования к характеристикам для мультиклассирования.');
   if(!validAbilityBases(C))add('abil','Исправьте значения характеристик: соблюдайте правила выбранного метода (покупка очками — максимум 27).');
   if(!validRacialAbilityChoices(C))add('abil','Исправьте недопустимые или повторяющиеся расовые бонусы характеристик.');
   if(!validSkillChoices(C))add('skills','Исправьте недопустимые или повторяющиеся выборы навыков и компетентностей.');
-  if(r.subs&&!C.subrace)add('main','Выберите подрасу.');
-  if(r.asiChoice&&(C.halfElfPicks||[]).filter(Boolean).length<r.asiChoice.count)add('abil',`Выберите ещё ${r.asiChoice.count-(C.halfElfPicks||[]).filter(Boolean).length} бонуса характеристики от расы.`);
-  if(r.flexibleAsi){const count=C.raceAsiMode==='three'?3:2,picks=(C.raceAsiPicks||[]).filter(Boolean);if(new Set(picks).size<count)add('abil',`Распределите расовые бонусы характеристик: выберите ${count} разные характеристики.`)}
-  if(r.skillChoice&&(C.raceSkills||[]).length<r.skillChoice)add('skills',`Выберите ещё ${r.skillChoice-(C.raceSkills||[]).length} расовых навыка.`);
+  if(r.subs&&!C.subrace&&!r.subraceOptional)add('main','Выберите подрасу.');
+  if(asiChoice&&(C.halfElfPicks||[]).filter(Boolean).length<asiChoice.count)add('abil',`Выберите ещё ${asiChoice.count-(C.halfElfPicks||[]).filter(Boolean).length} бонуса характеристики от расы.`);
+  if(flexibleAsi){const count=C.raceAsiMode==='three'?3:2,picks=(C.raceAsiPicks||[]).filter(Boolean);if(new Set(picks).size<count)add('abil',`Распределите расовые бонусы характеристик: выберите ${count} разные характеристики.`)}
+  if(skillChoiceCount&&(C.raceSkills||[]).length<skillChoiceCount)add('skills',`Выберите ещё ${skillChoiceCount-(C.raceSkills||[]).length} расовых навыка.`);;
   const langs=C.extraLangs||[],langCount=languageChoiceCount(),chosenLangs=langs.slice(0,langCount).filter(Boolean);
   if(chosenLangs.length<langCount)add('main',`Выберите ещё ${langCount-chosenLangs.length} язык(а).`);
   if(new Set(chosenLangs).size<chosenLangs.length)add('main','Уберите повторяющиеся языки.');
-  const bgToolGroups=backgroundToolChoiceGroups().choices,bgToolPicks=C.choices.backgroundTools||[];
+  const bgToolGroups=backgroundToolChoiceGroups().choices,bgToolPicks=C.choices.backgroundTools||[],raceTool=raceToolChoiceGroup();
+  if(raceTool&&!raceTool.options.includes(C.choices.raceTools))add('main',`Выберите: ${raceTool.label.toLocaleLowerCase('ru')}.`);
   if(bgToolPicks.length<bgToolGroups.length||bgToolGroups.some((group,index)=>!group.options.includes(bgToolPicks[index])))add('main','Выберите инструменты, предоставляемые предысторией.');
   const wornArmor=equippedArmor();if(wornArmor&&!armorProficient(wornArmor.id))add('equip',`Нет владения доспехом «${itemName(wornArmor)}»: помеха к проверкам и спасброскам Силы/Ловкости, атакам с этими характеристиками и нельзя накладывать заклинания.`);
   if(hasShield()&&!armorProficient('shield'))add('equip','Нет владения щитами: помеха к проверкам и спасброскам Силы/Ловкости, атакам с этими характеристиками и нельзя накладывать заклинания.');
@@ -628,6 +655,7 @@ function characterReadiness(){
   for(const key of activeFightingStyleKeys())if(!styleChoices[key])add('cls',key==='championExtra'?'Выберите второй боевой стиль (Чемпион 10).':`Выберите боевой стиль для класса «${CLASSES[key].name}».`);
   const {need,have}=asiPending();
   if(have>need)add('abil','Удалите ASI/черты, которые больше не доступны на текущих уровнях классов.');
+  if(!validAsiChoices(C))add('abil','Исправьте повторяющиеся черты или черты с невыполненными требованиями.');
   for(let i=0;i<need;i++){
     const a=(C.asi||{})['asi'+i];let complete=false;
     if(Array.isArray(a))complete=a.length===2;
@@ -640,5 +668,5 @@ function characterReadiness(){
 function renderReadiness(){
   const issues=characterReadiness(),required=issues.filter(i=>!i.recommended),recommended=issues.filter(i=>i.recommended);
   const rows=[...required,...recommended].map(i=>`<li>${i.recommended?'Рекомендуется: ':''}<button class="btn ghost sm" onclick="setTab('${i.tab}')">${esc(i.text)}</button></li>`).join('');
-  return `<div class="card"><h3>Проверка заполнения</h3>${issues.length?`<p class="warn">Незавершённых выборов: ${required.length}${recommended.length?` · рекомендаций: ${recommended.length}`:''}</p><ul>${rows}</ul><p class="muted small">Это подсказки: они не блокируют сохранение и печать.</p>`:'<p class="ok-t">Обязательные выборы заполнены.</p>'}</div>`;
+  return `<div class="card"><h3>Проверка заполнения</h3>${issues.length?`<p class="warn">Незавершённых выборов: ${required.length}${recommended.length?` · рекомендаций: ${recommended.length}`:''}</p><ul>${rows}</ul><p class="muted small">Черновик можно сохранить. Лист персонажа и экспорт доступны после исправления обязательных замечаний.</p>`:'<p class="ok-t">Обязательные выборы заполнены.</p>'}</div>`;
 }

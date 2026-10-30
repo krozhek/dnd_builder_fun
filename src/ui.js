@@ -24,6 +24,7 @@ function render(){
     <div class="top-actions">
       <button class="btn ghost" id="themeBtn" onclick="toggleTheme()"></button>
       ${C?`<button class="btn ghost" onclick="exportJson()">⬇ JSON</button>
+      <button class="btn ghost" onclick="exportLongStoryShortJson()" title="Экспорт для сайта Long Story Short">⬇ LSS</button>
       <button class="btn ghost" onclick="exportFoundryJson()" title="Foundry VTT 12 · dnd5e 3.3.1">⬇ Foundry</button>
       <label class="btn ghost" for="importFile">⬆ Импорт</label><input type="file" id="importFile" accept=".json" hidden onchange="importJson(this)">`:''}
     </div>
@@ -100,7 +101,8 @@ function delChar(id){
   LIB=LIB.filter(c=>c.id!==id);saveLib();render();
 }
 function exportJson(){
-  if(!validCharacter(C)){alert('Исправьте некорректные значения персонажа перед экспортом.');return}
+  const issues=characterReadiness().filter(issue=>!issue.recommended);
+  if(!validCharacter(C)||issues.length){alert('Заполните обязательные выборы и исправьте ошибки перед экспортом.');return}
   const blob=new Blob([JSON.stringify(C,null,1)],{type:'application/json'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
@@ -148,15 +150,19 @@ function importJson(inp){
 function languageChoiceCount(){const mode=C.choices.deftExplorerMode;return baseLanguageChoiceCount()+(deftExplorerActive()?(mode==='two_languages'?2:mode==='language_tool'?1:0):0)}
 function setExtraLang(index,value){if(setCharacterExtraLanguage(index,value)){persist();render()}}
 function languageChoiceFields(){
-  const r=raceOf(),langs=C.extraLangs||[],base=baseLanguageChoiceCount();
+  const langs=C.extraLangs||[],base=baseLanguageChoiceCount();
   return Array.from({length:languageChoiceCount()},(_,i)=>{
-    const selected=langs[i]||'',used=[...(r.langs||[]),...langs.filter((l,j)=>j!==i&&l)],label=i>=base?`Язык «Искусного исследователя» ${i-base+1}`:`Язык на выбор ${i+1}`;
-    return `<label>${label}<select onchange="setExtraLang(${i},this.value)"><option value="">— выберите —</option>${LANGS.filter(l=>!used.includes(l)||l===selected).map(l=>`<option${selected===l?' selected':''}>${l}</option>`).join('')}</select></label>`;
+    const selected=langs[i]||'',used=[...raceKnownLanguages(),...langs.filter((l,j)=>j!==i&&l)],label=i>=base?`Язык «Искусного исследователя» ${i-base+1}`:`Язык на выбор ${i+1}`,options=raceExtraLanguageOptions(i);
+    return `<label>${label}<select onchange="setExtraLang(${i},this.value)"><option value="">— выберите —</option>${options.filter(l=>!used.includes(l)||l===selected).map(l=>`<option${selected===l?' selected':''}>${l}</option>`).join('')}</select></label>`;
   }).join('');
 }
 function backgroundToolChoiceFields(){
   const groups=backgroundToolChoiceGroups(),selected=C.choices.backgroundTools||[];
   return groups.choices.map((group,index)=>`<label>${group.label}<select onchange="setBackgroundToolChoices(${index},this)"><option value="">— выберите —</option>${group.options.map(tool=>`<option value="${esc(tool)}"${selected[index]===tool?' selected':''}>${esc(tool)}</option>`).join('')}</select></label>`).join('');
+}
+function raceToolChoiceFields(){
+  const choice=raceToolChoiceGroup();if(!choice)return '';
+  return `<label>${choice.label}<select onchange="setRaceTool(this.value)"><option value="">— выберите —</option>${choice.options.map(tool=>`<option value="${esc(tool)}"${C.choices.raceTools===tool?' selected':''}>${esc(tool)}</option>`).join('')}</select></label>`;
 }
 function classToolChoiceFields(c,index){
   return classToolChoiceGroups(c,index).map(group=>{
@@ -165,11 +171,12 @@ function classToolChoiceFields(c,index){
   }).join('');
 }
 function setBackgroundToolChoices(index,select){if(setCharacterBackgroundTool(index,select.value)){persist();render()}}
+function setRaceTool(value){if(setCharacterRaceTool(value)){persist();render()}}
 function setClassToolChoices(cls,select){if(setCharacterClassTools(cls,[...select.selectedOptions].map(option=>option.value))){persist();render()}}
 function renderMain(){
   const r=raceOf(), s=subraceOf();
   const raceOpts=Object.entries(RACES).map(([id,x])=>`<option value="${id}"${C.race===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
-  const subOpts=r.subs?`<label>Подраса<select onchange="setField('subrace',this.value);render()"><option value="">—</option>${Object.entries(r.subs).map(([id,x])=>`<option value="${id}"${C.subrace===id?' selected':''}>${x.name}</option>`).join('')}</select>`:'';
+  const subOpts=r.subs?`<label>Подраса<select onchange="setField('subrace',this.value);render()"><option value="">—</option>${Object.entries(r.subs).map(([id,x])=>`<option value="${id}"${C.subrace===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('')}</select>`:'';
   const bgOpts=Object.entries(BACKGROUNDS).map(([id,x])=>`<option value="${id}"${C.bg===id?' selected':''}>${x.name}${x.src?' ('+x.src+')':''}</option>`).join('');
   const bg=BACKGROUNDS[C.bg];
   let classRows=C.classes.map((c,i)=>`
@@ -199,16 +206,17 @@ function renderMain(){
         <div class="bg-desc" onclick="openBgModal('${C.bg}')">📖 ${esc(bg.name)}${bg.src?' ('+bg.src+')':''} — нажмите для описания</div>
         <div class="grid two">
           <label>Мировоззрение<select onchange="setField('align',this.value)">${ALIGN.map(a=>`<option${C.align===a?' selected':''}>${a}</option>`).join('')}</select></label>
-          <label>Размер<select onchange="setField('size',this.value)">${['Крошечный','Маленький','Средний','Большой','Огромный'].map(a=>`<option${C.size===a?' selected':''}>${a}</option>`).join('')}</select></label>
+          <label>Размер<select onchange="setField('size',this.value)">${raceSizeOptions().map(a=>`<option${C.size===a?' selected':''}>${a}</option>`).join('')}</select></label>
         </div>
         <label>Опыт (XP)<input type="number" min="0" value="${C.xp||0}" oninput="setText('xp',+this.value||0)"></label>
       </div>
       <div class="card">
-        <h3>Расовые черты${r.src?' ('+r.src+')':''}</h3>
+        <h3>Расовые черты${r.src?' ('+r.src+')':''}${s?.src&&s.src!==r.src?' · подраса ('+s.src+')':''}</h3>
         <ul class="traits">${r.traits.map(t=>`<li>${esc(t)}</li>`).join('')}${s?s.traits.map(t=>`<li>${esc(t)}</li>`).join(''):''}</ul>
-        <div class="muted small">Скорость: ${speedText()} · Языки: ${[...r.langs,...(C.extraLangs||[]).filter(Boolean)].map(esc).join(', ')||'—'}</div>
-        <div class="grid two">${languageChoiceFields()}</div>
-        ${r.asiChoice?`<div class="hint">Полуэльф: +1 к двум характеристикам (кроме Хар) — выберите на вкладке «Характеристики»</div>`:''}
+        ${r.manualFeatures||s?.manualFeatures?`<p class="warn small">Расовые особенности здесь приведены для справки; их эффекты, кроме явно указанных автоматических расчётов, нужно учитывать вручную.</p>`:''}
+        <div class="muted small">Скорость: ${speedText()} · Языки: ${[...raceKnownLanguages(),...(C.extraLangs||[]).filter(Boolean)].map(esc).join(', ')||'—'}</div>
+        <div class="grid two">${languageChoiceFields()}${raceToolChoiceFields()}</div>
+        ${raceAsiChoice()?`<div class="hint">Бонус характеристик: ${raceAsiChoice().count} выбор(а) — настройте на вкладке «Характеристики»</div>`:''}
       </div>
     </div>
     <h2>Данные листа</h2>
@@ -316,9 +324,10 @@ function renderAbil(){
   const asiBlock=need>0?`<div class="card"><h3>Увеличение характеристик (ASI)</h3>
     <p class="hint">Доступно улучшений: ${need}, распределено: ${have}. Каждое ASI: +2 к одной или +1 к двум характеристикам.</p>
     ${Array.from({length:need},(_,i)=>asiPicker(i)).join('')}</div>`:'';
-  const halfElf=r.asiChoice?`<div class="card"><h3>Бонус полуэльфа: +1 к двум характеристикам</h3>
-    <div class="row gap wrap">${ABILS.filter(([a])=>!r.asiChoice.exclude.includes(a)).map(([a,n])=>`<label class="chk"><input type="checkbox" ${(C.halfElfPicks||[]).includes(a)?'checked':''} onchange="toggleHalfElf('${a}',this.checked)"> ${n}</label>`).join('')}</div></div>`:'';
-  const flexibleAsi=r.flexibleAsi?(()=>{const mode=C.raceAsiMode==='three'?'three':'two',count=mode==='three'?3:2,picks=C.raceAsiPicks||[];return `<div class="card"><h3>Бонусы характеристик (${r.src})</h3><p class="hint">Гибкое распределение по правилу «Котла Таши»: +2 к одной и +1 к другой характеристике либо +1 к трём.</p><label>Распределение<select onchange="setRaceAsiMode(this.value)"><option value="two"${mode==='two'?' selected':''}>+2 и +1</option><option value="three"${mode==='three'?' selected':''}>+1 к трём</option></select></label><div class="row gap wrap">${Array.from({length:count},(_,i)=>`<label>${mode==='two'?(i===0?'+2 к':'+1 к'):'+1 к'}<select onchange="setRaceAsi(${i},this.value)"><option value="">—</option>${ABILS.map(([a,n])=>`<option value="${a}"${picks[i]===a?' selected':''}${picks.includes(a)&&picks[i]!==a?' disabled':''}>${n}</option>`).join('')}</select></label>`).join('')}</div></div>`})():'';
+  const asiChoice=raceAsiChoice();
+  const halfElf=asiChoice?`<div class="card"><h3>Расовый бонус характеристик (+${asiChoice.val} × ${asiChoice.count})</h3>
+    <div class="row gap wrap">${ABILS.filter(([a])=>!asiChoice.exclude.includes(a)).map(([a,n])=>`<label class="chk"><input type="checkbox" ${(C.halfElfPicks||[]).includes(a)?'checked':''} onchange="toggleHalfElf('${a}',this.checked)"> ${n}</label>`).join('')}</div></div>`:'';
+  const flexibleAsi=raceFlexibleAsi()?(()=>{const mode=C.raceAsiMode==='three'?'three':'two',count=mode==='three'?3:2,picks=C.raceAsiPicks||[],raceSrc=subraceOf()?.replaceAsi?subraceOf().src:r.src;return `<div class="card"><h3>Бонусы характеристик (${raceSrc||'расы'})</h3><p class="hint">Гибкое распределение: +2 к одной и +1 к другой характеристике либо +1 к трём.</p><label>Распределение<select onchange="setRaceAsiMode(this.value)"><option value="two"${mode==='two'?' selected':''}>+2 и +1</option><option value="three"${mode==='three'?' selected':''}>+1 к трём</option></select></label><div class="row gap wrap">${Array.from({length:count},(_,i)=>`<label>${mode==='two'?(i===0?'+2 к':'+1 к'):'+1 к'}<select onchange="setRaceAsi(${i},this.value)"><option value="">—</option>${ABILS.map(([a,n])=>`<option value="${a}"${picks[i]===a?' selected':''}${picks.includes(a)&&picks[i]!==a?' disabled':''}>${n}</option>`).join('')}</select></label>`).join('')}</div></div>`})():'';
   return `<div class="page"><h1>Характеристики</h1>
     <div class="card">
       <div class="row gap wrap">
@@ -349,8 +358,11 @@ function asiPicker(i){
   const isFeat=cur&&cur.type==='feat';
   const vals=Array.isArray(cur)?cur:(cur&&cur.vals)||[];
   const opts=ABILS.map(([a,n])=>`<option value="${a}"${vals.includes(a)?' selected':''}>${n}</option>`).join('');
-  const featOpts=(typeof FEATS!=='undefined'?FEATS:[]).map(([id,n])=>`<option value="${id}"${isFeat&&cur.id===id?' selected':''}>${n}</option>`).join('');
   const featDef=isFeat&&typeof FEATS!=='undefined'?FEATS.find(f=>f[0]===cur.id):null;
+  const featOpts=(typeof FEATS!=='undefined'?FEATS:[]).map(([id,name])=>{
+    const requirement=featPrerequisiteError(id),duplicate=Object.entries(C.asi||{}).some(([key,value])=>key!==`asi${i}`&&value?.type==='feat'&&value.id===id),disabled=(requirement||duplicate)&&!(isFeat&&cur.id===id);
+    return `<option value="${id}"${isFeat&&cur.id===id?' selected':''}${disabled?' disabled':''}${requirement?` title="${esc(requirement)}"`:''}>${name}${requirement?` — ${esc(requirement)}`:duplicate?' — уже выбрана':''}</option>`;
+  }).join('');
   const bonusOpts=featDef&&featDef[3]?`<label>+1 к<select onchange="setAsiFeatBonus(${i},this.value)"><option value="">—</option>${featDef[3].map(a=>`<option value="${a}"${cur.bonus===a?' selected':''}>${ABIL_RU_FULL[a]}</option>`).join('')}</select></label>`:'';
   return `<div class="asi-row"><div class="row gap wrap"><b>#${i+1}</b>
     <label class="chk"><input type="radio" name="asit${i}" ${!isFeat?'checked':''} onchange="setAsiType(${i},'asi')"> +2 / +1 к характеристикам</label>
@@ -358,10 +370,10 @@ function asiPicker(i){
     ${!isFeat?`<div class="row gap wrap"><select multiple size="3" onchange="setAsi(${i},[...this.selectedOptions].map(o=>o.value))">${opts}</select>
     <span class="muted small">выберите одну (тогда +2) или две (+1 каждой)</span></div>`
     :`<div class="row gap wrap"><select onchange="setAsiFeat(${i},this.value)"><option value="">— выберите черту —</option>${featOpts}</select>${bonusOpts}</div>
-    ${featDef?`<p class="hint">${esc(featDef[2])}</p>`:''}`}</div>`;
+    ${featDef?`<p class="hint">${esc(featDef[2])}</p><p class="muted small">Автоматизация: ${esc(FEAT_AUTOMATION[cur.id]||'не рассчитывается; описание дано для справки.')}</p>`:''}`}</div>`;
 }
 function setAsiType(i,t){if(setCharacterAsiType(i,t)){persist();render()}}
-function setAsiFeat(i,id){if(setCharacterAsiFeat(i,id)){persist();render()}}
+function setAsiFeat(i,id){const result=setCharacterAsiFeat(i,id);if(result!==true){if(result)alert(result);render();return}persist();render()}
 function setAsiFeatBonus(i,ability){if(setCharacterAsiFeatBonus(i,ability)){persist();render()}}
 function setAsi(i,vals){if(vals.length>2){alert('Не больше двух');render();return}if(setCharacterAsiValues(i,vals)){persist();render()}}
 
@@ -374,7 +386,7 @@ function renderSkills(){
     ${invalidChoices?'<div class="warn">В сохранённых данных есть недопустимые выборы навыков или компетентностей. Их можно сбросить и выбрать заново.</div><button class="btn danger" onclick="resetSkillChoices()">Сбросить выборы навыков</button>':''}
     <div class="card"><h3>Владения от предыстории и расы</h3>
       <p>${[...bg.map(s=>SKILLS.find(x=>x[0]===s)?.[1]||esc(s)),...race.map(s=>SKILLS.find(x=>x[0]===s)?.[1]||esc(s))].join(', ')||'—'}</p>
-      ${raceOf().skillChoice?`<p class="hint">Полуэльф: выберите ${raceOf().skillChoice} навыка:</p><div class="row gap wrap">${SKILLS.map(([id,n])=>`<label class="chk"><input type="checkbox" ${(C.raceSkills||[]).includes(id)?'checked':''}${!(C.raceSkills||[]).includes(id)&&profSkills().includes(id)?' disabled':''} onchange="toggleRaceSkill('${id}',this.checked)"> ${n}</label>`).join('')}</div>`:''}
+      ${raceSkillChoiceCount()?`<p class="hint">${esc(subraceOf()?.name||raceOf().name)}: выберите ${raceSkillChoiceCount()} навыка:</p><div class="row gap wrap">${SKILLS.filter(([id])=>raceSkillChoiceOptions().includes(id)).map(([id,n])=>`<label class="chk"><input type="checkbox" ${(C.raceSkills||[]).includes(id)?'checked':''}${!(C.raceSkills||[]).includes(id)&&profSkills().includes(id)?' disabled':''} onchange="toggleRaceSkill('${id}',this.checked)"> ${n}</label>`).join('')}</div>`:''}
     </div>
     ${C.classes.map((c,i)=>{
       const cl=CLASSES[c.cls];
@@ -430,13 +442,13 @@ function availableFightingStyles(key,options){
 }
 function setFightingStyle(key,value){const result=setCharacterFightingStyle(key,value);if(result===false)return;if(result){alert(result);render();return}persist();render()}
 function renderClass(){
-  return `<div class="page"><h1>Класс и умения</h1>
+  return `<div class="page"><h1>Класс и умения</h1><p class="warn small">Описания классовых и подклассовых умений приведены для справки. Автоматически применяются только явно перечисленные эффекты; остальные нужно учитывать вручную.</p>
   ${C.classes.map((c,i)=>{
     const cl=CLASSES[c.cls], sub=SUBCLASSES[c.sub];
     const styleAv=FIGHTING_STYLES[c.cls],styleLevel=c.cls==='fighter'?1:2,styles=C.choices.fightingStyles||{};
     const replaced=selectedTashaFeatures(c).flatMap(f=>f[4]||[]);
     return `<div class="card">
-      <h3>${cl.name} ${c.lvl}${sub?' · '+sub.name:''}</h3>
+      <h3>${cl.name} ${c.lvl}${sub?' · '+sub.name+(sub.src?' ('+sub.src+')':''):''}</h3>
       <p class="muted small">Кость хитов: к${cl.hd} · Спасброски: ${cl.saves.map(a=>ABIL_RU_FULL[a]).join(', ')} · Доспехи: ${classArmorProficiencyText(c,i)} · Оружие: ${classWeaponProficiencies(c,i).join(', ')||'—'} · Инструменты: ${classToolProficiencyText(c,i)}</p>
       ${styleAv&&c.lvl>=styleLevel?`<label>Боевой стиль<span class="tip-i" data-tip="Боевой стиль. В расчётах листа автоматически учитываются только Защита (КД), Стрельба (атака) и Дуэлянт (урон); эффекты остальных стилей показаны как справка.">ⓘ</span><select onchange="setFightingStyle('${c.cls}',this.value)"><option value="">—</option>${availableFightingStyles(c.cls,styleAv).map(([id,d])=>`<option value="${id}"${styles[c.cls]===id?' selected':''}>${d}</option>`).join('')}</select></label>`:''}
       ${c.cls==='fighter'&&c.sub==='champion'&&c.lvl>=10?`<label>Второй боевой стиль (Чемпион 10)<select onchange="setFightingStyle('championExtra',this.value)"><option value="">—</option>${availableFightingStyles('championExtra',FIGHTING_STYLES.fighter).map(([id,d])=>`<option value="${id}"${styles.championExtra===id?' selected':''}>${d}</option>`).join('')}</select></label>`:''}
@@ -660,7 +672,7 @@ function openSpellModal(id){
     <tr><td>Дистанция</td><td>${esc(s.range)}</td></tr>
     <tr><td>Компоненты</td><td>${esc(s.comp)}</td></tr>
     <tr><td>Длительность</td><td>${esc(s.dur)}</td></tr>
-    <tr><td>Классы</td><td>${s.cls.map(c=>CLASSES[c].name).join(', ')}</td></tr>
+    <tr><td>Классы</td><td>${s.cls.map(c=>CLASSES[c]?.name||s.classNames?.[c]||c).join(', ')}</td></tr>
   </table>
   ${s.desc?`<p class="hint">Механика: ${esc(s.desc)}</p>`:''}
   ${s.full?`<div class="spell-full">${esc(s.full)}</div>`:''}`);
@@ -681,14 +693,14 @@ function renderEquip(){
         <button class="btn${C.goldMode==='equipment'?' primary':''}" onclick="setEquipmentMode('equipment')">Комплект класса</button>
         <button class="btn${C.goldMode==='gold'?' primary':''}" onclick="setEquipmentMode('gold')">Покупка за золото</button>
       </div>
-      ${C.goldMode==='equipment'?C.classes.map(c=>{
+      ${C.goldMode==='equipment'?C.classes.slice(0,1).map(c=>{
         const se=STARTING_EQUIPMENT[c.cls];
         const opts=se?se.choices:null;
         if(!opts)return '';
         return `<div class="row gap wrap"><b>${CLASSES[c.cls].name}:</b>${opts.map(o=>`<button class="btn sm${C.equipChoice[c.cls]===o.name?' primary':''}" onclick="setEquipmentChoice('${c.cls}','${o.name}')">${o.name}</button>`).join('')}</div>`}).join('')
-      :`<div class="row gap wrap">${C.classes.map(c=>`<span>${CLASSES[c.cls].name}: <b>${STARTING_GOLD[c.cls]}</b> зм <button class="btn sm" onclick="rollGold('${c.cls}')">🎲</button></span>`).join('')}
+      :`<div class="row gap wrap">${C.classes.slice(0,1).map(c=>`<span>Стартовый класс · ${CLASSES[c.cls].name}: <b>${STARTING_GOLD[c.cls]}</b> зм <button class="btn sm" onclick="rollGold('${c.cls}')">🎲 бросить</button></span>`).join('')}
         <label>Текущее золото (зм)<input type="number" min="0" value="${C.gold||0}" onchange="setGold(this.value)"></label></div>`}
-      ${C.goldMode==='equipment'?`<button class="btn" onclick="applyStartingKit()">Применить комплект в инвентарь</button>`:''}
+      ${C.goldMode==='equipment'?`<button class="btn" onclick="applyStartingKit()">Добавить комплект стартового класса</button><button class="btn danger ghost" onclick="applyStartingKit(true)">Заменить инвентарь комплектом</button>`:''}
     </div>
     <div class="grid two">
       <div class="card"><h3>Магазин</h3>
@@ -737,11 +749,20 @@ function toggleWieldWeapon(index){if(toggleCharacterWieldWeapon(index)){persist(
 function setWeaponGrip(index,grip){if(setCharacterWeaponGrip(index,grip)){persist();render()}}
 function setEquipmentMode(mode){if(setCharacterEquipmentMode(mode)){persist();render()}}
 function setEquipmentChoice(cls,name){if(setCharacterEquipmentChoice(cls,name)){persist();render()}}
+function rollGold(cls){
+  if(cls!==C.classes[0]?.cls)return;
+  const formula=(STARTING_GOLD[cls]||'').match(/^([0-9]+)к([0-9]+)(?: × ([0-9]+))?$/);
+  if(!formula){alert('Не удалось разобрать формулу стартового золота.');return}
+  const [,count,sides,multiplier='1']=formula,rolls=Array.from({length:+count},()=>Math.floor(Math.random()*+sides)+1),amount=rolls.reduce((sum,value)=>sum+value,0)*+multiplier;
+  if(C.gold>0&&!confirm(`Заменить текущие ${C.gold} зм результатом броска: ${rolls.join('+')} × ${multiplier} = ${amount} зм?`))return;
+  setCharacterGold(amount);logRoll(`Стартовое золото (${CLASSES[cls].name}): [${rolls.join(', ')}] × ${multiplier} = <b>${amount} зм</b>`);persist();render();
+}
 function setGold(value){if(setCharacterGold(value)){persist();render()}}
 function setAttunement(index,value){if(setCharacterAttunement(index,value))persist()}
-function applyStartingKit(){
-  if(!confirm('Добавить стартовое снаряжение классов в инвентарь?'))return;
-  applyCharacterStartingKit();persist();render();
+function applyStartingKit(replace=false){
+  if(replace&&!confirm('Полностью заменить текущий инвентарь стартовым комплектом первого класса?'))return;
+  if(!applyCharacterStartingKit(replace))return;
+  persist();render();
 }
 
 function attacksHtml(){
@@ -837,11 +858,6 @@ function drawGameTrackers(){
     const el=document.getElementById('slotPips'+i);
     if(el)el.innerHTML=Array.from({length:n},(_,k)=>`<span class="pip${k<used?' on':''}" onclick="useSlot(${i},${k})"></span>`).join('');
   });
-  const pact=pactSlots();
-  if(pact){
-    const el=document.getElementById('pactPips');
-    if(el)el.innerHTML=Array.from({length:pact.count},(_,k)=>`<span class="pip${k<(g.pactUsed||0)?' on':''}" onclick="usePactSlot(${k})"></span>`).join('');
-  }
   classResources().forEach(r=>{
     const el=document.querySelector(`[data-res="${r.id}"]`);
     if(el){
@@ -886,8 +902,7 @@ function rollCheck(kind,id,name){
   if(kind==='skill')bonus=skillMod(id);
   if(kind==='save')bonus=saveMods()[id].mod;
   const r=Math.floor(Math.random()*20)+1;
-  const crit=r===20?' <span class="ok-t">КРИТ!</span>':r===1?' <span class="bad">ПРОВАЛ!</span>':'';
-  logRoll(`${name}: к20=${r} ${fmtMod(bonus)} = <b>${r+bonus}</b>${crit}`);
+  logRoll(`${name}: к20=${r} ${fmtMod(bonus)} = <b>${r+bonus}</b>`);
 }
 function logRoll(html){
   const log=$('#diceLog');if(!log)return;
@@ -921,7 +936,7 @@ function renderSheet2014(){
   const spellGroup=level=>`<section class="pdf-box p14-spellgroup" data-level="${level}"><div class="pdf-title" data-level="${level}">${level===0?'Заговоры':`${level}-й круг`}${level?` · ячеек ${slots[level-1]||0}`:''}</div>${spells.filter(sp=>sp.lvl===level).map(sp=>`<div class="p14-spellrow">${esc(sp.ru)}${racialSpellIds.has(sp.id)?' · дар расы':''}${primalSpellIds.has(sp.id)?' · Изначальная осведомлённость: 1/долгий отдых без ячейки':''}</div>`).join('')}${Array.from({length:level===0?14:12},()=>'<div class="p14-spellrow"></div>').join('')}</section>`;
   const personality=C.personality||{};
   return `<div class="pdf-sheet">
-    <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2014</span></div>
+    <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2014 · прочие умения приведены как справка, эффекты не всегда автоматизированы</span></div>
     <section class="pdf-page pdf-page14 p14-page1" data-sheet-page="1">
       <header class="p14-header"><div class="p14-name"><div class="pdf-cap">имя персонажа</div><strong>${esc(C.name)}</strong></div><div class="p14-id">
         <div><div class="pdf-cap">класс и уровень</div><b>${esc(clsText)} · ${totalLvl()}</b></div><div><div class="pdf-cap">предыстория</div><b>${esc(BACKGROUNDS[C.bg].name)}</b></div><div><div class="pdf-cap">игрок</div><div class="pdf-line"></div></div>
@@ -958,6 +973,8 @@ function setSheetVersion(version){
 }
 
 function renderSheet(){
+  const issues=characterReadiness().filter(issue=>!issue.recommended);
+  if(issues.length)return `<div class="page"><h1>Лист персонажа недоступен</h1><div class="card"><p class="warn">Заполните обязательные выборы перед печатью.</p><ul>${issues.map(issue=>`<li>${esc(issue.text)}</li>`).join('')}</ul><button class="btn primary" onclick="setTab('main')">К проверке персонажа</button></div></div>`;
   return `<div class="sheet-choice"><label>Оформление листа <select onchange="setSheetVersion(this.value)"><option value="2014"${SHEET_VERSION==='2014'?' selected':''}>D&D 2014</option><option value="2024"${SHEET_VERSION==='2024'?' selected':''}>D&D 2024</option></select></label><span class="muted small">Меняется только вид листа; расчёты остаются по правилам 2014 года.</span></div>${SHEET_VERSION==='2024'?renderSheet2024():renderSheet2014()}`;
 }
 
@@ -1002,7 +1019,7 @@ function renderSheet2024(){
   const weapons=[...(C.inventory||[]).filter(i=>i.type==='weapon').map(it=>{const w=WEAPONS.find(x=>x[0]===it.id);return w?`<tr><td>${esc(w[1])}</td><td>${fmtMod(weaponAttack(w))}</td><td>${weaponDamage(w,it)}</td><td>${esc(w[5].split(',')[0])}</td></tr>`:''}),...cantripAttacks].join('')||'<tr><td colspan="4">—</td></tr>';
   const personality=C.personality||{};
   return `<div class="pdf-sheet">
-    <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2024 · визуальный вариант</span></div>
+    <div class="no-print-bar"><button class="btn primary" onclick="window.print()">🖨 Печать / PDF</button><span class="muted small">лист D&D 2024 · прочие умения приведены как справка, эффекты не всегда автоматизированы</span></div>
     <section class="pdf-page pdf-page24 p24-page1" data-sheet-page="1"><div class="p24-frame"></div>
       <header class="p24-header"><div class="pdf-box p24-id"><div class="wide"><div class="pdf-cap">имя персонажа</div><b class="pdf-value">${esc(C.name)}</b></div><div><div class="pdf-cap">предыстория</div><b>${esc(BACKGROUNDS[C.bg].name)}</b></div><div><div class="pdf-cap">класс</div><b>${esc(clsText)}</b></div><div><div class="pdf-cap">вид</div><b>${esc(race.name)}${sub?` (${esc(sub.name)})`:''}</b></div><div><div class="pdf-cap">подкласс</div><b>${esc(subText||'—')}</b></div></div>
         <div class="pdf-box p24-stat p24-level"><span class="pdf-cap">уровень</span><strong>${totalLvl()}</strong><span class="pdf-cap">опыт ${C.xp||0}</span></div><div class="pdf-box p24-stat p24-ac"><span class="pdf-cap">класс защиты</span><strong>${armorClass()}</strong><span class="pdf-cap">${hasShield()?'щит ◇':''}</span></div><div class="pdf-box p24-stat p24-hp"><span class="pdf-cap">хиты</span><div class="pdf-row"><b>${esc(game.hpCur!=null?game.hpCur:maxHp())}</b><span>текущие</span></div><div class="pdf-row"><b>${esc(game.hpTemp||0)}</b><span>временные</span></div><div class="pdf-small">максимум ${maxHp()}</div></div><div class="pdf-box p24-stat"><span class="pdf-cap">кости хитов</span><strong>${esc(totalLvl()-(game.hdUsed||0))} / ${totalLvl()}</strong><span class="pdf-cap">${hitDiceStr()}</span></div><div class="pdf-box p24-stat p24-death"><span class="pdf-cap">спасброски от смерти</span><span class="pdf-small">Успехи ${[0,1,2].map(i=>esc(game.dsOk>i?'◆':'◇')).join(' ')}</span><span class="pdf-small">Провалы ${[0,1,2].map(i=>esc(game.dsFail>i?'◆':'◇')).join(' ')}</span></div>
