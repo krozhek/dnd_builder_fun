@@ -1538,6 +1538,19 @@ test('schema migrations assign legacy spent hit dice to class levels and upgrade
   }
 });
 
+test('loadLib migrates legacy entries before validating their current schema', () => {
+  const key='dnd5e2014_chars_v1',legacy=api.newChar();
+  legacy.schemaVersion=4;legacy.game.hdUsed=1;legacy.game.hdUsedByClass=[];
+  assert.equal(api.validCharacter(legacy,false),false);
+  storageData.set(key,JSON.stringify([legacy]));
+  api.loadLib();
+  assert.equal(api.storageCorrupt,false);
+  assert.equal(api.library.length,1);
+  assert.equal(api.library[0].schemaVersion,6);
+  assert.deepEqual({ ...api.library[0].game.hdUsedByClass },{fighter:1});
+  storageData.delete(key);api.setLibrary([]);
+});
+
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {
   const c = character();
   assert.equal(api.validCharacter(c), true);

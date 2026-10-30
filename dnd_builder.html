@@ -1498,8 +1498,10 @@ function loadLib(){
   if(value==null){LIB=[];return}
   try{
     const saved=JSON.parse(value);
-    if(!Array.isArray(saved)||!saved.every(c=>validCharacter(c,false))||!hasUniqueCharacterIds(saved))throw new Error('Некорректная библиотека персонажей');
-    LIB=saved.map(migrate);
+    if(!Array.isArray(saved)||!saved.every(character=>isRecord(character)&&Array.isArray(character.classes)&&character.classes.length&&(character.schemaVersion==null||Number.isInteger(character.schemaVersion)&&character.schemaVersion>=1&&character.schemaVersion<=CHARACTER_SCHEMA)&&!hasUnsafeKeys(character)))throw new Error('Некорректная библиотека персонажей');
+    const migrated=saved.map(migrate);
+    if(!migrated.every(character=>validCharacter(character,false))||!hasUniqueCharacterIds(migrated))throw new Error('Некорректная библиотека персонажей');
+    LIB=migrated;
   }catch(error){LIB=[];STORAGE_CORRUPT=true;console.error('Не удалось восстановить библиотеку персонажей',error);warnStorage()}
 }
 function warnStorage(){
