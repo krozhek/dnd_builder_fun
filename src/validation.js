@@ -30,7 +30,7 @@ function validSpellSelections(ch,enforceRules=true,diagnostic=null){
     for(const [field,kind] of [['cantrips','cantrip'],['spellsKnown','known'],['spellsPrepared','prepared']]){
       for(const [cls,ids] of Object.entries(ch[field]||{})){
         const c=classes.get(cls);if(!c)return fail(`В списке «${field}» указан отсутствующий класс «${cls}».`);if(!ids.length)continue;
-        if(!spellTypeOf(c)||kind==='prepared'&&!['cleric','druid','paladin','wizard'].includes(cls)||kind==='known'&&!classKnownLimit(c))return fail(`Класс «${cls}» не поддерживает список «${field}».`);
+        if(!spellTypeOf(c)||kind==='prepared'&&!['cleric','druid','paladin','wizard'].includes(cls)||kind==='known'&&!Array.isArray(TABLES[cls].known))return fail(`Класс «${cls}» не поддерживает список «${field}».`);
         const limit=kind==='cantrip'?cantripLimit(cls):kind==='known'?knownLimit(cls):prepLimit(cls);
         const free=kind==='known'&&cls==='ranger'&&selectedTashaFeatures(c).some(feature=>feature[0]==='primal_awareness')?new Set(primalAwarenessSpells().map(spell=>spell.id)):new Set();
         if(enforceRules&&ids.filter(id=>!free.has(id)).length>limit)return fail(`В списке «${field}» класса «${cls}» выбрано слишком много заклинаний.`);
@@ -38,8 +38,8 @@ function validSpellSelections(ch,enforceRules=true,diagnostic=null){
           const spell=SPELLS.find(s=>s.id===id);
           return !spell||!spellClassAllowed(c,id)||(kind==='cantrip'?spell.lvl!==0:spell.lvl<1||spell.lvl>classMaxSpellLevel(c))||(kind==='prepared'&&cls==='wizard'&&!(ch.spellbook||[]).includes(id));
         });
-        if(invalid)return fail(`Заклинание «${invalid}» в списке «${field}» недоступно классу «${cls}».`);
-        if(kind==='known'&&!thirdCasterSpellSelectionsValid(c,ids))return fail(`В списке «${field}» класса «${cls}» выбрано заклинание из недоступной школы.`);
+        if(enforceRules&&invalid)return fail(`Заклинание «${invalid}» в списке «${field}» недоступно классу «${cls}».`);
+        if(enforceRules&&kind==='known'&&!thirdCasterSpellSelectionsValid(c,ids))return fail(`В списке «${field}» класса «${cls}» выбрано заклинание из недоступной школы.`);
       }
     }
     const wizard=classes.get('wizard');

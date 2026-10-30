@@ -1573,6 +1573,15 @@ test('library load diagnostics identify the failing field without replacing stor
   assert.equal(api.library.length,1);
   api.setChar(api.library[0]);assert.equal(api.knownLimit('ranger'),2);
   storageData.delete(key);api.setLibrary([]);assert.equal(api.saveLib(true),true);storageData.delete(key);
+
+  const legacyRanger=api.newChar(),rangerSpell=api.SPELLS.find(spell=>spell.lvl===1&&spell.cls.includes('ranger'));
+  legacyRanger.classes=[{cls:'ranger',lvl:1,sub:'hunter'}];legacyRanger.spellsKnown={ranger:[rangerSpell.id]};
+  assert.equal(api.validCharacter(legacyRanger,false),true);
+  assert.equal(api.validCharacter(legacyRanger,true),false);
+  const legacyRangerRaw=JSON.stringify([legacyRanger]);storageData.set(key,legacyRangerRaw);api.loadLib();
+  assert.equal(api.storageCorrupt,false);
+  assert.deepEqual(Array.from(api.library[0].spellsKnown.ranger),legacyRanger.spellsKnown.ranger);
+  storageData.delete(key);api.setLibrary([]);assert.equal(api.saveLib(true),true);storageData.delete(key);
 });
 
 test('import validation rejects malformed character data and migration fills legacy defaults', () => {
